@@ -1,0 +1,311 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Progress-rail states, carried over from the legacy pages: blue reads as
+     finished, red as where you are now, grey as not yet started. */
+  --rail-done: #2340c4;
+  --rail-current: #e8442a;
+  --rail-todo: #d4d4d8;
+  --rail-line: #e4e4e7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Fallbacks so these resolve while layout.tsx is on system fonts; if the
+     next/font Geist wiring comes back, the variables take over again. */
+  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  --color-rail-done: var(--rail-done);
+  --color-rail-current: var(--rail-current);
+  --color-rail-todo: var(--rail-todo);
+  --color-rail-line: var(--rail-line);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    /* Lifted for contrast against the dark ground; same three roles. */
+    --rail-done: #6c8cff;
+    --rail-current: #ff6a4d;
+    --rail-todo: #3f3f46;
+    --rail-line: #27272a;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================================
+   explainer stage
+   The 3D scene positions these label elements itself (it projects points
+   from the scene to screen space each frame), so they are plain DOM with
+   class names rather than React-rendered nodes — same as the original.
+   ============================================================ */
+.explainer-stage {
+  background-color: #f2f4f3;
+  background-image:
+    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.035) 0 1px, transparent 1px 36.4px);
+}
+.explainer-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.explainer-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.lab {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: opacity 0.25s ease;
+  text-shadow: 0 1px 6px rgba(242, 244, 243, 0.95);
+  color: #14181a;
+}
+.lab.dim {
+  font-size: 19px;
+}
+.lab.area {
+  font-size: 13.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dce3e0;
+}
+.lab.hide {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab {
+    transition: none;
+  }
+}
+
+/* The original's disclosure marker: a red + that becomes – when open. */
+.know-summary {
+  list-style: none;
+}
+.know-summary::-webkit-details-marker {
+  display: none;
+}
+.know-summary::before {
+  content: "+";
+  display: inline-block;
+  width: 0.9em;
+  font-weight: 700;
+  font-size: 15px;
+}
+details[open] > .know-summary::before {
+  content: "–";
+}
+
+/* ============================================================
+   problem stage
+   The scene positions these pins and length labels itself, projecting
+   points from 3D each frame, so they are plain DOM like the explainer's.
+   ============================================================ */
+.problem-stage {
+  background-color: #f2f4f3;
+  background-image:
+    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.035) 0 1px, transparent 1px 36.4px);
+}
+.problem-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.problem-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.problem-layer .pin {
+  pointer-events: auto;
+}
+
+.pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #5a6560;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid #d3dad6;
+  background: rgba(250, 251, 250, 0.82);
+  backdrop-filter: blur(6px);
+  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.4), background 0.16s,
+    border-color 0.16s;
+}
+.pin:hover {
+  transform: translate(-50%, -50%) scale(1.14);
+  border-color: #2b4fe8;
+}
+.pin.new {
+  animation: pin-popin 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+}
+@keyframes pin-popin {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.pin.on {
+  background: #2b4fe8;
+  color: #fff;
+  border-color: #2b4fe8;
+  box-shadow: 0 0 0 6px rgba(43, 79, 232, 0.14);
+}
+
+.len {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  color: #2340c4;
+  text-shadow: 0 0 4px #f2f4f3, 0 0 4px #f2f4f3, 0 0 8px #f2f4f3, 0 0 8px #f2f4f3;
+  transition: color 0.4s;
+}
+.len.given { color: #3e4744; }
+.len.tgt { color: #c4331c; }
+.len.fresh { animation: len-ping 0.8s ease; }
+@keyframes len-ping {
+  0% { transform: translate(-50%, -50%) scale(1.9); color: #e8442a; }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin.new, .len.fresh { animation: none; }
+}
+
+/* ============================================================
+   game stage
+   Pins and length chips are positioned by the scene each frame, like the
+   other two stages, so they are plain DOM rather than React nodes.
+   ============================================================ */
+.game-stage {
+  background-color: #f2f4f3;
+  background-image:
+    radial-gradient(90% 60% at 50% -8%, rgba(43, 79, 232, 0.055) 0%, transparent 60%),
+    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.055) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.055) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.04) 0 1px, transparent 1px 36.4px);
+}
+.game-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.game-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.game-layer .gpin {
+  pointer-events: auto;
+}
+
+.gpin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #14181a;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid #cbd3cf;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), background 0.18s,
+    border-color 0.18s;
+}
+.gpin:hover {
+  transform: translate(-50%, -50%) scale(1.13);
+  border-color: #14181a;
+}
+.gpin.sel {
+  background: #e8442a;
+  color: #fff;
+  border-color: #e8442a;
+  box-shadow: 0 0 0 8px rgba(232, 68, 42, 0.15);
+}
+.gpin .ord {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  color: #e8442a;
+  border: 1px solid #e8442a;
+  font-size: 9.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glen {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.94);
+  color: #2340c4;
+  border: 1px solid #bfc9df;
+}
+.glen.tgt {
+  color: #e8442a;
+  border-color: #f7d3cb;
+}
+.glen.fresh {
+  animation: glen-ping 0.85s ease;
+}
+@keyframes glen-ping {
+  0% { transform: translate(-50%, -50%) scale(1.55); background: #e8442a; color: #fff; }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glen.fresh { animation: none; }
+}

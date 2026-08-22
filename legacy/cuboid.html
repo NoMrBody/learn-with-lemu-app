@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>See the box — Sightlines</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F2F4F3%22/%3E%3Cpath d=%22M6 22 L16 6 L26 22 Z%22 fill=%22none%22 stroke=%22%232B4FE8%22 stroke-width=%222%22 stroke-linejoin=%22round%22/%3E%3Cline x1=%2216%22 y1=%226%22 x2=%2216%22 y2=%2222%22 stroke=%22%23E8442A%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<meta name="theme-color" content="#F2F4F3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F3; --bg-2:#FFFFFF; --line:#DCE3E0;
+  --fg:#14181A; --fg-dim:#5A6560;
+  --a:#E8442A; --b:#2340C4; --c:#9A6614;
+  --tk-line:#F7D3CB; --tk-bg:#FDECE8; --tk-field:#FFFFFF;
+}
+*{box-sizing:border-box}
+html,body{opacity:0;animation:pagein .5s ease forwards;margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg);color:var(--fg);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;height:100dvh;
+}
+#stage{position:relative;flex:1;padding-top:0;min-height:0;touch-action:none;overflow:hidden;
+  background-color:#F2F4F3;
+  background-image:
+    repeating-linear-gradient(60deg,  rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg,   rgba(20,24,26,.035) 0 1px, transparent 1px 36.4px)}
+#stage canvas{display:block;width:100%;height:100%}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lab{
+  position:absolute;transform:translate(-50%,-50%);
+  font-family:"IBM Plex Sans",sans-serif;font-weight:700;white-space:nowrap;
+  transition:opacity .25s ease;text-shadow:0 1px 6px rgba(242,244,243,.95);
+}
+.lab.dim{font-size:19px;color:var(--fg)}
+.lab.area{font-size:13.5px;padding:3px 8px;border-radius:4px;background:rgba(255,255,255,.9);border:1px solid #DCE3E0}
+.lab.hide{opacity:0}
+#hint{
+  position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-dim);
+  pointer-events:none;transition:opacity .4s ease;
+}
+#panel{
+  background:rgba(255,255,255,.94);border-top:1px solid var(--line);backdrop-filter:blur(10px);
+  padding:16px 20px calc(16px + env(safe-area-inset-bottom));flex:0 0 auto;
+}
+.wrap{max-width:640px;margin:0 auto;width:100%}
+#dots{display:flex;gap:5px;margin-bottom:13px}
+#dots i{flex:1;height:2px;background:var(--line);border-radius:2px;transition:background .3s}
+#dots i.on{background:var(--fg)}
+h2{font-family:"IBM Plex Sans",sans-serif;font-weight:700;
+  font-size:clamp(19px,4.4vw,25px);line-height:1.2;margin:0 0 6px;letter-spacing:-.01em}
+#body{margin:0;color:var(--fg-dim);font-size:14.8px;min-height:42px}
+
+details.know{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+details.know summary{
+  list-style:none;cursor:pointer;font-size:12.5px;letter-spacing:.06em;
+  color:var(--a);display:flex;align-items:center;gap:7px;font-weight:500;
+}
+details.know summary::-webkit-details-marker{display:none}
+details.know summary::before{content:'+';font-family:"Space Grotesk";font-weight:700;font-size:15px}
+details.know[open] summary::before{content:'–'}
+details.know p{margin:8px 0 0;font-size:14px;color:var(--fg-dim)}
+details.know b{color:var(--fg);font-weight:600}
+
+#control{margin:12px 0 0;min-height:50px}
+.scrub{display:flex;align-items:center;gap:11px}
+.scrub label{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);white-space:nowrap}
+.scrub .key{font-family:"Space Grotesk";font-weight:700;font-size:14px;width:16px;color:var(--fg)}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:32px;background:transparent;cursor:grab;min-width:0}
+input[type=range]:active{cursor:grabbing}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:4px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:4px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:var(--fg);margin-top:-10px;border:none;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--fg);border:none}
+.rows{display:flex;flex-direction:column;gap:2px}
+
+.sum{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-family:"IBM Plex Sans",sans-serif;font-size:14.5px}
+.chip{padding:3px 8px;border-radius:3px;font-weight:700;color:#FFFFFF}
+.op{color:var(--fg-dim);font-weight:500}
+.tot{font-weight:700;color:var(--fg)}
+.katex{font-size:1.02em}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-size:15px}
+.mrow .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-dim)}
+.mbox{border:1px solid var(--line);border-radius:3px;padding:9px 12px;margin-top:9px}
+.mbox.hi{border-color:var(--a)}
+.res{color:var(--a)}
+.formula{margin-top:7px;font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;color:var(--fg-dim);
+  opacity:0;transition:opacity .5s ease}
+.formula.on{opacity:1}
+.count{font-family:"IBM Plex Sans",sans-serif;font-size:14.5px;margin-top:6px}
+.count b{color:var(--a);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.fchip{background:transparent;border:1px solid var(--line);color:var(--fg-dim);
+  padding:8px 12px;font-size:13.5px;font-weight:500}
+.fchip.on{font-weight:600;color:#fff}
+.tog{background:transparent;border:1px solid var(--line);color:var(--fg);padding:10px 16px;
+  font-size:14px;font-weight:500;width:100%}
+.tog.on{background:var(--a);color:#fff;border-color:var(--a)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;font-family:"Space Grotesk";font-size:14px}
+.cell{border:1px solid var(--line);padding:8px 10px;border-radius:3px}
+.cell span{display:block;font-size:11px;text-transform:uppercase;color:var(--fg-dim);
+  font-family:Inter;letter-spacing:.09em;margin-bottom:2px}
+.cell b{font-weight:700;font-size:17px}
+.mult{color:var(--a);font-size:13px;margin-left:5px}
+
+#nav{display:flex;gap:9px;margin-top:14px}
+button{font-family:inherit;font-size:15px;cursor:pointer;border-radius:3px}
+.btn{flex:1;background:var(--a);color:#fff;border:none;padding:13px 18px;font-weight:600}
+.btn:disabled{opacity:.25;cursor:default}
+.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);padding:13px 18px}
+
+@media(min-width:820px){
+  body{flex-direction:row}
+  #stage{flex:1 1 62%}
+  #panel{flex:0 0 38%;max-width:440px;border-top:none;border-left:1px solid var(--line);
+    display:flex;align-items:center;padding:30px;overflow-y:auto}
+}
+:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- shared progress rail ---- */
+#rail{position:fixed;left:0;right:0;top:0;z-index:9998;display:flex;align-items:center;gap:14px;
+  padding:11px 16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;background:linear-gradient(180deg,#F2F4F3 55%,rgba(242,244,243,0));
+  pointer-events:none}
+#rail a,#rail span{pointer-events:auto}
+#rail .home{color:#8B958F;text-decoration:none;white-space:nowrap}
+#rail .home:hover{color:#14181A}
+#rail .track{flex:1;display:flex;align-items:center;max-width:340px}
+#rail .node{width:7px;height:7px;border-radius:50%;background:#CBD3CF;flex:0 0 7px;
+  transition:background .3s,box-shadow .3s}
+#rail .node.on{background:#E8442A;box-shadow:0 0 0 4px rgba(232,68,42,.15)}
+#rail .node.done{background:#2340C4}
+#rail .seg{flex:1;height:1px;background:#D7DEDA}
+#rail .seg.done{background:#2B4FE8}
+#rail .now{color:#C4331C;white-space:nowrap}
+@media(max-width:560px){#rail .now{display:none}}
+@keyframes pagein{to{opacity:1}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="labels"></div>
+  <div id="hint">drag to rotate</div>
+</div>
+
+<div id="panel"><div class="wrap">
+  <div id="dots"></div>
+  <h2 id="title"></h2>
+  <p id="body"></p>
+  <div id="know"></div>
+  <div id="control"></div>
+  <div id="tkfb"></div>
+  <div id="nav">
+    <button class="ghost" id="back">Back</button>
+    <button class="btn" id="next">Next</button>
+  </div>
+</div></div>
+
+<script>
+/* track.js — inlined so each page works standalone. Master copy: track.js */
+/* ============================================================
+   track.js — shared analytics + feedback for all parts
+   Loaded by index.html, cuboid.html, problems.html, game.html
+   ------------------------------------------------------------
+   PUBLIC API
+     Track.event(name, props)      record something
+     Track.part(name)             declare which part this page is
+     Track.mountFeedback(el, cfg) render the end-of-part feedback block
+     Track.debug()                open the live event panel (or press ` )
+   ------------------------------------------------------------
+   To go live: set POSTHOG_KEY below. Until then everything is
+   buffered locally and visible via the debug panel, so the page
+   works with no backend at all.
+   ============================================================ */
+(function(){
+'use strict';
+
+var POSTHOG_KEY = 'phc_khGJHZ5sECXB2bvTVURfwZJ58B4zwQUYSLF3XsESRW2g';
+var POSTHOG_HOST = 'https://eu.i.posthog.com';
+var STORE = 'sightlines.v1';
+
+/* ---------- identity (no personal data) ---------- */
+function uid(){
+  return 'v-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+}
+function load(){
+  try{ return JSON.parse(localStorage.getItem(STORE)) || {}; }catch(e){ return {}; }
+}
+function save(o){
+  try{ localStorage.setItem(STORE, JSON.stringify(o)); }catch(e){}
+}
+var mem = load();
+if(!mem.visitor){ mem.visitor = uid(); mem.firstSeen = Date.now(); mem.visits = 0; }
+if(!mem.parts) mem.parts = {};
+if(!mem.session || Date.now() - (mem.lastSeen||0) > 30*60*1000){
+  mem.session = uid(); mem.visits = (mem.visits||0) + 1;
+}
+mem.lastSeen = Date.now();
+save(mem);
+
+var ph = null;
+var phReady = false;
+var pending = [];
+var PART = 'unknown';
+var queue = [];
+var log = [];
+var t0 = Date.now();
+
+/* ---------- the one function everything goes through ---------- */
+function event(name, props){
+  var p = Object.assign({
+    part: PART,
+    visitor: mem.visitor,
+    session: mem.session,
+    visit_no: mem.visits,
+    returning: mem.visits > 1,
+    device: matchMedia('(pointer:coarse)').matches ? 'touch' : 'desktop',
+    t_ms: Date.now() - t0
+  }, props||{});
+  var rec = {name:name, props:p, at:new Date().toISOString()};
+  log.push(rec);
+  if(POSTHOG_KEY){
+    var P = window.posthog;                       // always look it up fresh
+    if(phReady && P && typeof P.capture === 'function'){ try{ P.capture(name, p); }catch(e){} }
+    else pending.push({name:name, props:p});      // wait for the recorder
+  } else queue.push(rec);
+  paintDebug();
+  return rec;
+}
+
+/* ---------- part lifecycle ---------- */
+var partStart = Date.now();
+function part(name){
+  PART = name;
+  partStart = Date.now();
+  mem.parts[name] = mem.parts[name] || {opened:0, completed:0};
+  mem.parts[name].opened++;
+  save(mem);
+  event('part_open', {opened_before: mem.parts[name].opened - 1});
+  event('visit', {visits: mem.visits});
+}
+function complete(extra){
+  mem.parts[PART] = mem.parts[PART] || {opened:1, completed:0};
+  mem.parts[PART].completed++;
+  save(mem);
+  var order = ['explainer','problem','game'];
+  var done = order.filter(function(k){ return mem.parts[k] && mem.parts[k].completed; });
+  event('part_complete', Object.assign({
+    seconds: Math.round((Date.now()-partStart)/1000),
+    completed_parts: done.length,
+    order_followed: done.join('>') === order.slice(0,done.length).join('>')
+  }, extra||{}));
+}
+addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){
+    event('part_leave', {seconds: Math.round((Date.now()-partStart)/1000)});
+  }
+});
+
+/* ============================================================
+   feedback block
+   ============================================================ */
+var CSS = '\
+.tk-fb{--tk-a:#E8442A;font-family:inherit;margin:26px 0 0;padding:18px 20px;border-radius:16px;\
+  border:1px solid var(--tk-line,rgba(128,128,128,.28));background:var(--tk-bg,rgba(128,128,128,.06))}\
+.tk-fb .tk-h{display:block;font-size:17px;font-weight:600;margin-bottom:3px}\
+.tk-fb .tk-sub{margin:0 0 13px;opacity:.68;font-size:14.5px;line-height:1.45}\
+.tk-inline{display:flex;gap:8px;flex-wrap:wrap}\
+.tk-fb input{flex:1 1 220px;min-width:0;font-family:inherit;font-size:15px;padding:11px 14px;\
+  border-radius:9px;border:1px solid var(--tk-line,rgba(128,128,128,.3));\
+  background:var(--tk-field,rgba(255,255,255,.05));color:inherit}\
+.tk-fb input:focus{outline:2px solid var(--tk-a);outline-offset:-1px}\
+.tk-send{background:var(--tk-a);color:#fff;border:none;border-radius:9px;padding:11px 20px;\
+  font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap}\
+.tk-send:hover{filter:brightness(1.09)}\
+.tk-send:disabled{opacity:.5;cursor:default}\
+.tk-hide{display:none}\
+.tk-ok{margin-top:10px;font-size:14.5px;color:var(--tk-a);font-weight:600}\
+.tk-mini{font-size:13px;opacity:.6;margin:12px 0 0;line-height:1.45}\
+.tk-mini a{color:inherit;text-decoration:underline;text-underline-offset:2px}\
+#tk-debug{position:fixed;left:10px;bottom:10px;z-index:99999;width:min(430px,92vw);max-height:60vh;\
+  overflow:auto;background:#0d0f16;color:#d8e2f5;border:1px solid #2b3550;border-radius:10px;\
+  padding:12px;font:12px/1.5 ui-monospace,monospace;display:none}\
+#tk-debug.on{display:block}\
+#tk-debug b{color:#f2b84b}\
+#tk-debug .r{border-bottom:1px solid #1e2740;padding:3px 0}\
+';
+var styled = false;
+function injectCSS(){
+  if(styled) return; styled = true;
+  var s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s);
+}
+
+function mountFeedback(host, cfg){
+  injectCSS();
+  cfg = cfg || {};
+  var box = document.createElement('div');
+  box.className = 'tk-fb';
+  box.innerHTML =
+    '<b class="tk-h">' + (cfg.title || 'Stay in the loop') + '</b>' +
+    '<p class="tk-sub">' + (cfg.sub || 'New topics are on the way. Drop your email and we will tell you when.') + '</p>' +
+    '<div class="tk-inline">' +
+      '<input type="email" id="tk-mail" placeholder="you@example.com" autocomplete="email">' +
+      '<button class="tk-send" id="tk-send">Notify me</button>' +
+    '</div>' +
+    '<div class="tk-ok tk-hide" id="tk-ok"></div>' +
+    '<p class="tk-mini">Or write to <a href="mailto:lemiu2026@gmail.com">lemiu2026@gmail.com</a> \u2014 thoughts, criticism, or a problem you want built. We read everything.</p>';
+  host.appendChild(box);
+
+  box.querySelector('#tk-send').onclick = function(){
+    var el = box.querySelector('#tk-mail');
+    var mail = el ? el.value.trim() : '';
+    var valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail);
+    event('email_submit', {email_given: valid, email: valid ? mail : '', from_part: PART});
+    if(valid){
+      try{
+        var P = window.posthog;
+        if(P && typeof P.identify === 'function') P.identify(mem.visitor, {email:mail});
+        else if(P && typeof P.setPersonProperties === 'function') P.setPersonProperties({email:mail});
+      }catch(e){}
+      mem.email = true; save(mem);
+    }
+    var ok = box.querySelector('#tk-ok');
+    ok.classList.remove('tk-hide');
+    ok.textContent = valid ? 'Done \u2014 you will hear from us first.' : 'That email does not look right.';
+    if(valid) box.querySelector('#tk-send').disabled = true;
+  };
+  box.querySelector('#tk-mail').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') box.querySelector('#tk-send').click();
+  });
+
+  event('feedback_shown');
+  return box;
+}
+
+/* ---------- share ---------- */
+function share(label){
+  var url = location.href.split('#')[0];
+  event('share_click', {label:label});
+  if(navigator.share){
+    navigator.share({title:document.title, url:url}).then(function(){
+      event('share_done', {method:'native'});
+    }).catch(function(){});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){ event('share_done', {method:'clipboard'}); });
+  }
+}
+
+/* ---------- debug panel ---------- */
+var dbg = null;
+function paintDebug(){
+  if(!dbg || !dbg.classList.contains('on')) return;
+  dbg.innerHTML = '<b>' + log.length + ' events · ' + mem.visitor + '</b>' +
+    log.slice(-60).reverse().map(function(r){
+      return '<div class="r">' + r.name + ' ' +
+        JSON.stringify(r.props, function(k,v){
+          return ['visitor','session','device','visit_no','returning'].indexOf(k) >= 0 ? undefined : v;
+        }) + '</div>';
+    }).join('');
+}
+function debug(){
+  injectCSS();
+  if(!dbg){ dbg = document.createElement('div'); dbg.id = 'tk-debug'; document.body.appendChild(dbg); }
+  dbg.classList.toggle('on');
+  paintDebug();
+}
+addEventListener('keydown', function(e){
+  if(e.key === '`' || (e.key === 'D' && e.shiftKey && e.ctrlKey)) debug();
+});
+
+var startPosthog = function(){
+/* ---------- posthog, loaded only if a key is set ---------- */
+if(!POSTHOG_KEY) return;
+  try{
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
+  function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);
+  t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}
+  (p=t.createElement("script")).type="text/javascript",p.async=!0,
+  p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);
+  var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){
+  var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){
+  return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),
+  n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  window.posthog.init(POSTHOG_KEY,{
+    api_host:POSTHOG_HOST,
+    persistence:'localStorage',
+    bootstrap:{distinctID: mem.visitor},
+    disable_cookie:true,
+    autocapture:false,
+    capture_pageview:false,
+    session_recording:{
+      maskAllInputs:false,
+      captureCanvas:{ canvasFps:4, canvasQuality:'0.5' }
+    },
+    loaded: function(p){
+      phReady = true;
+      try{ if(typeof p.startSessionRecording === 'function') p.startSessionRecording(); }catch(e){}
+      // replay is live now — send anything captured before it started
+      for(var i=0;i<pending.length;i++){
+        try{ p.capture(pending[i].name, pending[i].props); }catch(e){}
+      }
+      pending = [];
+    }
+  });
+  ph = window.posthog;
+  }catch(e){ ph = null; if(window.console) console.warn('analytics off:', e.message); }
+
+
+};
+
+window.Track = {
+  event: event,
+  part: part,
+  complete: complete,
+  mountFeedback: mountFeedback,
+  share: share,
+  debug: debug,
+  dump: function(){ return log.slice(); },
+  memory: function(){ return JSON.parse(JSON.stringify(mem)); }
+};
+try{ startPosthog(); }catch(e){}
+setTimeout(function(){
+  if(!phReady && POSTHOG_KEY && window.posthog && typeof window.posthog.capture === 'function'){
+    phReady = true;
+    for(var i=0;i<pending.length;i++){
+      try{ window.posthog.capture(pending[i].name, pending[i].props); }catch(e){}
+    }
+    pending = [];
+  }
+}, 6000);
+
+})();
+</script>
+<script>
+/* fallback: if the analytics library fails to load, pages still work */
+window.Track = window.Track || {event:function(){},part:function(){},complete:function(){},
+  mountFeedback:function(){},share:function(){},debug:function(){},
+  dump:function(){return[];},memory:function(){return {parts:{}};}};
+</script>
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   live dimensions
+   ============================================================ */
+const RSEG = 0.055;                 // construction-line radius (hoisted: used by early blocks)
+const D = { L:6, W:4, H:3 };
+const MAXD = 8;
+const CAP = MAXD*MAXD*MAXD;
+const COL = { a:0xE8442A, b:0x2B4FE8, c:0xE39A22 };
+const CSS = { a:'#E8442A', b:'#2340C4', c:'#9A6614' };
+const SA  = ()=> 2*(D.L*D.W + D.L*D.H + D.W*D.H);
+const VOL = ()=> D.L*D.W*D.H;
+
+/* ============================================================
+   scene
+   ============================================================ */
+const stage = document.getElementById('stage');
+const labelBox = document.getElementById('labels');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x000000,0);
+stage.insertBefore(renderer.domElement, labelBox);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40,1,0.1,500);
+camera.up.set(0,0,1);
+scene.add(new THREE.AmbientLight(0xffffff,0.72));
+const k1=new THREE.DirectionalLight(0xffffff,0.6); k1.position.set(7,-10,14); scene.add(k1);
+const k2=new THREE.DirectionalLight(0xffffff,0.22); k2.position.set(-8,6,4); scene.add(k2);
+const world = new THREE.Group(); scene.add(world);
+
+/* ---- one face: unit plate + unit outline, sized by an inner group ---- */
+function face(color){
+  const g = new THREE.Group();
+  const inner = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({color, side:THREE.DoubleSide, transparent:true, opacity:1});
+  inner.add(new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat));
+  const sq = [[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5],[-.5,-.5]].map(p=>new THREE.Vector3(p[0],p[1],0.004));
+  const lineMat = new THREE.LineBasicMaterial({color:0x14181A, transparent:true, opacity:0.55});
+  inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sq), lineMat));
+  g.add(inner);
+  g.userData = {inner, mat, lineMat};
+  return g;
+}
+
+/* ---- hinged net ---- */
+function hinged(axis, end, standZ, color){
+  const pivot = new THREE.Group();
+  const f = face(color);
+  // three.js Euler order is XYZ (Z applies before X) — compose explicitly as Rz·Rx
+  const m = new THREE.Matrix4().makeRotationX(Math.PI/2);
+  if(standZ) m.premultiply(new THREE.Matrix4().makeRotationZ(standZ));
+  f.quaternion.setFromRotationMatrix(m);
+  pivot.add(f);
+  pivot.userData = {axis, end};
+  return {pivot, f};
+}
+
+const base  = face(COL.a); world.add(base);
+const back  = hinged('x', -Math.PI/2, 0, COL.b);
+const front = hinged('x',  Math.PI/2, 0, COL.b);
+const right = hinged('y',  Math.PI/2, Math.PI/2, COL.c);
+const left  = hinged('y', -Math.PI/2, Math.PI/2, COL.c);
+world.add(back.pivot, front.pivot, right.pivot, left.pivot);
+
+const topPivot = new THREE.Group();
+back.pivot.add(topPivot);
+const topFace = face(COL.a);
+topPivot.add(topFace);
+topPivot.userData = {axis:'x', end:-Math.PI/2};
+
+const HINGES = [back.pivot, front.pivot, right.pivot, left.pivot, topPivot];
+const FACES = [
+  {g:base,    pair:'a', dims:()=>[D.L,D.W]},
+  {g:topFace, pair:'a', dims:()=>[D.L,D.W]},
+  {g:back.f,  pair:'b', dims:()=>[D.L,D.H]},
+  {g:front.f, pair:'b', dims:()=>[D.L,D.H]},
+  {g:right.f, pair:'c', dims:()=>[D.W,D.H]},
+  {g:left.f,  pair:'c', dims:()=>[D.W,D.H]}
+];
+
+/* ---- unit cubes ---- */
+const cubes = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(0.86,0.86,0.86),
+  new THREE.MeshLambertMaterial({color:0xCBD6EE}), CAP);
+cubes.count = 0; world.add(cubes);
+const dummy = new THREE.Object3D();
+function layoutCubes(){
+  let i=0;
+  for(let z=0;z<D.H;z++) for(let y=0;y<D.W;y++) for(let x=0;x<D.L;x++){
+    dummy.position.set(-D.L/2+x+0.5, -D.W/2+y+0.5, z+0.5);
+    dummy.updateMatrix(); cubes.setMatrixAt(i++, dummy.matrix);
+  }
+  cubes.instanceMatrix.needsUpdate = true;
+}
+
+/* ---- free-standing plane, used by the abstract slides ---- */
+const freeG = new THREE.Group(); freeG.visible=false; world.add(freeG);
+const freePlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+freeG.add(freePlane);
+const freeGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.3}));
+freeG.add(freeGrid);
+function buildGrid(size, step){
+  const pts=[], h=size/2;
+  for(let i=-h;i<=h;i+=step){ pts.push(-h,i,0, h,i,0, i,-h,0, i,h,0); }
+  freeGrid.geometry.dispose();
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  freeGrid.geometry=g;
+  freePlane.scale.set(size,size,1);
+}
+
+/* --- angle between a line and a plane --- */
+const lpG = new THREE.Group(); lpG.visible=false; world.add(lpG);
+const lpLine = seg(0xE8B84B, 0.062);   // the line itself
+const lpProj = seg(0x5FB0A6, 0.062);   // its projection
+const lpDrop = seg(0xE27A5F, 0.05);    // the perpendicular dropped to the plane
+lpG.add(lpLine, lpProj, lpDrop);
+const lpMark = rightMark(0xE27A5F);
+lpG.add(lpMark);
+const lpArc = new THREE.Line(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0xE8B84B}));
+lpG.add(lpArc);
+const lpDotO = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const lpDotA = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const lpDotH = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+lpG.add(lpDotO, lpDotA, lpDotH);
+let lpAlpha = 35;                      // degrees between the line and the plane
+const LPR = 5.2;                       // horizontal reach
+function lpPts(){
+  const a=lpAlpha*Math.PI/180;
+  const O=[-2.6,-1.4,0];
+  const H=[O[0]+LPR, O[1], 0];
+  const A=[H[0], H[1], LPR*Math.tan(a)];
+  return {O,H,A};
+}
+function layoutLP(){
+  const {O,H,A}=lpPts();
+  place(lpLine, O, A);
+  place(lpProj, O, H);
+  place(lpDrop, H, A);
+  setMark(lpMark, H, [O[0]-H[0],O[1]-H[1],0], [0,0,1], 0.42);
+  const r=2.0, N=26, pts=[];
+  const u=new THREE.Vector3(H[0]-O[0],H[1]-O[1],0).normalize();
+  const v=new THREE.Vector3(A[0]-O[0],A[1]-O[1],A[2]-O[2]).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  for(let i=0;i<=N;i++) pts.push(new THREE.Vector3(...O).add(u.clone().applyAxisAngle(ax,tot*i/N).multiplyScalar(r)));
+  lpArc.geometry.dispose(); lpArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+  lpDotO.position.set(...O); lpDotA.position.set(...A); lpDotH.position.set(...H);
+}
+
+/* --- distance from a point to a plane / to a line --- */
+const dsG = new THREE.Group(); dsG.visible=false; world.add(dsG);
+const dsPerp = seg(0xE8B84B, 0.062);
+const dsSlant1 = seg(0x8B978F, 0.04);
+const dsSlant2 = seg(0x8B978F, 0.04);
+const dsLine = seg(0x5FB0A6, 0.055);
+dsG.add(dsPerp, dsSlant1, dsSlant2, dsLine);
+const dsMark = rightMark(0xE8B84B);
+dsG.add(dsMark);
+const dsDotP = new THREE.Mesh(new THREE.SphereGeometry(0.14,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const dsDotF = new THREE.Mesh(new THREE.SphereGeometry(0.12,14,10), new THREE.MeshBasicMaterial({color:0xE8B84B}));
+dsG.add(dsDotP, dsDotF);
+let dsMode = 'plane';
+function layoutDS(){
+  const P=[0,0,4.2], F=[0,0,0];
+  dsPerp.visible=true;
+  place(dsPerp, P, F);
+  dsDotP.position.set(...P); dsDotF.position.set(...F);
+  if(dsMode==='plane'){
+    dsLine.visible=false;
+    place(dsSlant1, P, [-3.4,-1.6,0]);
+    place(dsSlant2, P, [ 2.9,-2.2,0]);
+    setMark(dsMark, F, [-1,0,0], [0,0,1], 0.42);
+  } else {
+    dsLine.visible=true;
+    place(dsLine, [-4.2,0,0], [4.2,0,0]);
+    place(dsSlant1, P, [-3.0,0,0]);
+    place(dsSlant2, P, [ 2.6,0,0]);
+    setMark(dsMark, F, [-1,0,0], [0,0,1], 0.42);
+  }
+}
+
+/* ---- standalone stage (no box): a plane, a point above it ---- */
+const soloG = new THREE.Group(); soloG.visible=false; world.add(soloG);
+const soloPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+soloG.add(soloPlane);
+const soloGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.28}));
+soloG.add(soloGrid);
+(function(){
+  const pts=[], S=9, n=6;
+  for(let i=0;i<=n;i++){
+    const t=-S/2+S*i/n;
+    pts.push(-S/2,t,0, S/2,t,0, t,-S/2,0, t,S/2,0);
+  }
+  soloGrid.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+})();
+const sPerp = seg(0xE27A5F, 0.05);   // AH ⊥ plane
+const sObl  = seg(0xE8B84B, 0.06);   // AM the oblique
+const sProj = seg(0x5FB0A6, 0.06);   // HM the projection
+soloG.add(sPerp, sObl, sProj);
+const sMarkH = rightMark(0xE27A5F);
+soloG.add(sMarkH);
+const sArc = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xE8B84B}));
+soloG.add(sArc);
+const sDot = k => new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10),
+  new THREE.MeshBasicMaterial({color:k}));
+const sA=sDot(0x14181A), sH=sDot(0x14181A), sM=sDot(0x14181A);
+soloG.add(sA,sH,sM);
+
+let soloH = 4;                       // height of A above the plane
+const soloPts = ()=>({ H:[0,0,0], A:[0,0,soloH], M:[3.2,1.9,0] });
+function layoutSolo(){
+  const {H,A,M}=soloPts();
+  place(sPerp,H,A); place(sObl,A,M); place(sProj,H,M);
+  setMark(sMarkH, H, [0,0,1], [M[0]-H[0],M[1]-H[1],0], 0.45);
+  sA.position.set(...A); sH.position.set(...H); sM.position.set(...M);
+  soloPlane.scale.set(9,9,1); soloPlane.position.set(0,0,-0.015);
+  // arc at M, between MH (projection) and MA (oblique)
+  const u=new THREE.Vector3(H[0]-M[0],H[1]-M[1],0).normalize();
+  const v=new THREE.Vector3(A[0]-M[0],A[1]-M[1],A[2]-M[2]).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  const pts=[], r=1.15;
+  for(let i=0;i<=24;i++){
+    const q=u.clone().applyAxisAngle(ax, tot*i/24).multiplyScalar(r);
+    pts.push(new THREE.Vector3(...M).add(q));
+  }
+  sArc.geometry.dispose(); sArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+const soloLen = ()=>{ const {H,M}=soloPts(); return Math.hypot(M[0]-H[0],M[1]-H[1]); };
+const soloAng = ()=> Math.atan2(soloH, soloLen())*180/Math.PI;
+
+/* ---- parallel translation: slide a segment, nothing changes but where it is ---- */
+const parG = new THREE.Group(); parG.visible=false; world.add(parG);
+const pOrig = seg(0xE8B84B, 0.07);          // the original segment
+const pCopy = seg(0x5FB0A6, 0.07);          // the slid copy
+parG.add(pOrig, pCopy);
+const pRail = [];
+for(let i=0;i<2;i++){ const m=seg(0x93A09A,0.022); parG.add(m); pRail.push(m); }
+let parT = 0;                                // 0 = home, 1 = fully slid
+function parEnds(){
+  const {L,W,H}=D;
+  const a=[-L/2,-W/2,0], b=[-L/2,-W/2,H];    // the vertical edge AA₁
+  const d=[L*parT, 0, 0];                    // slide along the base edge
+  return {a,b, a2:[a[0]+d[0],a[1],a[2]], b2:[b[0]+d[0],b[1],b[2]]};
+}
+function layoutPar(){
+  const {a,b,a2,b2}=parEnds();
+  place(pOrig,a,b); place(pCopy,a2,b2);
+  place(pRail[0],a,a2); place(pRail[1],b,b2);
+  pRail.forEach(r=>r.visible = parT>0.02);
+}
+
+/* ---- line ⊥ plane: two lines in the plane are enough ---- */
+const criG = new THREE.Group(); criG.visible=false; world.add(criG);
+const cVert = seg(0xE27A5F, 0.06);          // the standing line
+const cL1   = seg(0x5FB0A6, 0.055);         // first line in the plane
+const cL2   = seg(0x5FB0A6, 0.055);         // second line in the plane
+const cTest = seg(0xE8B84B, 0.055);         // any third line — comes out perpendicular for free
+criG.add(cVert, cL1, cL2, cTest);
+const cM1=rightMark(0x5FB0A6), cM2=rightMark(0x5FB0A6), cMT=rightMark(0xE8B84B);
+criG.add(cM1,cM2,cMT);
+const criPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.12, side:THREE.DoubleSide}));
+criG.add(criPlane);
+const criGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.26}));
+criG.add(criGrid);
+(function(){ const pts=[], SZ=9, n=6;
+  for(let i=0;i<=n;i++){ const t=-SZ/2+SZ*i/n; pts.push(-SZ/2,t,0, SZ/2,t,0, t,-SZ/2,0, t,SZ/2,0); }
+  criGrid.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+})();
+let criAng = 25;                             // direction of the free test line, degrees
+function layoutCri(){
+  const O=[0,0,0], R=3.4;
+  place(cVert, O, [0,0,4.2]);
+  place(cL1, [-R,0,0], [R,0,0]);
+  const d2=[Math.cos(1.15), Math.sin(1.15), 0];
+  place(cL2, [-d2[0]*R,-d2[1]*R,0], [d2[0]*R,d2[1]*R,0]);
+  const th=criAng*Math.PI/180, u=[Math.cos(th),Math.sin(th),0];
+  place(cTest, [-u[0]*R,-u[1]*R,0], [u[0]*R,u[1]*R,0]);
+  setMark(cM1,O,[1,0,0],[0,0,1],0.44);
+  setMark(cM2,O,d2,[0,0,1],0.44);
+  setMark(cMT,O,u,[0,0,1],0.52);
+  criPlane.scale.set(9,9,1); criPlane.position.set(0,0,-0.015);
+}
+
+/* ---- projected area: tilted plane vs its shadow ---- */
+const prjG = new THREE.Group(); prjG.visible=false; world.add(prjG);
+function plate(color, op){
+  const m=new THREE.Mesh(new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:op, side:THREE.DoubleSide}));
+  return m;
+}
+const prjTilt = plate(0xB88BE0, 0.34);
+const prjShad = plate(0x5FB0A6, 0.30);
+prjG.add(prjTilt, prjShad);
+const prjEdges=[];
+for(let i=0;i<8;i++){ const m=seg(0xB88BE0,0.05); prjG.add(m); prjEdges.push(m); }
+const prjArc = new THREE.Line(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0xE8B84B}));
+prjG.add(prjArc);
+function quadGeo(mesh, p){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(
+    [...p[0],...p[1],...p[2], ...p[0],...p[2],...p[3]],3));
+  mesh.geometry.dispose(); mesh.geometry=g;
+}
+function layoutPrj(){
+  const {L,W,H}=D, x=L/2, y=W/2;
+  const A=[-x,-y,0], B=[x,-y,0], C=[x,y,0], Dd=[-x,y,0];
+  const C1=[x,y,H], D1=[-x,y,H];
+  quadGeo(prjTilt, [A,B,C1,D1]);
+  quadGeo(prjShad, [A,B,C,Dd]);
+  const tp=[A,B,C1,D1], sp=[A,B,C,Dd];
+  for(let i=0;i<4;i++){
+    place(prjEdges[i],   tp[i], tp[(i+1)%4]); prjEdges[i].material.color.setHex(0xB88BE0);
+    place(prjEdges[4+i], sp[i], sp[(i+1)%4]); prjEdges[4+i].material.color.setHex(0x5FB0A6);
+  }
+  // dihedral angle along AB, drawn at A between AD (base) and AD1 (tilted)
+  const r=Math.min(W,H)*0.45+0.35, N=24, pts=[];
+  const u=new THREE.Vector3(0,W,0).normalize(), v=new THREE.Vector3(0,W,H).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  for(let i=0;i<=N;i++){
+    const q=u.clone().applyAxisAngle(ax, tot*i/N).multiplyScalar(r);
+    pts.push(new THREE.Vector3(...A).add(q));
+  }
+  prjArc.geometry.dispose(); prjArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+const prjPhi = ()=> Math.acos(D.W/Math.hypot(D.W,D.H))*180/Math.PI;
+
+/* ---- highlight a named face / plane on the box ---- */
+const hlG = new THREE.Group(); hlG.visible=false; world.add(hlG);
+const hlFill = new THREE.Mesh(new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+hlG.add(hlFill);
+const hlEdges = [];
+for(let i=0;i<8;i++){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,1,10),
+    new THREE.MeshBasicMaterial({color:0xE8B84B}));
+  m.visible=false; hlG.add(m); hlEdges.push(m);
+}
+function putEdge(m,a,b){
+  const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b), len=A.distanceTo(B);
+  if(len<1e-6){m.visible=false;return;}
+  m.visible=true; m.scale.set(1,len,1);
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+}
+function showQuad(pts, color){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(
+    [...pts[0],...pts[1],...pts[2], ...pts[0],...pts[2],...pts[3]],3));
+  hlFill.geometry.dispose(); hlFill.geometry=g;
+  hlFill.material.color.setHex(color);
+  hlEdges.forEach(m=>m.visible=false);
+  for(let i=0;i<4;i++){ putEdge(hlEdges[i], pts[i], pts[(i+1)%4]); hlEdges[i].material.color.setHex(color); }
+  hlG.visible=true;
+}
+/* the box corners, named the way problems name them */
+function corner(k){
+  const {L,W,H}=D, x=L/2, y=W/2;
+  return { A:[-x,-y,0], B:[x,-y,0], C:[x,y,0], D:[-x,y,0],
+           A1:[-x,-y,H], B1:[x,-y,H], C1:[x,y,H], D1:[-x,y,H] }[k];
+}
+const FACE_KINDS = {
+  base:    {label:'base', pts:()=>['A','B','C','D'], col:0xE8B84B,
+            note:'The face it stands on. Every height is measured from here.',
+            tex:()=>`S=${D.L}\\cdot${D.W}=${D.L*D.W}`},
+  lateral: {label:'lateral face', pts:()=>['A','B','B1','A1'], col:0x5FB0A6,
+            note:'A side wall. \u201cLateral area\u201d means the four walls only \u2014 no top, no bottom.',
+            tex:()=>`S=${D.L}\\cdot${D.H}=${D.L*D.H}`},
+  diagonal:{label:'diagonal section', pts:()=>['A','C','C1','A1'], col:0xE27A5F,
+            note:'A cut through two opposite vertical edges. Its width is the base diagonal \u2014 find that first.',
+            tex:()=>`S=\\sqrt{${D.L}^2+${D.W}^2}\\cdot${D.H}=${nice(fd())}\\cdot${D.H}=${nice(fd()*D.H)}`},
+  tilted:  {label:'tilted section', pts:()=>['A','B','C1','D1'], col:0xB88BE0,
+            note:'A cut that is parallel to nothing. Still a rectangle \u2014 one side is an edge, the other is a face diagonal.',
+            tex:()=>`S=${D.L}\\cdot\\sqrt{${D.W}^2+${D.H}^2}=${D.L}\\cdot${nice(Math.hypot(D.W,D.H))}=${nice(D.L*Math.hypot(D.W,D.H))}`}
+};
+function setFace(kind){
+  const f=FACE_KINDS[kind];
+  showQuad(f.pts().map(corner), f.col);
+}
+
+/* ---- diagonals, right-angle marks, angle arc ---- */
+function fatLine(color, w){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 1,1,1], 3));
+  return new THREE.Line(g, new THREE.LineBasicMaterial({color, linewidth:w}));
+}
+// tube-based segments so thickness is real on every device
+function seg(color, r){
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, 1, 10, 1, false),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:1}));
+  m.userData.r = r;
+  return m;
+}
+function place(mesh, a, b){
+  const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b);
+  const len=A.distanceTo(B);
+  if(len<1e-6){ mesh.visible=false; return; }
+  mesh.visible=true;
+  mesh.scale.set(1,len,1);
+  mesh.position.copy(A).add(B).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+}
+const diagG = new THREE.Group(); diagG.visible=false; world.add(diagG);
+const segFace  = seg(0x5FB0A6, RSEG);   // base diagonal
+const segSpace = seg(0xE8B84B, RSEG*1.15); // space diagonal
+const segVert  = seg(0xE27A5F, RSEG);   // vertical edge
+diagG.add(segFace, segSpace, segVert);
+
+// right-angle square marker
+function rightMark(color){
+  const g=new THREE.Group();
+  const a=seg(color,RSEG*0.6), b=seg(color,RSEG*0.6);
+  g.add(a,b); g.userData={a,b};
+  return g;
+}
+const markBase = rightMark(0x14181A);   // between l and w on the base
+const markVert = rightMark(0x14181A);   // between base diagonal and vertical
+diagG.add(markBase, markVert);
+function setMark(mk, corner, u, v, size){
+  const U=new THREE.Vector3(...u).normalize().multiplyScalar(size);
+  const V=new THREE.Vector3(...v).normalize().multiplyScalar(size);
+  const C=new THREE.Vector3(...corner);
+  const p1=C.clone().add(U), p2=C.clone().add(U).add(V), p3=C.clone().add(V);
+  place(mk.userData.a, p1.toArray(), p2.toArray());
+  place(mk.userData.b, p2.toArray(), p3.toArray());
+}
+// angle arc between the space diagonal and its projection
+const arcMat = new THREE.LineBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.95});
+const arc = new THREE.Line(new THREE.BufferGeometry(), arcMat);
+diagG.add(arc);
+function setArc(origin, d1, d2, radius){
+  const O=new THREE.Vector3(...origin);
+  const A=new THREE.Vector3(...d1).normalize(), B=new THREE.Vector3(...d2).normalize();
+  const pts=[]; const total=A.angleTo(B); const N=26;
+  const axis=new THREE.Vector3().crossVectors(A,B).normalize();
+  for(let i=0;i<=N;i++){
+    const v=A.clone().applyAxisAngle(axis, total*i/N).multiplyScalar(radius);
+    pts.push(O.clone().add(v));
+  }
+  arc.geometry.dispose();
+  arc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+
+// the isolated triangle (base diagonal, vertical, space diagonal) drawn as a filled plate
+const triG = new THREE.Group(); triG.visible=false; world.add(triG);
+const triFill = new THREE.Mesh(new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+triG.add(triFill);
+function setTri(p1,p2,p3){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([...p1,...p2,...p3],3));
+  triFill.geometry.dispose(); triFill.geometry=g;
+}
+
+// corners used throughout: A(near-left-bottom) -> C(far-right-bottom) -> C1(far-right-top)
+const cA  = ()=>[-D.L/2,-D.W/2,0];
+const cC  = ()=>[ D.L/2, D.W/2,0];
+const cC1 = ()=>[ D.L/2, D.W/2,D.H];
+const cB  = ()=>[ D.L/2,-D.W/2,0];
+
+function layoutDiagonals(){
+  const A=cA(), C=cC(), C1=cC1(), B=cB();
+  place(segFace,  A, C);
+  place(segSpace, A, C1);
+  place(segVert,  C, C1);
+  setMark(markBase, B, [-1,0,0], [0,1,0], Math.min(D.L,D.W)*0.22+0.25);
+  setMark(markVert, C, [A[0]-C[0],A[1]-C[1],0], [0,0,1], Math.min(Math.hypot(D.L,D.W),D.H)*0.16+0.25);
+  setArc(A, [C[0]-A[0],C[1]-A[1],0], [C1[0]-A[0],C1[1]-A[1],C1[2]-A[2]], Math.hypot(D.L,D.W)*0.32+0.4);
+  setTri(A, C, C1);
+}
+
+/* ---- three perpendiculars: A above the plane, H its foot, M in the plane ---- */
+const tppG = new THREE.Group(); tppG.visible=false; world.add(tppG);
+const tPerp = seg(0xE27A5F, 0.055);   // AH — perpendicular to the plane
+const tObl  = seg(0xE8B84B, 0.062);   // AM — the oblique
+const tProj = seg(0x5FB0A6, 0.062);   // HM — its projection
+const tLine = seg(0x14181A, 0.062);   // a  — the line lying in the plane
+tppG.add(tPerp, tObl, tProj, tLine);
+const mkH = rightMark(0xE27A5F);      // AH ⊥ HM
+const mkP = rightMark(0x5FB0A6);      // a ⊥ HM
+const mkO = rightMark(0xE8B84B);      // a ⊥ AM  (the one you get free)
+tppG.add(mkH, mkP, mkO);
+const dotGeo = new THREE.SphereGeometry(0.13,14,10);
+const dotMat = ()=> new THREE.MeshBasicMaterial({color:0x14181A});
+const dotA = new THREE.Mesh(dotGeo, dotMat());
+const dotH = new THREE.Mesh(dotGeo, dotMat());
+const dotM = new THREE.Mesh(dotGeo, dotMat());
+tppG.add(dotA, dotH, dotM);
+const planeTint = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.10, side:THREE.DoubleSide}));
+tppG.add(planeTint);
+
+let tppTheta = 90;                    // angle (deg) between line a and the projection HM
+function tppPts(){
+  const {L,W,H}=D;
+  return {
+    Hh:[-L/2,-W/2,0],                 // foot of the perpendicular
+    Ap:[-L/2,-W/2,H],                 // point above the plane
+    M :[-L/2+L*0.62, -W/2+W*0.55, 0]  // a point in the plane
+  };
+}
+function tppDir(){
+  const {Hh,M}=tppPts();
+  const d=[M[0]-Hh[0], M[1]-Hh[1]], dl=Math.hypot(d[0],d[1])||1;
+  const th=tppTheta*Math.PI/180;
+  return [(d[0]*Math.cos(th)-d[1]*Math.sin(th))/dl,
+          (d[0]*Math.sin(th)+d[1]*Math.cos(th))/dl, 0];
+}
+function layoutTPP(){
+  const {L,W}=D, {Hh,Ap,M}=tppPts(), u=tppDir();
+  place(tPerp, Hh, Ap);
+  place(tObl,  Ap, M);
+  place(tProj, Hh, M);
+  const r=Math.max(L,W)*0.5;
+  place(tLine, [M[0]-u[0]*r, M[1]-u[1]*r, 0], [M[0]+u[0]*r, M[1]+u[1]*r, 0]);
+  const sz=Math.min(L,W)*0.15+0.28;
+  setMark(mkH, Hh, [0,0,1], [M[0]-Hh[0], M[1]-Hh[1], 0], sz);
+  setMark(mkP, M,  u, [Hh[0]-M[0], Hh[1]-M[1], 0], sz);
+  setMark(mkO, M,  u, [Ap[0]-M[0], Ap[1]-M[1], Ap[2]-M[2]], sz*1.15);
+  dotA.position.set(...Ap); dotH.position.set(...Hh); dotM.position.set(...M);
+  planeTint.scale.set(D.L,D.W,1); planeTint.position.set(0,0,-0.014);
+}
+/* angle between a and the oblique AM, in degrees */
+function tppOblAngle(){
+  const {Ap,M}=tppPts(), u=tppDir();
+  const o=[Ap[0]-M[0], Ap[1]-M[1], Ap[2]-M[2]];
+  const d=u[0]*o[0]+u[1]*o[1]+u[2]*o[2];
+  return Math.acos(Math.max(-1,Math.min(1, d/Math.hypot(o[0],o[1],o[2])))) * 180/Math.PI;
+}
+
+
+/* ---- doubling ---- */
+const dbl = new THREE.Group(); dbl.visible=false; world.add(dbl);
+const bigWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+  new THREE.LineBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.9}));
+dbl.add(bigWire);
+const ghosts=[];
+for(let i=0;i<8;i++){
+  const gg=new THREE.Group();
+  gg.add(new THREE.Mesh(new THREE.BoxGeometry(1,1,1),
+    new THREE.MeshLambertMaterial({color:0x5FB0A6,transparent:true,opacity:0.16})));
+  gg.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+    new THREE.LineBasicMaterial({color:0x14181A,transparent:true,opacity:0.3})));
+  dbl.add(gg); ghosts.push(gg);
+}
+function layoutDouble(){
+  const {L,W,H}=D;
+  bigWire.scale.set(2*L,2*W,2*H);
+  bigWire.position.set(L/2,W/2,H);
+  let n=0;
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++) for(let k=0;k<2;k++){
+    const gg=ghosts[n++];
+    gg.scale.set(L,W,H);
+    gg.position.set(i*L, j*W, H/2 + k*H);
+    gg.visible = !(i===0&&j===0&&k===0);
+  }
+}
+
+/* ============================================================
+   apply dimensions
+   ============================================================ */
+function setDims(){
+  const {L,W,H}=D;
+  base.userData.inner.scale.set(L,W,1);
+  topFace.userData.inner.scale.set(L,W,1);
+  back.f.userData.inner.scale.set(L,H,1);
+  front.f.userData.inner.scale.set(L,H,1);
+  right.f.userData.inner.scale.set(W,H,1);
+  left.f.userData.inner.scale.set(W,H,1);
+  back.pivot.position.set(0,W/2,0);
+  front.pivot.position.set(0,-W/2,0);
+  right.pivot.position.set(L/2,0,0);
+  left.pivot.position.set(-L/2,0,0);
+  [back,front,right,left].forEach(w=> w.f.position.set(0,0,H/2));
+  topPivot.position.set(0,0,H);
+  topFace.position.set(0,-W/2,0);
+  layoutCubes(); layoutDouble(); layoutDiagonals(); layoutTPP(); layoutPrj(); layoutLP(); layoutDS(); refreshLabelText();
+}
+
+/* ============================================================
+   labels
+   ============================================================ */
+function mkLabel(cls){
+  const el=document.createElement('div'); el.className='lab '+cls+' hide';
+  labelBox.appendChild(el); return el;
+}
+const dimLabels=[
+  {el:mkLabel('dim'), get:()=>D.L, pos:()=>[0,-D.W/2-0.95,-0.5]},
+  {el:mkLabel('dim'), get:()=>D.W, pos:()=>[D.L/2+0.95,0,-0.5]},
+  {el:mkLabel('dim'), get:()=>D.H, pos:()=>[D.L/2+0.7,-D.W/2-0.7,D.H/2]}
+];
+FACES.forEach(f=>{ f.label=mkLabel('area'); f.label.style.color=CSS[f.pair]; });
+function refreshLabelText(){
+  dimLabels.forEach(d=> d.el.textContent=d.get());
+  FACES.forEach(f=>{ const [a,b]=f.dims(); f.label.textContent=`${a} × ${b} = ${a*b}`; });
+}
+const _v=new THREE.Vector3();
+function updateLabels(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  for(const d of dimLabels){
+    _v.set(...d.pos()).project(camera);
+    d.el.style.left=((_v.x*0.5+0.5)*w)+'px'; d.el.style.top=((-_v.y*0.5+0.5)*h)+'px';
+  }
+  for(const f of FACES){
+    f.g.getWorldPosition(_v); _v.project(camera);
+    f.label.style.left=((_v.x*0.5+0.5)*w)+'px'; f.label.style.top=((-_v.y*0.5+0.5)*h)+'px';
+  }
+}
+const dLab = {
+  face:  mkLabel('area'), space: mkLabel('area'), vert: mkLabel('area'), ang: mkLabel('area')
+};
+dLab.face.style.color='#5FB0A6'; dLab.space.style.color='#E8B84B';
+dLab.vert.style.color='#E27A5F'; dLab.ang.style.color='#E8B84B';
+const fd  = ()=> Math.sqrt(D.L*D.L + D.W*D.W);
+const sd  = ()=> Math.sqrt(D.L*D.L + D.W*D.W + D.H*D.H);
+const ang = ()=> Math.atan2(D.H, fd())*180/Math.PI;
+const nice = x => Math.abs(x-Math.round(x))<1e-9 ? String(Math.round(x)) : x.toFixed(2);
+function updateDiagLabels(){
+  dLab.face.textContent  = nice(fd());
+  dLab.space.textContent = nice(sd());
+  dLab.vert.textContent  = String(D.H);
+  dLab.ang.textContent   = ang().toFixed(1)+'\u00B0';
+  const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
+  const A=cA(),C=cC(),C1=cC1();
+  const w=stage.clientWidth,h=stage.clientHeight;
+  const put=(el,p)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w)+'px'; el.style.top=((-_v.y*0.5+0.5)*h)+'px'; };
+  put(dLab.face,  mid(A,C));
+  put(dLab.space, mid(A,C1));
+  put(dLab.vert,  mid(C,C1));
+  const dir=[(C[0]-A[0]),(C[1]-A[1]),0], L2=Math.hypot(dir[0],dir[1])||1;
+  const rr=Math.hypot(D.L,D.W)*0.32+0.4;
+  put(dLab.ang, [A[0]+dir[0]/L2*rr*1.25, A[1]+dir[1]/L2*rr*1.25, D.H*0.12+0.25]);
+}
+const tLab = {A:mkLabel('dim'), H:mkLabel('dim'), M:mkLabel('dim'), a:mkLabel('dim')};
+tLab.A.textContent='A'; tLab.H.textContent='H'; tLab.M.textContent='M'; tLab.a.textContent='a';
+tLab.a.style.color='#F2F0EA';
+function updateTppLabels(){
+  if(!tppG.visible) return;
+  const {Hh,Ap,M}=tppPts();
+  const w=stage.clientWidth,h=stage.clientHeight;
+  const put=(el,p,dx,dy)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w+(dx||0))+'px'; el.style.top=((-_v.y*0.5+0.5)*h+(dy||0))+'px'; };
+  put(tLab.A, Ap, 0, -20); put(tLab.H, Hh, -16, 14); put(tLab.M, M, 10, 16);
+  const d=[M[0]-Hh[0],M[1]-Hh[1]], dl=Math.hypot(...d)||1, th=tppTheta*Math.PI/180;
+  const ux=(d[0]*Math.cos(th)-d[1]*Math.sin(th))/dl, uy=(d[0]*Math.sin(th)+d[1]*Math.cos(th))/dl;
+  const r=Math.max(D.L,D.W)*0.5;
+  put(tLab.a, [M[0]+ux*r, M[1]+uy*r, 0], 14, 0);
+}
+const sLab={A:mkLabel('dim'),H:mkLabel('dim'),M:mkLabel('dim')};
+sLab.A.textContent='A'; sLab.H.textContent='H'; sLab.M.textContent='M';
+function updateSoloLabels(){
+  if(!soloG.visible) return;
+  const {H,A,M}=soloPts(), w=stage.clientWidth, h=stage.clientHeight;
+  const put=(el,p,dx,dy)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w+(dx||0))+'px'; el.style.top=((-_v.y*0.5+0.5)*h+(dy||0))+'px'; };
+  put(sLab.A,A,0,-20); put(sLab.H,H,-16,16); put(sLab.M,M,16,10);
+}
+const showSolo = on => ['A','H','M'].forEach(k=> sLab[k].classList.toggle('hide',!on));
+const showTpp = on => ['A','H','M','a'].forEach(k=> tLab[k].classList.toggle('hide', !on));
+const showDiag = on => ['face','space','vert','ang'].forEach(k=> dLab[k].classList.toggle('hide', !on));
+const showDiagPart = keys => ['face','space','vert','ang'].forEach(k=> dLab[k].classList.toggle('hide', !keys.includes(k)));
+const showDims  = on=> dimLabels.forEach(d=>d.el.classList.toggle('hide',!on));
+const showAreas = on=> FACES.forEach(f=>f.label.classList.toggle('hide',!on));
+
+/* ============================================================
+   animated state
+   ============================================================ */
+let unfold=0,unfoldT=0,glass=0,glassT=0,fill=0,fillT=0;
+let doubled=false,autoSpin=true,zoomMul=1;
+const orbit={theta:-56,phi:24,dist:15,target:new THREE.Vector3(0,0,1.5)};
+const want ={dist:15,target:new THREE.Vector3(0,0,1.5)};
+const fitDist = r=> r/Math.sin(20*Math.PI/180)*1.18;
+
+function applyUnfold(t){
+  const e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+  for(const p of HINGES){
+    const a=p.userData.end*e;
+    if(p.userData.axis==='x') p.rotation.x=a; else p.rotation.y=a;
+  }
+  const {L,W,H}=D;
+  const rSolid=0.5*Math.hypot(L,W,H);
+  const rNet  =0.5*Math.hypot(L+2*H, 2*W+2*H);
+  const r=rSolid+(rNet-rSolid)*e;
+  want.dist = fitDist(doubled ? r*2 : r)*zoomMul;
+  want.target.set(
+    doubled ? L/2 : 0,
+    (W/2)*e + (doubled ? W/2 : 0),
+    (H/2)*(1-e) + (doubled ? H/2 : 0)
+  );
+}
+function applyGlass(g){
+  FACES.forEach(f=>{
+    f.g.userData.mat.opacity = 1-0.86*g;
+    f.g.userData.lineMat.opacity = 0.55+0.45*g;
+  });
+}
+
+/* ============================================================
+   camera + input
+   ============================================================ */
+function applyOrbit(){
+  const t=orbit.theta*Math.PI/180,p=orbit.phi*Math.PI/180;
+  camera.position.set(
+    orbit.dist*Math.cos(p)*Math.cos(t),
+    orbit.dist*Math.cos(p)*Math.sin(t),
+    orbit.dist*Math.sin(p)).add(orbit.target);
+  camera.lookAt(orbit.target);
+}
+(function(){
+  const pts=new Map(); let lx=0,ly=0,pd=0;
+  const d2=()=>{const a=[...pts.values()];return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1;};
+  stage.addEventListener('pointerdown',e=>{
+    stage.setPointerCapture(e.pointerId); pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){lx=e.clientX;ly=e.clientY;} else if(pts.size===2) pd=d2();
+    autoSpin=false; document.getElementById('hint').style.opacity=0;
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){
+      orbit.theta-=(e.clientX-lx)*0.4;
+      orbit.phi=Math.max(-85,Math.min(85,orbit.phi+(e.clientY-ly)*0.34));
+      lx=e.clientX; ly=e.clientY;
+    } else if(pts.size===2){
+      const d=d2(); if(pd) zoomMul=Math.max(0.5,Math.min(2.4,zoomMul*pd/d)); pd=d;
+    }
+  });
+  const up=e=>pts.delete(e.pointerId);
+  stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+  stage.addEventListener('wheel',e=>{
+    e.preventDefault();
+    zoomMul=Math.max(0.5,Math.min(2.4,zoomMul*(1+Math.sign(e.deltaY)*0.1)));
+  },{passive:false});
+})();
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight; if(!w||!h)return;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize);
+
+/* ============================================================
+   panel controls
+   ============================================================ */
+const ctrl=document.getElementById('control');
+const knowBox=document.getElementById('know');
+const chip=(v,c)=>`<span class="chip" style="background:${c}">${v}</span>`;
+
+/* render every [data-tex] inside the panel */
+function typeset(root){
+  if(typeof katex === 'undefined'){ setTimeout(()=>typeset(root), 120); return; }
+  root.querySelectorAll('[data-tex]').forEach(el=>{
+    if(el.dataset.done) return;
+    try{ katex.render(el.dataset.tex, el, {throwOnError:false, displayMode:false}); el.dataset.done=1; }
+    catch(e){ el.textContent = el.dataset.tex; }
+  });
+}
+const M = tex => `<span data-tex="${tex.replace(/"/g,'&quot;')}"></span>`;
+
+function ctrlNone(){ ctrl.innerHTML=''; }
+const _oldSet = v => { ctrl.innerHTML = v; typeset(ctrl); };
+
+function ctrlUnfold(){
+  const {L,W,H}=D;
+  ctrl.innerHTML=`<div class="scrub"><label>folded</label>
+    <input type="range" id="sl" min="0" max="100" value="${Math.round(unfold*100)}">
+    <label>flat</label></div>
+    <div class="mbox hi">${M(`2(${L}\\cdot${W}) + 2(${L}\\cdot${H}) + 2(${W}\\cdot${H}) = \\textbf{${SA()}}`)}</div>
+    <div class="mrow"><span class="tag">in general</span>${M(`S = 2(lw + lh + wh)`)}</div>`;
+  typeset(ctrl);
+  document.getElementById('sl').oninput=e=>{
+    unfoldT=unfold=+e.target.value/100;
+    applyUnfold(unfold); showAreas(unfold>0.45);
+  };
+}
+function ctrlUnfoldSum(){
+  ctrl.innerHTML=`<div class="scrub"><label>folded</label>
+    <input type="range" id="sl" min="0" max="100" value="${Math.round(unfold*100)}">
+    <label>flat</label></div><div class="mbox" id="sm"></div>`;
+  const box=document.getElementById('sm');
+  const paint=()=>{
+    const {L,W,H}=D;
+    box.innerHTML = unfold>0.45
+      ? M(`2(${L}\\cdot${W})+2(${L}\\cdot${H})+2(${W}\\cdot${H})=\\textbf{${SA()}}`) +
+        `<div class="mrow"><span class="tag">in general</span>${M(`S=2(lw+lh+wh)`)}</div>`
+      : `<div class="mrow" style="color:var(--fg-dim)">drag it flat to see all six faces at once</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('sl').oninput=e=>{
+    unfoldT=unfold=+e.target.value/100;
+    applyUnfold(unfold); showAreas(unfold>0.45); paint();
+  };
+}
+function ctrlSum(){
+  const {L,W,H}=D;
+  ctrl.innerHTML=`
+    <div class="mbox hi">
+      ${M(`2(${L}\\cdot${W}) + 2(${L}\\cdot${H}) + 2(${W}\\cdot${H}) = \\textbf{${SA()}}`)}
+    </div>
+    <div class="mrow"><span class="tag">in general</span>${M(`S = 2(lw + lh + wh)`)}</div>`;
+  typeset(ctrl);
+}
+function ctrlFill(){
+  const V=VOL(), per=D.L*D.W;
+  ctrl.innerHTML=`<div class="scrub"><label>empty</label>
+    <input type="range" id="fl" min="0" max="${V}" value="${Math.round(fill)}">
+    <label>full</label></div><div class="mbox" id="fc"></div>`;
+  const fc=document.getElementById('fc');
+  const paint=n=>{
+    const layers=Math.floor(n/per), rem=n%per;
+    if(n===V) fc.innerHTML = M(`\\underbrace{${per}}_{\\text{one layer}} \\times \\underbrace{${D.H}}_{\\text{layers}} = \\textbf{${V}}`);
+    else if(layers>0) fc.innerHTML = M(`${layers}\\times${per} + ${rem} = ${n}`);
+    else fc.innerHTML = M(`${n}\\ \\text{cubes} \\quad (${per}\\ \\text{fill one layer})`);
+    fc.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(fc);
+  };
+  paint(Math.round(fill));
+  document.getElementById('fl').oninput=e=>{ fillT=fill=+e.target.value; paint(fill); };
+}
+function ctrlDiag(){
+  const {L,W,H}=D;
+  ctrl.innerHTML=`
+    <div class="mbox"><div class="mrow"><span class="tag">across a face</span>
+      ${M(`d_1=\\sqrt{${L}^2+${W}^2}=\\textcolor{#5FB0A6}{${nice(fd())}}`)}</div></div>
+    <div class="mbox hi"><div class="mrow"><span class="tag">through the box</span>
+      ${M(`d=\\sqrt{${nice(fd())}^2+${H}^2}=\\textcolor{#E8B84B}{${nice(sd())}}`)}</div></div>
+    <div class="mrow"><span class="tag">in general</span>${M(`d=\\sqrt{l^2+w^2+h^2}`)}</div>`;
+  typeset(ctrl);
+}
+function ctrlAngle(){
+  ctrl.innerHTML=`
+    <div class="mbox hi">${M(`\\tan\\alpha=\\frac{h}{d_1}=\\frac{${D.H}}{${nice(fd())}}
+      \\quad\\Rightarrow\\quad \\alpha=\\textcolor{#E8B84B}{${ang().toFixed(1)}^\\circ}`)}</div>
+    <div class="mrow"><span class="tag">measured against</span>the shadow on the floor, not an edge</div>`;
+  typeset(ctrl);
+}
+function ctrlFaces(){
+  let cur='base';
+  const draw=()=>{
+    ctrl.innerHTML = `<div class="chips">` +
+      Object.entries(FACE_KINDS).map(([k,f])=>
+        `<button class="fchip ${k===cur?'on':''}" data-k="${k}"
+           style="${k===cur?`background:#${f.col.toString(16).padStart(6,'0')};border-color:#${f.col.toString(16).padStart(6,'0')};color:#FFFFFF`:''}">${f.label}</button>`
+      ).join('') + `</div>
+      <div class="mbox hi" id="farea">${M(FACE_KINDS[cur].tex())}</div>
+      <div class="mrow" style="color:var(--fg-dim);font-size:14px">${FACE_KINDS[cur].note}</div>`;
+    typeset(ctrl);
+    ctrl.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ cur=b.dataset.k; setFace(cur); draw(); });
+  };
+  setFace(cur); draw();
+}
+function ctrlTPP(){
+  ctrl.innerHTML=`<div class="scrub"><label>turn a</label>
+    <input type="range" id="tp" min="10" max="170" step="1" value="${Math.round(tppTheta)}"></div>
+    <div class="mbox" id="tpb"></div>`;
+  const box=document.getElementById('tpb');
+  const paint=()=>{
+    const o=tppOblAngle();
+    const locked = Math.round(tppTheta)===90;
+    box.className='mbox'+(locked?' hi':'');
+    box.innerHTML =
+      M(`a \\perp HM \\;?\\quad \\textcolor{#5FB0A6}{${tppTheta.toFixed(0)}^\\circ}`) +
+      '<br>' +
+      M(`a \\perp AM \\;?\\quad \\textcolor{#E8B84B}{${o.toFixed(1)}^\\circ}`) +
+      `<div class="mrow" style="color:${locked?'var(--a)':'var(--fg-dim)'}">${
+        locked ? 'both exactly 90° — the theorem holds'
+               : 'not 90° to the projection, so not 90° to the oblique either'}</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+    mkP.visible=locked; mkO.visible=locked;
+  };
+  paint();
+  document.getElementById('tp').oninput=e=>{
+    tppTheta=+e.target.value; layoutTPP(); paint(); autoSpin=false;
+  };
+}
+function ctrlLP(){
+  ctrl.innerHTML=`<div class="scrub"><label>tilt the line</label>
+    <input type="range" id="lp" min="5" max="85" step="1" value="${Math.round(lpAlpha)}"></div>
+    <div class="mbox" id="lpb"></div>`;
+  const box=document.getElementById('lpb');
+  const paint=()=>{
+    box.innerHTML = M(`\\varphi=\\angle(\\text{line},\\ \\textcolor{#5FB0A6}{\\text{its projection}})=
+      \\textcolor{#E8B84B}{${lpAlpha.toFixed(0)}^\\circ}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('lp').oninput=e=>{ lpAlpha=+e.target.value; layoutLP(); paint(); autoSpin=false; };
+}
+function ctrlDS(){
+  const draw=()=>{
+    ctrl.innerHTML=`<div class="chips">
+        <button class="fchip ${dsMode==='plane'?'on':''}" data-m="plane"
+          style="${dsMode==='plane'?'background:#E8442A;border-color:#E8442A;color:#FFFFFF':''}">to a plane</button>
+        <button class="fchip ${dsMode==='line'?'on':''}" data-m="line"
+          style="${dsMode==='line'?'background:#E8442A;border-color:#E8442A;color:#FFFFFF':''}">to a line</button>
+      </div>
+      <div class="mbox">${dsMode==='plane'
+        ? 'Every grey path is longer. The perpendicular is the distance.'
+        : 'Same rule against a line: drop a perpendicular to it, and that is the distance.'}</div>`;
+    ctrl.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ dsMode=b.dataset.m; layoutDS(); draw(); });
+  };
+  layoutDS(); draw();
+}
+function ctrlSolo(){
+  ctrl.innerHTML=`<div class="scrub"><label>raise A</label>
+    <input type="range" id="sh" min="10" max="90" step="1" value="${Math.round(soloH*10)}"></div>
+    <div class="mbox" id="sb"></div>`;
+  const box=document.getElementById('sb');
+  const paint=()=>{
+    box.innerHTML =
+      M(`\\tan\\alpha=\\frac{AH}{HM}=\\frac{${soloH.toFixed(1)}}{${soloLen().toFixed(2)}}`) +
+      '<br>' + M(`\\alpha=\\textcolor{#E8B84B}{${soloAng().toFixed(1)}^\\circ}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('sh').oninput=e=>{
+    soloH=+e.target.value/10; layoutSolo(); paint(); autoSpin=false;
+  };
+}
+function ctrlPar(){
+  ctrl.innerHTML=`<div class="scrub"><label>home</label>
+    <input type="range" id="pt" min="0" max="100" value="${Math.round(parT*100)}">
+    <label>slid</label></div><div class="mbox" id="pb"></div>`;
+  const box=document.getElementById('pb');
+  const paint=()=>{
+    box.innerHTML = M(`\\text{length before}=${D.H}\\qquad\\text{length after}=${D.H}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('pt').oninput=e=>{ parT=+e.target.value/100; layoutPar(); autoSpin=false; };
+}
+function ctrlCri(){
+  ctrl.innerHTML=`<div class="scrub"><label>turn the third line</label>
+    <input type="range" id="ct" min="0" max="179" value="${Math.round(criAng)}"></div>
+    <div class="mbox hi" id="cb"></div>`;
+  const box=document.getElementById('cb');
+  const paint=()=>{
+    box.innerHTML = M(`\\angle(\\text{standing line},\\ \\text{any line in the plane})=90^\\circ`)
+      + `<div class="mrow" style="color:var(--a)">still 90° — and it always will be</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('ct').oninput=e=>{ criAng=+e.target.value; layoutCri(); autoSpin=false; };
+}
+function ctrlPrj(){
+  const {L,W,H}=D;
+  const St=L*Math.hypot(W,H), Sp=L*W;
+  ctrl.innerHTML=`
+    <div class="mbox"><div class="mrow"><span class="tag">the angle itself</span>
+      ${M(`\\tan\\varphi=\\frac{${H}}{${W}}\\;\\Rightarrow\\;\\varphi=${prjPhi().toFixed(1)}^\\circ`)}</div></div>
+    <div class="mbox"><div class="mrow"><span class="tag">tilted</span>
+      ${M(`S=${L}\\cdot\\sqrt{${W}^2+${H}^2}=${nice(St)}`)}</div></div>
+    <div class="mbox"><div class="mrow"><span class="tag">its shadow</span>
+      ${M(`S'=${L}\\cdot${W}=${Sp}`)}</div></div>
+    <div class="mbox hi">${M(`\\cos\\varphi=\\frac{S'}{S}=\\frac{${Sp}}{${nice(St)}}=${nice(Sp/St)}
+      \\;\\Rightarrow\\; \\varphi=${prjPhi().toFixed(1)}^\\circ`)}</div>`;
+  typeset(ctrl);
+}
+function ctrlDouble(){
+  const render=()=>{
+    const sa=SA(), v=VOL();
+    ctrl.innerHTML=`
+      <button class="tog ${doubled?'on':''}" id="dbtn">${doubled?'back to original':'double every edge'}</button>
+      <div class="mbox">${M(`S:\\ ${sa}\\ \\to\\ ${sa*4}\\quad(\\times 2^2)`)}</div>
+      <div class="mbox">${M(`V:\\ ${v}\\ \\to\\ ${v*8}\\quad(\\times 2^3)`)}</div>`;
+    typeset(ctrl);
+    document.getElementById('dbtn').onclick=()=>{
+      doubled=!doubled; dbl.visible=doubled; autoSpin=false; render();
+    };
+  };
+  render();
+}
+function ctrlDims(){
+  const row=(k,val)=>`<div class="scrub"><span class="key">${k}</span>
+    <input type="range" id="d${k}" min="1" max="${MAXD}" step="1" value="${val}">
+    <label id="v${k}" style="width:18px;color:var(--fg);font-family:Space Grotesk">${val}</label></div>`;
+  ctrl.innerHTML=`<div class="rows">${row('l',D.L)}${row('w',D.W)}${row('h',D.H)}</div>
+    <div class="mbox" id="oBox"></div>`;
+  const sync=()=>{
+    setDims(); applyUnfold(unfold);
+    const b=document.getElementById('oBox');
+    b.innerHTML = `<div class="mrow">${M(`S=${SA()}`)}${M(`V=${VOL()}`)}</div>`;
+    typeset(b);
+    if(fill>VOL()){ fillT=fill=VOL(); }
+  };
+  ['l','w','h'].forEach(k=>{
+    document.getElementById('d'+k).oninput=e=>{
+      D[k.toUpperCase()]=+e.target.value;
+      document.getElementById('v'+k).textContent=e.target.value;
+      sync();
+    };
+  });
+  sync();
+}
+
+/* ============================================================
+   beats
+   ============================================================ */
+const BEATS=[
+ { title:'Pick your box.',
+   body:'Start by choosing the box you want to think about. These three numbers stay with you for the whole page \u2014 every face, every net, every diagonal from here on is your box, not ours.',
+   know:{t:'Worth trying',
+     p:'Set all three equal and you have a <b>cube</b> \u2014 every rule on this page still holds, it just gets simpler. Drop the height to 1 and it flattens into a slab. Come back to this slider at any point: nothing here is locked to one shape.'},
+   enter(){ unfoldT=0;glassT=0.4;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlDims(); } },
+
+ { title:'Six faces, three sizes.',
+   body:'That is the whole shape. Opposite faces are identical, so they come in three matching pairs \u2014 spin it and see.',
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlNone(); } },
+
+ { title:'Open it up — that is the surface area.',
+   body:'Drag the slider. Nothing stretches: the same six faces lie flat, each one just a side times a side. Add them.',
+   know:{t:'Use this in exercises',
+     p:'Most 3D questions get finished in 2D — you pull out a flat piece, do the arithmetic there, then put the answer back. And count the faces the question actually has: <b>no lid means five</b>, painting a room leaves out the floor.'},
+   enter(){ glassT=0;fillT=0;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(false);showDiag(false);ctrlUnfoldSum(); } },
+
+ { title:'Volume is just counting.',
+   body:'Pour in cubes of side 1. One layer, then how many layers.',
+   know:{t:'Use this in exercises',
+     p:'A cubic centimetre <b>is</b> one of these cubes. When a question gives you the volume and two edges, you are being asked to undo this counting.'},
+   enter(){ unfoldT=0;glassT=1;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(false);showAreas(false);showDiag(false);ctrlFill(); } },
+
+ { title:'Double every edge.',
+   body:'Twice as long each way. Eight of the old box fit inside the new one.',
+   know:{t:'Use this in exercises',
+     p:'Area has two directions, volume has three. Scale by <b>k</b> and they grow by <b>k²</b> and <b>k³</b>. Twice as big is four times the paper and eight times the contents.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(false);showAreas(false);showDiag(false);ctrlDouble(); } },
+
+ { title:'You will need Pythagoras. A lot.',
+   body:'Questions ask for corner-to-opposite-corner. That line is not an edge and it is not drawn — you build it, from a right triangle that sits on no face. Green flat on the base, then gold standing up on green.',
+   know:{t:'Use this in exercises',
+     p:'This is the move nearly every hard 3D problem needs: <b>find the right triangle hiding inside the solid.</b> One step flat, one step standing up — two ordinary Pythagoras calculations, chained. Careful: green stays on a face, gold goes through the middle. If the two corners share a face, it is green.'},
+   enter(){ unfoldT=0;glassT=0.85;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            diagG.visible=true;triG.visible=true;segVert.visible=true;arc.visible=false;
+            markBase.visible=false;markVert.visible=true;
+            showDims(true);showAreas(false);showDiagPart(['face','space','vert']);ctrlDiag(); } },
+
+ { title:'Faces problems ask about.',
+   body:'Tap each one to see which part of the box it means, and how its area is worked out.',
+   know:{t:'Use this in exercises',
+     p:'Read the wording carefully. <b>Lateral</b> means walls only. <b>Total</b> means everything. A <b>section</b> is a cut through the inside, not a face — and its sides are usually diagonals, so find those first.'},
+   enter(){ unfoldT=0;glassT=0.8;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlFaces(); } },
+
+ { title:'Sliding changes nothing.',
+   body:'Move a segment without turning it and it keeps its length, its direction, everything. Only its address changes. Drag the slider and watch the two stay identical.',
+   know:{t:'Use this in exercises',
+     p:'This is how you fix a problem where the pieces you need are <b>scattered</b>. Two segments in different places, an angle you cannot reach — slide one over until they share a point, and the angle appears between them. Nothing you moved has changed, so anything you prove afterwards still holds.'},
+   enter(){ unfoldT=0;glassT=0.55;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            parG.visible=true;parT=0;layoutPar();
+            showDims(false);showAreas(false);showDiag(false);ctrlPar(); } },
+
+ { title:'Two lines are enough.',
+   body:'A plane holds infinitely many lines, so proving a line is perpendicular to all of them sounds hopeless. It is not. Get it square to just two that cross, and every other line in the plane follows. Turn the gold one and watch the right angle survive.',
+   know:{t:'Use this in exercises',
+     p:'<b>Perpendicular to two intersecting lines of a plane means perpendicular to the plane.</b> Two checks, not infinitely many — that is why this is the workhorse for proving heights are really heights. Everything else on this page about perpendicularity rests on it.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=false);cubes.count=0;fillT=0;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            criG.visible=true;criAng=25;layoutCri();
+            showDims(false);showAreas(false);showDiag(false);ctrlCri(); } },
+
+ { title:'The angle between a line and a plane.',
+   body:'A slanted line, and its shadow when the light comes straight down. The angle you want is between the line and that shadow — never between the line and some edge you happened to pick. Raise A and watch it change.',
+   know:{t:'Use this in exercises',
+     p:'The angle a line makes with a plane is the angle with its <b>projection</b> onto that plane. To build it: drop a perpendicular from a point of the line to the plane, join the foot to where the line meets the plane, and measure there. That gives you a right triangle every time — <b>tan&#945; = AH / HM</b>.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=false);cubes.count=0;fillT=0;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            soloG.visible=true;showSolo(true);layoutSolo();
+            showDims(false);showAreas(false);showDiag(false);ctrlSolo(); } },
+
+ { title:'Theorem of three perpendiculars.',
+   body:'A is above the plane, H is directly below it, M is any point in the plane. AM slants; HM is its projection. Line a runs through M and starts square to HM — so it is square to AM too. Turn a and watch both angles leave 90° together.',
+   know:{t:'Use this in exercises',
+     p:'<b>If a line in a plane is perpendicular to the projection of another line onto that plane, then it is perpendicular to the other line itself.</b> Use it to <b>prove</b> an angle is right when you cannot see it — and a right angle is what lets you reach for Pythagoras or a trig ratio at all.'},
+   enter(){ unfoldT=0;glassT=1;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            tppG.visible=true;showTpp(true);tppTheta=90;layoutTPP();
+            showDims(false);showAreas(false);showDiag(false);ctrlTPP(); } },
+
+ { title:'The angle between two planes — and a shortcut.',
+   body:'Where two planes meet along an edge, go perpendicular to that edge in each one. The angle between those two directions is the angle between the planes. Below it, the shortcut: the purple cut and its green shadow differ by exactly the cosine of that angle.',
+   know:{t:'Use this in exercises',
+     p:'To <b>build</b> the angle: pick any point on the shared edge and go perpendicular to the edge inside each plane — that pair is the angle, and picking directions that are not perpendicular to the edge is the classic way to get it wrong. To <b>skip building it</b>: <b>S&prime; = S·cos&#966;</b>, where S&prime; is the shadow. Know any two of the three and the third is free.'},
+   enter(){ unfoldT=0;glassT=1;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=true);diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            prjG.visible=true;layoutPrj();
+            showDims(true);showAreas(false);showDiag(false);ctrlPrj(); } }
+];
+
+let beat=-1;
+function goto(i){
+  beat=Math.max(0,Math.min(BEATS.length-1,i));
+  const b=BEATS[beat];
+  document.getElementById('title').textContent=b.title;
+  document.getElementById('body').textContent=b.body;
+  knowBox.innerHTML=b.know
+    ? `<details class="know"><summary>${b.know.t}</summary><p>${b.know.p}</p></details>` : '';
+  typeset(knowBox);
+  var det=knowBox.querySelector('details');
+  if(det && window.Track) det.addEventListener('toggle',function(){
+    if(det.open) Track.event('panel_open',{slide:beat,title:b.know.t});
+  });
+  b.enter();
+  [...document.getElementById('dots').children].forEach((d,k)=>d.classList.toggle('on',k<=beat));
+  if(window.Track){
+    if(window._tkSlideAt!==undefined && window._tkSlideStart){
+      Track.event('slide_view',{index:window._tkSlideAt,title:BEATS[window._tkSlideAt].title,
+        seconds:Math.round((Date.now()-window._tkSlideStart)/1000)});
+    }
+    window._tkSlideAt=beat; window._tkSlideStart=Date.now();
+    if(beat===BEATS.length-1) Track.complete({slides:BEATS.length});
+  }
+  document.getElementById('back').disabled=beat===0;
+  document.getElementById('next').disabled=beat===BEATS.length-1;
+}
+document.getElementById('dots').innerHTML=BEATS.map(()=>'<i></i>').join('');
+document.getElementById('next').onclick=()=>goto(beat+1);
+document.getElementById('back').onclick=()=>goto(beat-1);
+
+/* ============================================================
+   loop
+   ============================================================ */
+(function(){
+  var last=0;
+  stage.addEventListener('pointerup',function(){
+    if(window.Track && Date.now()-last>1500){ last=Date.now();
+      Track.event('slide_interact',{slide:beat,type:'rotate'}); }
+  });
+  document.addEventListener('input',function(e){
+    if(e.target.type==='range' && window.Track && Date.now()-last>1500){ last=Date.now();
+      Track.event('slide_interact',{slide:beat,type:'slider'}); }
+  });
+})();
+function tick(){
+  requestAnimationFrame(tick);
+  if(autoSpin) orbit.theta-=0.11;
+  unfold+=(unfoldT-unfold)*0.09;
+  glass +=(glassT -glass )*0.11;
+  fill  +=(fillT  -fill  )*0.10;
+  applyUnfold(unfold); applyGlass(glass);
+  cubes.count=Math.round(fill);
+  orbit.dist+=(want.dist-orbit.dist)*0.09;
+  orbit.target.lerp(want.target,0.09);
+  applyOrbit();
+  renderer.render(scene,camera);
+  updateLabels(); updateDiagLabels(); updateTppLabels(); updateSoloLabels();
+}
+
+setDims(); resize(); goto(0); applyOrbit(); tick();
+setTimeout(()=>{document.getElementById('hint').style.opacity=0;},5000);
+if(window.Track){
+  Track.part('explainer');
+  document.getElementById('next').addEventListener('click',function(){
+    if(beat===BEATS.length-1 && !window._tkFB){
+      window._tkFB=1;
+
+    }
+  });
+}
+</script>
+<script>window.__PART__="explainer";
+/* ---- shared progress rail ---- */
+(function(){
+  var ORDER=['explainer','problem','game'];
+  var HREF={explainer:'cuboid.html',problem:'problems.html',game:'game.html'};
+  var LABEL={explainer:'The box',problem:'The problem',game:'The puzzle'};
+  var here=window.__PART__||null;
+  var done=(window.Track&&Track.memory().parts)||{};
+  var el=document.createElement('div'); el.id='rail';
+  var html='<a class="home" href="index.html">&#8592; Sightlines</a><span class="track">';
+  ORDER.forEach(function(k,i){
+    var isDone=done[k]&&done[k].completed, isHere=(k===here);
+    if(i) html+='<span class="seg'+((done[ORDER[i-1]]&&done[ORDER[i-1]].completed)?' done':'')+'"></span>';
+    html+='<a class="node'+(isHere?' on':'')+(isDone&&!isHere?' done':'')+'" href="'+HREF[k]+'" title="'+LABEL[k]+'"></a>';
+  });
+  html+='</span>'+(here?'<span class="now">'+LABEL[here]+'</span>':'');
+  el.innerHTML=html;
+  document.body.appendChild(el);
+})();
+</script>
+</body>
+</html>
