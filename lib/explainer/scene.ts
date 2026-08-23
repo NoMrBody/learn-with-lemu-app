@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { figColor, onFigureTheme } from "@/lib/figure-theme";
 
 /**
  * The cuboid explainer's 3D world, ported from legacy/cuboid.html.
@@ -29,6 +30,21 @@ const CAP = MAXD * MAXD * MAXD;
 const RSEG = 0.055;
 const COL = { a: 0xe8442a, b: 0x2b4fe8, c: 0xe39a22 } as const;
 const CSS = { a: "#E8442A", b: "#2340C4", c: "#9A6614" } as const;
+
+/**
+ * Tag every material under `obj` as following one of the --fig-* structural
+ * colours, so the theme listener at the foot of createExplainerScene can
+ * recolour it later. Unlike the other two scenes, this one builds its meshes
+ * once and mutates them for the rest of the lesson, so there is no rebuild to
+ * replay — the materials have to be found and updated in place.
+ */
+function figRole<T extends THREE.Object3D>(obj: T, role: "ink" | "wire"): T {
+  obj.traverse((o) => {
+    const m = (o as THREE.Mesh).material;
+    if (m && !Array.isArray(m)) m.userData.figRole = role;
+  });
+  return obj;
+}
 
 export const surfaceArea = (d: Dims) => 2 * (d.L * d.W + d.L * d.H + d.W * d.H);
 export const volume = (d: Dims) => d.L * d.W * d.H;
@@ -180,10 +196,11 @@ function face(color: number): FaceGroup {
     ] as const
   ).map((p) => new THREE.Vector3(p[0], p[1], 0.004));
   const lineMat = new THREE.LineBasicMaterial({
-    color: 0x14181a,
+    color: figColor("ink"),
     transparent: true,
     opacity: 0.55,
   });
+  lineMat.userData.figRole = "ink";
   inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sq), lineMat));
   g.add(inner);
   g.userData = { inner, mat, lineMat };
@@ -384,8 +401,9 @@ export function createExplainerScene(
     g.add(mesh);
 
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x2a3634, transparent: true, opacity: 0.5,
+      color: figColor("ink"), transparent: true, opacity: 0.5,
     });
+    lineMat.userData.figRole = "ink";
     const lineGeo = new THREE.BufferGeometry();
     const linePos = new THREE.Float32BufferAttribute(new Float32Array(12), 3);
     lineGeo.setAttribute("position", linePos);
@@ -569,8 +587,8 @@ export function createExplainerScene(
   const segSpace = seg(0xe8b84b, RSEG * 1.15);
   const segVert = seg(0xe27a5f, RSEG);
   diagG.add(segFace, segSpace, segVert);
-  const markBase = rightMark(0x14181a);
-  const markVert = rightMark(0x14181a);
+  const markBase = figRole(rightMark(figColor("ink")), "ink");
+  const markVert = figRole(rightMark(figColor("ink")), "ink");
   diagG.add(markBase, markVert);
   const arc = new THREE.Line(
     new THREE.BufferGeometry(),
@@ -722,7 +740,7 @@ export function createExplainerScene(
   const tPerp = seg(0xe27a5f, 0.055);
   const tObl = seg(0xe8b84b, 0.062);
   const tProj = seg(0x5fb0a6, 0.062);
-  const tLine = seg(0x14181a, 0.062);
+  const tLine = figRole(seg(figColor("ink"), 0.062), "ink");
   tppG.add(tPerp, tObl, tProj, tLine);
   const mkH = rightMark(0xe27a5f);
   const mkP = rightMark(0x5fb0a6);
@@ -730,7 +748,10 @@ export function createExplainerScene(
   tppG.add(mkH, mkP, mkO);
   const dotGeo = new THREE.SphereGeometry(0.13, 14, 10);
   const mkDot = (c: number) => new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color: c }));
-  const dotA = mkDot(0x14181a), dotH = mkDot(0x14181a), dotM = mkDot(0x14181a);
+  const ink = () => figColor("ink");
+  const dotA = figRole(mkDot(ink()), "ink"),
+    dotH = figRole(mkDot(ink()), "ink"),
+    dotM = figRole(mkDot(ink()), "ink");
   tppG.add(dotA, dotH, dotM);
   const planeTint = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
@@ -810,7 +831,9 @@ export function createExplainerScene(
     new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xe8b84b }),
   );
   soloG.add(sArc);
-  const sA = mkDot(0x14181a), sH = mkDot(0x14181a), sM = mkDot(0x14181a);
+  const sA = figRole(mkDot(ink()), "ink"),
+    sH = figRole(mkDot(ink()), "ink"),
+    sM = figRole(mkDot(ink()), "ink");
   soloG.add(sA, sH, sM);
 
   let soloH = 4;
@@ -847,7 +870,7 @@ export function createExplainerScene(
   parG.add(pOrig, pCopy);
   const pRail: THREE.Mesh[] = [];
   for (let i = 0; i < 2; i++) {
-    const m = seg(0x93a09a, 0.022);
+    const m = figRole(seg(figColor("wire"), 0.022), "wire");
     parG.add(m);
     pRail.push(m);
   }
@@ -972,7 +995,12 @@ export function createExplainerScene(
     gg.add(
       new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
-        new THREE.LineBasicMaterial({ color: 0x14181a, transparent: true, opacity: 0.3 }),
+        Object.assign(
+          new THREE.LineBasicMaterial({
+            color: figColor("ink"), transparent: true, opacity: 0.3,
+          }),
+          { userData: { figRole: "ink" } },
+        ),
       ),
     );
     dbl.add(gg);
@@ -1326,12 +1354,24 @@ export function createExplainerScene(
   applyOrbit();
   tick();
 
+  // Recolour every structural material in place when the theme flips. The
+  // labels are DOM and take their colour from CSS, so they need nothing.
+  const stopTheme = onFigureTheme(() => {
+    scene.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      if (!mat || Array.isArray(mat)) return;
+      const role = mat.userData.figRole as "ink" | "wire" | undefined;
+      if (role) (mat as THREE.MeshBasicMaterial).color.setHex(figColor(role));
+    });
+  });
+
   return {
     update,
     stopSpin: () => { autoSpin = false; },
     resize,
     dispose() {
       cancelAnimationFrame(raf);
+      stopTheme();
       window.removeEventListener("resize", resize);
       stage.removeEventListener("pointerdown", onDown);
       stage.removeEventListener("pointermove", onMove);

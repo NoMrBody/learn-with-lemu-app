@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { XR, type Level, type Points } from "./levels";
 import { fmtPlain, keyOf, nm, type GameState } from "./engine";
+import { figColor, onFigureTheme } from "@/lib/figure-theme";
 
 /**
  * The puzzle's 3D figure, ported from legacy/game.html. Owns its canvas, RAF
@@ -92,7 +93,7 @@ export function createGameScene(
     if (!LV) return;
     const P = PT;
     const faint = (p: readonly number[], q: readonly number[]) => {
-      const t = tube(0x93a09a, 0.02 * gScale(), 0.8);
+      const t = tube(figColor("wire"), 0.02 * gScale(), 0.8);
       put(t, p, q);
       structG.add(t);
     };
@@ -106,7 +107,7 @@ export function createGameScene(
         [EX1, FD * Math.cos(XR), FD * Math.sin(XR)],
         [EX0, FD * Math.cos(XR), FD * Math.sin(XR)],
       ]));
-      const e = tube(0x14181a, 0.026, 0.85);
+      const e = tube(figColor("ink"), 0.026, 0.85);
       put(e, [EX0, 0, 0], [EX1, 0, 0]);
       structG.add(e);
     } else if (LV.kind === "box") {
@@ -305,15 +306,27 @@ export function createGameScene(
     resize();
   }
 
+  // The last frame's inputs, so a theme change can redraw with the new
+  // structural colours without the caller having to know it happened. The
+  // structure and segments are rebuilt from scratch on every update anyway,
+  // so replaying is the whole fix.
+  let lastUpdate: Parameters<typeof update> | null = null;
+
   function update(
     state: GameState, picks: readonly string[], solved: boolean,
     freshKey: string | null, target: readonly [string, string],
   ) {
+    lastUpdate = [state, picks, solved, freshKey, target];
     PT = state.PT;
     redrawSegments(state, solved, target);
     syncPins(state.ORDER, picks);
     syncLens(state, freshKey, target);
   }
+
+  const stopTheme = onFigureTheme(() => {
+    buildStructure();
+    if (lastUpdate) update(...lastUpdate);
+  });
 
   resize();
   applyOrbit();
@@ -323,6 +336,7 @@ export function createGameScene(
     load, update, resize,
     dispose() {
       cancelAnimationFrame(raf);
+      stopTheme();
       window.removeEventListener("resize", resize);
       stage.removeEventListener("pointerdown", onDown);
       stage.removeEventListener("pointermove", onMove);

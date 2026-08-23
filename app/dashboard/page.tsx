@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { HomeLink } from "@/components/logo";
 import { redirect } from "next/navigation";
+import { AppHeader } from "@/components/app-header";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/(auth)/actions";
+
+export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -18,30 +21,36 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-16">
-      <header className="flex flex-col items-center gap-2">
-        {/* Signing in lands here and logging out is the only other exit, so
-            without this the page is a dead end for anyone not editing the URL. */}
-        <HomeLink />
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
-      </header>
-      <p className="text-zinc-600">Signed in as {user.email}</p>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/learn"
-          className="rounded bg-zinc-900 px-3 py-2 text-white"
-        >
-          Browse subjects
-        </Link>
-        <form action={logout}>
-          <button
-            type="submit"
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700"
-          >
-            Log out
-          </button>
-        </form>
-      </div>
-    </main>
+    <>
+      <AppHeader />
+
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-5 py-12 sm:px-6 sm:py-16">
+        <header className="flex flex-col gap-3">
+          <p className="font-mono text-eyebrow uppercase text-muted">Your account</p>
+          <h1 className="text-h1">Dashboard</h1>
+        </header>
+
+        <div className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-5">
+          <div className="flex flex-col gap-1">
+            <span className="font-mono text-eyebrow uppercase text-muted">Signed in as</span>
+            <span className="font-mono text-body break-all text-fg">{user.email}</span>
+          </div>
+          <p className="text-body-sm text-muted">
+            Progress is written as you finish each stage, so you can pick any topic back up
+            where you left it.
+          </p>
+          <div className="flex flex-wrap items-center gap-2.5 border-t border-line pt-4">
+            <Button asChild>
+              <Link href="/learn">Browse subjects</Link>
+            </Button>
+            <form action={logout}>
+              <Button type="submit" variant="outline">
+                Log out
+              </Button>
+            </form>
+          </div>
+        </div>
+      </main>
+    </>
   );
 }

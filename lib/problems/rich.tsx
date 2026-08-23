@@ -47,14 +47,15 @@ export function parseRich(src: string, keyPrefix = "r"): ReactNode[] {
   let i = 0;
   while ((m = re.exec(src)) !== null) {
     if (m.index > last) out.push(...withMath(src.slice(last, m.index), `${keyPrefix}-${i}a`));
-    // Emphasis normally lifts to the page's foreground, but a container on an
-    // always-light surface (the game's toast) can point --rich-strong at a
-    // dark ink instead. A plain `text-foreground` went white-on-white there.
+    // Emphasis normally lifts to the page's foreground, but a container
+    // sitting on the figure's ground rather than the page's (the game's
+    // toast) points --rich-strong at --fig-ink instead, so the bold text
+    // matches the surface it is actually on.
     out.push(
       <b
         key={`${keyPrefix}-b${i}`}
         className="font-semibold"
-        style={{ color: "var(--rich-strong, var(--foreground))" }}
+        style={{ color: "var(--rich-strong, var(--lm-fg))" }}
       >
         {withMath(m[1], `${keyPrefix}-${i}b`)}
       </b>,

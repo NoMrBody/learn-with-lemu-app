@@ -4,6 +4,7 @@ import "katex/dist/katex.min.css";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Controls from "./controls";
+import { Button } from "@/components/ui/button";
 import {
   BEAT_GROUPS, BEAT_LABELS, beatText, getBeats, initialUserState, type UserState,
 } from "@/lib/explainer/beats";
@@ -149,6 +150,7 @@ export default function Explainer({
 
   const b = beats[beat];
   const text = beatText(b, user.solid);
+  const last = beat === beats.length - 1;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -159,7 +161,7 @@ export default function Explainer({
         <div ref={labelsRef} className="explainer-labels" />
         <p
           aria-hidden="true"
-          className={`pointer-events-none absolute bottom-3.5 left-1/2 -translate-x-1/2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-zinc-500 transition-opacity duration-500 ${
+          className={`pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-fig-rule bg-fig-paper/70 px-3 py-1 font-mono text-eyebrow uppercase text-fig-dim backdrop-blur-sm transition-opacity duration-500 ease-out ${
             hint ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -167,37 +169,42 @@ export default function Explainer({
         </p>
       </div>
 
-      <div className="flex-none border-t border-zinc-200 bg-white/95 px-5 py-4 lg:flex lg:w-[38%] lg:max-w-[440px] lg:items-center lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-8 dark:border-zinc-800 dark:bg-zinc-950/95">
-        <div className="mx-auto w-full max-w-[640px]">
-          <ol className="mb-3 flex list-none gap-1.5" aria-label="Slide progress">
-            {beats.map((_, i) => (
-              <li
-                key={i}
-                aria-current={i === beat ? "step" : undefined}
-                className={`h-0.5 flex-1 rounded ${
-                  i <= beat ? "bg-foreground" : "bg-zinc-200 dark:bg-zinc-800"
-                }`}
-              />
-            ))}
-          </ol>
+      <div className="flex-none border-t border-line bg-surface px-5 py-5 lg:flex lg:w-[38%] lg:max-w-[440px] lg:items-center lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-8">
+        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
+          {/* Slide progress: a segment per beat, plus the count in mono so
+              the reader knows how much is left without counting dashes. */}
+          <div className="flex items-center gap-3">
+            <ol className="flex flex-1 list-none gap-1" aria-label="Slide progress">
+              {beats.map((_, i) => (
+                <li
+                  key={i}
+                  aria-current={i === beat ? "step" : undefined}
+                  className={`h-1 flex-1 rounded-full transition-colors duration-(--dur-enter) ease-out ${
+                    i < beat ? "bg-correct" : i === beat ? "bg-brand" : "bg-line-strong"
+                  }`}
+                />
+              ))}
+            </ol>
+            <span className="font-mono text-eyebrow tabular-nums text-faint">
+              {String(beat + 1).padStart(2, "0")}/{String(beats.length).padStart(2, "0")}
+            </span>
+          </div>
 
-          <h2 className="text-[clamp(19px,4.4vw,25px)] font-bold leading-tight tracking-[-0.01em]">
-            {text.title}
-          </h2>
-          <p className="mt-1.5 min-h-[42px] text-[14.8px] text-zinc-600 dark:text-zinc-400">
-            {text.body}
-          </p>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-h2">{text.title}</h2>
+            <p className="min-h-[42px] text-body text-muted">{text.body}</p>
+          </div>
 
           {text.know && (
-            <details className="mt-2.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
-              <summary className="know-summary flex cursor-pointer items-center gap-1.5 text-[12.5px] tracking-[0.06em] text-rail-current">
+            <details className="border-t border-line pt-3">
+              <summary className="know-summary flex cursor-pointer items-center gap-1.5 rounded-md text-body-sm font-medium text-brand-text">
                 {text.know.t}
               </summary>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{text.know.p}</p>
+              <p className="mt-2 text-body-sm text-muted">{text.know.p}</p>
             </details>
           )}
 
-          <div className="mt-3 min-h-[50px]">
+          <div className="min-h-[50px]">
             <Controls
               kind={b.control}
               solids={b.solids}
@@ -207,33 +214,32 @@ export default function Explainer({
             />
           </div>
 
-          <div className="mt-3.5 flex gap-2.5">
-            <button
+          <div className="flex gap-2.5">
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={() => go(beat - 1)}
               disabled={beat === 0}
-              className="rounded border border-zinc-200 px-4 py-3 text-[15px] disabled:opacity-25 dark:border-zinc-800"
             >
               Back
-            </button>
-            {beat === beats.length - 1 && nextStage ? (
+            </Button>
+            {last && nextStage ? (
               // The lesson is over, so the primary action stops being "next
               // slide" and becomes the hand-off to the next stage.
-              <Link
-                href={nextStage.href}
-                className="flex-1 rounded bg-rail-current px-4 py-3 text-center text-[15px] font-semibold text-white"
-              >
-                Next: {nextStage.title} →
-              </Link>
+              <Button asChild size="lg" className="flex-1">
+                <Link href={nextStage.href}>Next: {nextStage.title} →</Link>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                size="lg"
+                className="flex-1"
                 onClick={() => go(beat + 1)}
-                disabled={beat === beats.length - 1}
-                className="flex-1 rounded bg-rail-current px-4 py-3 text-[15px] font-semibold text-white disabled:opacity-25"
+                disabled={last}
               >
                 Next
-              </button>
+              </Button>
             )}
           </div>
         </div>

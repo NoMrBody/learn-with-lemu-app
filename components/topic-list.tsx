@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { stageHref } from "@/components/progress-rail";
+import { cn } from "@/lib/utils";
 import type { Topic } from "@/lib/topics";
 
 /**
@@ -13,12 +14,12 @@ export function TopicCard({ topic, pendingLabel }: { topic: Topic; pendingLabel:
     // No aria-disabled: it is not valid on a listitem, and the badge below is
     // real text, so the state is announced anyway.
     return (
-      <li className="flex items-center justify-between gap-4 rounded-lg border border-dashed border-zinc-300 px-5 py-4 opacity-60 dark:border-zinc-700">
-        <div>
-          <h3 className="font-medium text-zinc-500 dark:text-zinc-400">{topic.title}</h3>
-          <p className="mt-0.5 text-sm text-zinc-400 dark:text-zinc-500">Not built yet.</p>
+      <li className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-line-strong px-5 py-4">
+        <div className="min-w-0">
+          <h3 className="text-body font-medium text-muted">{topic.title}</h3>
+          <p className="mt-0.5 text-body-sm text-faint">Not built yet.</p>
         </div>
-        <span className="whitespace-nowrap rounded-full border border-zinc-300 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <span className="whitespace-nowrap rounded-full border border-line-strong px-2.5 py-1 font-mono text-eyebrow uppercase text-faint">
           {pendingLabel}
         </span>
       </li>
@@ -29,17 +30,27 @@ export function TopicCard({ topic, pendingLabel }: { topic: Topic; pendingLabel:
     <li>
       <Link
         href={stageHref(topic.subject, topic.slug, "explainer")}
-        className="group flex items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4 transition-colors hover:border-rail-current hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        className={cn(
+          "group flex items-center justify-between gap-4 rounded-xl border border-line",
+          "bg-surface px-5 py-4",
+          "transition-[background-color,border-color,transform] duration-(--dur-state) ease-out",
+          "hover:border-brand/60 hover:bg-raised",
+        )}
       >
-        <div>
-          <h3 className="font-medium">{topic.title}</h3>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+        <div className="min-w-0">
+          <h3 className="text-body font-semibold">{topic.title}</h3>
+          <p className="mt-0.5 text-body-sm text-muted">
             Explainer, problems, and a puzzle.
           </p>
         </div>
         <span
           aria-hidden="true"
-          className="text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-rail-current"
+          className={cn(
+            "font-mono text-faint",
+            "transition-[transform,color] duration-(--dur-state) ease-out",
+            "group-hover:translate-x-0.5 group-hover:text-brand-text",
+            "motion-reduce:group-hover:translate-x-0",
+          )}
         >
           →
         </span>
@@ -55,10 +66,10 @@ export function TopicList({
   pendingLabel?: string;
 }) {
   if (topics.length === 0) {
-    return <p className="text-zinc-500">No topics here yet.</p>;
+    return <p className="text-body-sm text-muted">No topics here yet.</p>;
   }
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-2.5">
       {topics.map((t) => (
         <TopicCard key={t.id} topic={t} pendingLabel={pendingLabel} />
       ))}

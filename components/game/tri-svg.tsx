@@ -44,12 +44,12 @@ export default function TriSvg({
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={`Triangle ${keys.map(nm).join("")}`}
-      className="block h-auto w-full rounded-lg bg-white"
-      style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+      className="block h-auto w-full rounded-lg bg-fig-paper"
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <polygon
         points={q.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ")}
-        fill="#2B4FE8" fillOpacity={0.12}
+        fill="var(--fig-known-bright)" fillOpacity={0.12}
       />
       {edges.map(([i, j, p, r], n) => {
         const v = getLen(state, p, r);
@@ -60,14 +60,14 @@ export default function TriSvg({
           <g key={n}>
             <line
               x1={q[i][0]} y1={q[i][1]} x2={q[j][0]} y2={q[j][1]}
-              stroke={known ? "#2340C4" : "#93A09A"}
+              stroke={known ? "var(--fig-known)" : "var(--fig-wire)"}
               strokeWidth={known ? 2.2 : 1.6}
               strokeLinecap="round"
             />
             <text
               x={mx + (dx / dl) * 16} y={my + (dy / dl) * 16 + 4}
               fontSize={11.5} fontWeight={700}
-              fill={known ? "#2340C4" : "#E8442A"} textAnchor="middle"
+              fill={known ? "var(--fig-known)" : "var(--fig-target)"} textAnchor="middle"
             >
               {known ? fmtPlain(v) : "?"}
             </text>
@@ -78,10 +78,10 @@ export default function TriSvg({
         const dx = p[0] - cen[0], dy = p[1] - cen[1], dl = Math.hypot(dx, dy) || 1;
         return (
           <g key={i}>
-            <circle cx={p[0]} cy={p[1]} r={2.8} fill="#14181A" />
+            <circle cx={p[0]} cy={p[1]} r={2.8} fill="var(--fig-ink)" />
             <text
               x={p[0] + (dx / dl) * 17} y={p[1] + (dy / dl) * 17 + 4.5}
-              fontSize={12.5} fontWeight={700} fill="#14181A" textAnchor="middle"
+              fontSize={12.5} fontWeight={700} fill="var(--fig-ink)" textAnchor="middle"
             >
               {nm(keys[i])}
             </text>

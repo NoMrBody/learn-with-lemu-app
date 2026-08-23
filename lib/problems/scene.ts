@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Problem } from "./data";
 import { keyOf, nice, nm, type Points } from "./geometry";
+import { figColor, onFigureTheme } from "@/lib/figure-theme";
 
 /**
  * The problem stage's 3D figure, ported from legacy/problems.html.
@@ -25,8 +26,12 @@ export type ProblemScene = {
   dispose: () => void;
 };
 
+// The semantic colours are literal on purpose: blue means "you have this
+// length", amber means "you built it", red means "this is what you want", and
+// those readings must survive a theme change. Only `given` — the plain edges
+// of the figure — is structural, so only it follows the theme.
 const COL = {
-  given: 0x6e7a74, found: 0x2b4fe8, built: 0xe39a22, target: 0xe8442a,
+  found: 0x2b4fe8, built: 0xe39a22, target: 0xe8442a,
   blue: 0x2b4fe8, red: 0xe8442a, amber: 0xe39a22,
 } as const;
 
@@ -124,7 +129,7 @@ export function createProblemScene(
     if (!LV) return;
     const s = scaleOf();
     LV.wire.forEach((e) => {
-      const t = tube(COL.given, 0.055 * s, 0.9);
+      const t = tube(figColor("dim"), 0.055 * s, 0.9);
       place(t, PT[e[0]], PT[e[1]]);
       structG.add(t);
     });
@@ -424,6 +429,12 @@ export function createProblemScene(
     spin = false;
   }
 
+  const stopTheme = onFigureTheme(() => {
+    // rebuild() regenerates every mesh from the current colours, so replaying
+    // it is all a theme change needs.
+    if (LV) rebuild();
+  });
+
   resize();
   applyOrbit();
   tick();
@@ -436,6 +447,7 @@ export function createProblemScene(
     resize,
     dispose() {
       cancelAnimationFrame(raf);
+      stopTheme();
       if (freshTimer) clearTimeout(freshTimer);
       window.removeEventListener("resize", resize);
       stage.removeEventListener("pointerdown", onDown);

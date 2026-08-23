@@ -14,8 +14,8 @@ import type { ControlKind, SolidMode, UserState } from "@/lib/explainer/beats";
 function MBox({ hi, children }: { hi?: boolean; children: ReactNode }) {
   return (
     <div
-      className={`mt-2 rounded border px-3 py-2.5 text-[15px] ${
-        hi ? "border-rail-current" : "border-zinc-200 dark:border-zinc-800"
+      className={`mt-2 rounded-lg border px-3 py-2.5 text-body ${
+        hi ? "border-brand/60 bg-brand-soft/40" : "border-line bg-raised"
       }`}
     >
       {children}
@@ -25,9 +25,9 @@ function MBox({ hi, children }: { hi?: boolean; children: ReactNode }) {
 
 function MRow({ tag, children }: { tag?: string; children: ReactNode }) {
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px] first:mt-0">
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-body first:mt-0">
       {tag && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-zinc-500">
+        <span className="font-mono text-eyebrow uppercase text-muted">
           {tag}
         </span>
       )}
@@ -45,7 +45,7 @@ function Scrub({
   return (
     <div className="flex items-center gap-3">
       {left && (
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.13em] text-zinc-500">
+        <span className="whitespace-nowrap font-mono text-eyebrow uppercase text-muted">
           {left}
         </span>
       )}
@@ -57,10 +57,10 @@ function Scrub({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-8 min-w-0 flex-1 accent-zinc-900 dark:accent-zinc-100"
+        className="h-8 min-w-0 flex-1 accent-(--lm-brand)"
       />
       {right && (
-        <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.13em] text-zinc-500">
+        <span className="whitespace-nowrap font-mono text-eyebrow uppercase text-muted">
           {right}
         </span>
       )}
@@ -73,19 +73,26 @@ function Chip({
 }: {
   on: boolean; color: string; onClick: () => void; children: ReactNode;
 }) {
+  // The chip carries the face's own colour as a swatch rather than as a
+  // fill behind white text: several of these hues (the ochres especially)
+  // never clear 4.5:1 against white, and the swatch is the honest mapping
+  // anyway — it is a legend for what is highlighted in the figure.
   return (
     <button
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className="rounded border px-3 py-2 text-[13.5px] transition-colors"
-      style={
-        on
-          ? { background: color, borderColor: color, color: "#fff", fontWeight: 600 }
-          : undefined
-      }
+      className={`press flex items-center gap-2 rounded-md border px-3 py-2 text-body-sm ${
+        on ? "border-current bg-raised font-semibold text-fg" : "border-line text-muted hover:text-fg"
+      }`}
+      style={on ? { borderColor: color, boxShadow: `0 0 0 3px ${color}26` } : undefined}
     >
-      <span className={on ? "" : "text-zinc-500"}>{children}</span>
+      <span
+        aria-hidden="true"
+        className="size-2 flex-none rounded-full"
+        style={{ background: color }}
+      />
+      {children}
     </button>
   );
 }
@@ -104,10 +111,10 @@ function SolidToggle({
           type="button"
           aria-pressed={solid === k}
           onClick={() => solid !== k && setSolid(k)}
-          className={`flex-1 rounded-lg border px-3 py-2 text-[13.5px] transition-colors ${
+          className={`press flex-1 rounded-lg border px-3 py-2 text-body-sm ${
             solid === k
-              ? "border-rail-current bg-rail-current font-semibold text-white"
-              : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
+              ? "border-brand bg-brand font-semibold text-brand-on"
+              : "border-line text-muted hover:text-fg"
           }`}
         >
           {k === "box" ? "Box" : "Pyramid"}
@@ -212,7 +219,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
           <div className="flex flex-col gap-0.5">
             {(["L", "W", "H"] as const).map((k) => (
               <div key={k} className="flex items-center gap-3">
-                <span className="w-4 font-mono text-sm font-bold">{k.toLowerCase()}</span>
+                <span className="w-4 font-mono text-num text-muted">{k.toLowerCase()}</span>
                 <input
                   type="range"
                   aria-label={`${k.toLowerCase()} — ${D[k]}`}
@@ -223,9 +230,9 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
                   onChange={(e) =>
                     set({ dims: { ...D, [k]: Number(e.target.value) } })
                   }
-                  className="h-8 min-w-0 flex-1 accent-zinc-900 dark:accent-zinc-100"
+                  className="h-8 min-w-0 flex-1 accent-(--lm-brand)"
                 />
-                <span className="w-5 font-mono text-sm">{D[k]}</span>
+                <span className="w-5 font-mono text-num tabular-nums text-fg">{D[k]}</span>
               </div>
             ))}
           </div>
@@ -270,7 +277,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
                   </MRow>
                 </>
               ) : (
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   drag it flat — a pyramid opens into a base and four triangles
                 </span>
               )
@@ -282,7 +289,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
                 </MRow>
               </>
             ) : (
-              <span className="text-zinc-500">
+              <span className="text-muted">
                 drag it flat to see all six faces at once
               </span>
             )}
@@ -307,7 +314,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
               <M tex={`V_{\\text{pyramid}}=\\tfrac13\\cdot${V}=${nice(pyrVolume(D))}`} />
             </MBox>
             <MRow tag="why a third">
-              <span className="text-zinc-500">
+              <span className="text-muted">
                 three of this pyramid fill the box exactly
               </span>
             </MRow>
@@ -344,10 +351,10 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
             type="button"
             aria-pressed={user.doubled}
             onClick={() => set({ doubled: !user.doubled })}
-            className={`w-full rounded border px-4 py-2.5 text-[15px] transition-colors ${
+            className={`press w-full rounded-lg border px-4 py-2.5 text-body ${
               user.doubled
-                ? "border-rail-current bg-rail-current text-white"
-                : "border-zinc-200 dark:border-zinc-800"
+                ? "border-brand bg-brand font-semibold text-brand-on"
+                : "border-line bg-raised hover:border-line-strong"
             }`}
           >
             {user.doubled ? "back to original" : "double every edge"}
@@ -355,7 +362,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
           <MBox><M tex={`S:\\ ${nice(sa)}\\ \\to\\ ${nice(sa * 4)}\\quad(\\times 2^2)`} /></MBox>
           <MBox><M tex={`V:\\ ${nice(v)}\\ \\to\\ ${nice(v * 8)}\\quad(\\times 2^3)`} /></MBox>
           {pyr && (
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-body-sm text-muted">
               the outline is the same pyramid with every edge doubled
             </p>
           )}
@@ -406,7 +413,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
             ))}
           </div>
           <MBox hi><M tex={f.tex(D)} /></MBox>
-          <p className="mt-2 text-sm text-zinc-500">{f.note}</p>
+          <p className="mt-2 text-body-sm text-muted">{f.note}</p>
         </div>
       );
     }
@@ -435,7 +442,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
           />
           <MBox hi>
             <M tex="\angle(\text{standing line},\ \text{any line in the plane})=90^\circ" />
-            <p className="mt-2 text-rail-current">still 90° — and it always will be</p>
+            <p className="mt-2 text-brand-text">still 90° — and it always will be</p>
           </MBox>
         </div>
       );
@@ -491,7 +498,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
             <M tex={`a \\perp HM \\;?\\quad \\textcolor{#5FB0A6}{${user.tppTheta.toFixed(0)}^\\circ}`} />
             <br />
             <M tex={`a \\perp AM \\;?\\quad \\textcolor{#E8B84B}{${o.toFixed(1)}^\\circ}`} />
-            <p className={`mt-2 ${locked ? "text-rail-current" : "text-zinc-500"}`}>
+            <p className={`mt-2 ${locked ? "text-brand-text" : "text-muted"}`}>
               {locked
                 ? "both exactly 90° — the theorem holds"
                 : "not 90° to the projection, so not 90° to the oblique either"}

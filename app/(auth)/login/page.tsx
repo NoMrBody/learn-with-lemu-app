@@ -1,57 +1,77 @@
 "use client";
 
 import Link from "next/link";
-import { HomeLink } from "@/components/logo";
 import { useActionState } from "react";
+import { Wordmark } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { login } from "../actions";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, undefined);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-16">
-      <header className="flex flex-col items-center gap-2">
-        <HomeLink />
-        <h1 className="text-3xl font-semibold">Log in</h1>
-      </header>
-      <form action={action} className="flex w-full max-w-sm flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            className="rounded border border-zinc-300 px-3 py-2"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="rounded border border-zinc-300 px-3 py-2"
-          />
-        </div>
-        {state?.error && (
-          <p role="alert" className="text-sm text-red-600">
-            {state.error}
+    <main className="grid-paper flex flex-1 flex-col items-center justify-center gap-8 px-5 py-16">
+      <div className="flex w-full max-w-sm items-center justify-between">
+        <Wordmark priority />
+        <ThemeToggle />
+      </div>
+
+      <div className="flex w-full max-w-sm flex-col gap-6 rounded-xl border border-line bg-surface p-6">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-h2">Log in</h1>
+          <p className="text-body-sm text-muted">
+            Only so your progress is kept — everything is free to browse either way.
           </p>
-        )}
-        <button
-          disabled={pending}
-          type="submit"
-          className="rounded bg-zinc-900 px-3 py-2 text-white disabled:opacity-50"
+        </header>
+
+        <form action={action} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              aria-invalid={state?.error ? true : undefined}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              aria-invalid={state?.error ? true : undefined}
+            />
+          </div>
+          {state?.error && (
+            <p
+              role="alert"
+              className="rounded-lg border border-error/40 bg-error-soft px-3 py-2 text-body-sm text-error"
+            >
+              {state.error}
+            </p>
+          )}
+          <Button disabled={pending} type="submit" size="lg" className="mt-1 w-full">
+            {pending ? "Logging in…" : "Log in"}
+          </Button>
+        </form>
+      </div>
+
+      <p className="text-body-sm text-muted">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/signup"
+          className="rounded-md font-medium text-brand-text underline-offset-4 hover:underline"
         >
-          {pending ? "Logging in…" : "Log in"}
-        </button>
-      </form>
-      <p className="text-sm text-zinc-600">
-        Don&apos;t have an account? <Link href="/signup">Sign up</Link>
+          Sign up
+        </Link>
       </p>
     </main>
   );

@@ -9,7 +9,7 @@ import { triShape, type Points } from "@/lib/problems/geometry";
  * shape data so it stays typed and needs no innerHTML.
  */
 export default function TriBoard({
-  points, keys, ink = "#2340C4", givenOnly, known, onClick, label,
+  points, keys, ink = "var(--fig-known)", givenOnly, known, onClick, label,
 }: {
   points: Points;
   keys: [string, string, string];
@@ -28,7 +28,7 @@ export default function TriBoard({
       aria-label={label}
       onClick={onClick}
       className={`block h-auto max-h-[190px] w-full ${onClick ? "cursor-pointer" : ""}`}
-      style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+      style={{ fontFamily: "var(--font-mono)" }}
     >
       <polygon points={s.poly} fill={ink} fillOpacity={0.07} />
       {s.edges.map((e, i) => (
@@ -52,10 +52,10 @@ export default function TriBoard({
       ))}
       {s.verts.map((v, i) => (
         <g key={i}>
-          <circle cx={v.x} cy={v.y} r={3} fill="#14181A" />
+          <circle cx={v.x} cy={v.y} r={3} fill="var(--fig-ink)" />
           <text
             x={v.lx} y={v.ly} fontSize={12.5} fontWeight={600}
-            fill="#14181A" textAnchor="middle"
+            fill="var(--fig-ink)" textAnchor="middle"
           >
             {v.label}
           </text>

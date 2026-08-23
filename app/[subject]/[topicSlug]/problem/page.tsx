@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProgressRail from "@/components/progress-rail";
+import { Button } from "@/components/ui/button";
 import Problems from "@/components/problems/problems";
 import { getProblems } from "@/lib/problems/data";
 import { getStageView, nextStageOf } from "@/lib/topics";
@@ -43,20 +44,17 @@ export default async function ProblemPage(
           backLabel={view.subject.title}
         />
         <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col justify-center px-5 py-16">
-          <h1 className="text-[clamp(21px,5vw,28px)] font-bold tracking-[-0.01em]">
-            Not written yet.
-          </h1>
-          <p className="mt-2 text-[15px] text-zinc-600 dark:text-zinc-400">
+          <h1 className="text-h1">Not written yet.</h1>
+          <p className="mt-3 max-w-[52ch] text-body-lg text-muted">
             {view.topic.title} has no worked problems on it so far. The rest of the
             topic is finished — this is the one part still being written.
           </p>
           {next && (
-            <Link
-              href={stageHref(subject, topicSlug, next.stageType)}
-              className="mt-6 self-start rounded bg-rail-current px-4 py-3 text-[15px] font-semibold text-white"
-            >
-              Skip to {next.title} →
-            </Link>
+            <Button asChild size="lg" className="mt-6 self-start">
+              <Link href={stageHref(subject, topicSlug, next.stageType)}>
+                Skip to {next.title} →
+              </Link>
+            </Button>
           )}
         </div>
       </div>

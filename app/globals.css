@@ -1,82 +1,417 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/* next-themes writes `class="dark"` on <html>, so the dark variant keys off
+   that rather than prefers-color-scheme — the toggle has to be able to beat
+   the OS in both directions. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   SEMANTIC TOKENS — light
+   The neutral ramp is warm (taupe), pulled from the lemur mark:
+   charcoal #262523, fur #AAA297, cream #F8F7F3. Tailwind's stock zinc is
+   cool, which is most of why the old chrome read as unconsidered.
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --lm-bg: #fbfaf8;
+  --lm-surface: #f3f1ed;
+  --lm-raised: #ffffff;
+  --lm-sunken: #edeae4;
+  --lm-border: #e3e0d9;
+  --lm-border-strong: #d0ccc3;
 
-  /* Progress-rail states, carried over from the legacy pages: blue reads as
-     finished, red as where you are now, grey as not yet started. */
-  --rail-done: #2340c4;
-  --rail-current: #e8442a;
-  --rail-todo: #d4d4d8;
-  --rail-line: #e4e4e7;
-}
+  --lm-fg: #1c1a18;
+  --lm-fg-muted: #5f5a52; /* 6.6:1 on --lm-bg, 6.1:1 on --lm-surface */
+  --lm-fg-faint: #726d64; /* 4.9:1 / 4.6:1 — still content, so still AA */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  /* Fallbacks so these resolve while layout.tsx is on system fonts; if the
-     next/font Geist wiring comes back, the variables take over again. */
-  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --lm-brand: #d2371e; /* white on this: 4.9:1 */
+  --lm-brand-hover: #b92e17;
+  --lm-brand-text: #c0341b; /* 5.4:1 on --lm-bg */
+  --lm-brand-on: #ffffff;
+  --lm-brand-soft: #fdede8;
+  --lm-brand-ring: rgb(210 55 30 / 0.18);
 
-  --color-rail-done: var(--rail-done);
-  --color-rail-current: var(--rail-current);
-  --color-rail-todo: var(--rail-todo);
-  --color-rail-line: var(--rail-line);
-}
+  /* Green owns UI completion; blue is reserved for lengths inside a figure,
+     so chrome and canvas never claim the same colour. */
+  --lm-correct: #0b7a55;
+  --lm-correct-soft: #e6f5ee;
+  --lm-caution: #8a5a08;
+  --lm-caution-soft: #fbf2df;
+  --lm-error: #be123c;
+  --lm-error-soft: #fde9ee;
+  --lm-known: #2340c4;
+  --lm-known-soft: #e9edfd;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* ---- the 3D stages and everything drawn on them ---- */
+  --fig-ground: #f2f4f3;
+  --fig-grid: rgb(20 24 26 / 0.05);
+  --fig-grid-soft: rgb(20 24 26 / 0.035);
+  --fig-ink: #14181a;
+  --fig-dim: #5a6560;
+  --fig-rule: #dce3e0;
+  --fig-wire: #93a09a;
+  --fig-paper: #ffffff;
+  --fig-paper-soft: rgb(250 251 250 / 0.82);
+  --fig-paper-alt: #fbfcfb;
+  --fig-inset: #ebefec;
+  --fig-halo: #f2f4f3;
 
-    /* Lifted for contrast against the dark ground; same three roles. */
-    --rail-done: #6c8cff;
-    --rail-current: #ff6a4d;
-    --rail-todo: #3f3f46;
-    --rail-line: #27272a;
-  }
-}
+  /* Semantic figure colours keep their hues in both themes — they are
+     pedagogy, not decoration. Only their lightness moves. */
+  --fig-target: #e8442a;
+  --fig-known: #2340c4;
+  --fig-known-bright: #2b4fe8;
+  --fig-built: #e39a22;
+  --fig-scratch: #9a6614;
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* ---- shape ---- */
+  --radius: 10px;
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  --dur-press: 120ms;
+  --dur-state: 200ms;
+  --dur-enter: 320ms;
+  --dur-celebrate: 700ms;
+
+  /* The progress rail's measured height. Stage pages size their canvas
+     against it, and it was hardcoded as 2.5rem in three places before. */
+  --rail-h: 2.75rem;
 }
 
 /* ============================================================
-   explainer stage
-   The 3D scene positions these label elements itself (it projects points
-   from the scene to screen space each frame), so they are plain DOM with
-   class names rather than React-rendered nodes — same as the original.
+   SEMANTIC TOKENS — dark
+   Deliberately NOT the light ramp inverted. The ground is a cool
+   near-neutral ink; a warm dark goes brown, and brown is the mud.
+   Layers separate by lifting the surface, never by drop shadow.
    ============================================================ */
-.explainer-stage {
-  background-color: #f2f4f3;
-  background-image:
-    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.035) 0 1px, transparent 1px 36.4px);
+.dark {
+  --lm-bg: #0e0f12;
+  --lm-surface: #16181c;
+  --lm-raised: #1d2025;
+  --lm-sunken: #0a0b0e;
+  --lm-border: #272b31;
+  --lm-border-strong: #363b43;
+
+  --lm-fg: #eceef1; /* not pure white — cuts halation on the dark ground */
+  --lm-fg-muted: #a6adb7; /* 8.5:1 on --lm-bg, 7.2:1 on --lm-raised */
+  --lm-fg-faint: #868d97; /* 5.7:1 / 4.9:1 */
+
+  --lm-brand: #f2593b; /* ink on this: 5.7:1 */
+  --lm-brand-hover: #ff6e51;
+  --lm-brand-text: #ff7b5e; /* 7.5:1 */
+  --lm-brand-on: #160d0a;
+  --lm-brand-soft: #2a1510;
+  --lm-brand-ring: rgb(242 89 59 / 0.24);
+
+  --lm-correct: #3ddc97;
+  --lm-correct-soft: #0e2a20;
+  --lm-caution: #f2b347;
+  --lm-caution-soft: #2a1f0a;
+  --lm-error: #ff8098;
+  --lm-error-soft: #2c1017;
+  --lm-known: #8aa6ff;
+  --lm-known-soft: #141b33;
+
+  --fig-ground: #101317;
+  --fig-grid: rgb(190 205 215 / 0.055);
+  --fig-grid-soft: rgb(190 205 215 / 0.04);
+  --fig-ink: #e4e9ee;
+  --fig-dim: #8c97a0;
+  --fig-rule: #2a3037;
+  --fig-wire: #6b7a85;
+  --fig-paper: #191d22;
+  --fig-paper-soft: rgb(25 29 34 / 0.84);
+  --fig-paper-alt: #15191e;
+  --fig-inset: #1e232a;
+  --fig-halo: #101317;
+
+  --fig-target: #ff6a4d;
+  --fig-known: #8aa6ff;
+  --fig-known-bright: #7b9bff;
+  --fig-built: #f2b347;
+  --fig-scratch: #e0b366;
 }
-.explainer-stage canvas {
+
+/* ============================================================
+   TAILWIND MAPPING
+   Every token above becomes a utility. Components reference these
+   names only — there are no hex values below this line, and none in
+   any component.
+   ============================================================ */
+@theme inline {
+  --color-bg: var(--lm-bg);
+  --color-surface: var(--lm-surface);
+  --color-raised: var(--lm-raised);
+  --color-sunken: var(--lm-sunken);
+  --color-line: var(--lm-border);
+  --color-line-strong: var(--lm-border-strong);
+
+  --color-fg: var(--lm-fg);
+  --color-muted: var(--lm-fg-muted);
+  --color-faint: var(--lm-fg-faint);
+
+  --color-brand: var(--lm-brand);
+  --color-brand-hover: var(--lm-brand-hover);
+  --color-brand-text: var(--lm-brand-text);
+  --color-brand-on: var(--lm-brand-on);
+  --color-brand-soft: var(--lm-brand-soft);
+
+  --color-correct: var(--lm-correct);
+  --color-correct-soft: var(--lm-correct-soft);
+  --color-caution: var(--lm-caution);
+  --color-caution-soft: var(--lm-caution-soft);
+  --color-error: var(--lm-error);
+  --color-error-soft: var(--lm-error-soft);
+  --color-known: var(--lm-known);
+  --color-known-soft: var(--lm-known-soft);
+
+  --color-fig-ground: var(--fig-ground);
+  --color-fig-ink: var(--fig-ink);
+  --color-fig-dim: var(--fig-dim);
+  --color-fig-rule: var(--fig-rule);
+  --color-fig-paper: var(--fig-paper);
+  --color-fig-paper-alt: var(--fig-paper-alt);
+  --color-fig-inset: var(--fig-inset);
+  --color-fig-wire: var(--fig-wire);
+  --color-fig-target: var(--fig-target);
+  --color-fig-known: var(--fig-known);
+  --color-fig-built: var(--fig-built);
+  --color-fig-scratch: var(--fig-scratch);
+
+  /* shadcn/ui reads these names; they are aliases, not a second palette. */
+  --color-background: var(--lm-bg);
+  --color-foreground: var(--lm-fg);
+  --color-card: var(--lm-raised);
+  --color-card-foreground: var(--lm-fg);
+  --color-popover: var(--lm-raised);
+  --color-popover-foreground: var(--lm-fg);
+  --color-primary: var(--lm-brand);
+  --color-primary-foreground: var(--lm-brand-on);
+  --color-secondary: var(--lm-surface);
+  --color-secondary-foreground: var(--lm-fg);
+  --color-muted-foreground: var(--lm-fg-muted);
+  --color-accent: var(--lm-surface);
+  --color-accent-foreground: var(--lm-fg);
+  --color-destructive: var(--lm-error);
+  --color-destructive-foreground: var(--lm-raised);
+  --color-border: var(--lm-border);
+  --color-input: var(--lm-border-strong);
+  --color-ring: var(--lm-brand);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* ---- type scale: sizes, line-heights, weights and tracking together,
+     so a heading is one class rather than four ---- */
+  --text-display: clamp(2.5rem, 6vw, 3.5rem);
+  --text-display--line-height: 1.02;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.032em;
+
+  --text-h1: clamp(1.75rem, 4.5vw, 2.25rem);
+  --text-h1--line-height: 1.1;
+  --text-h1--font-weight: 650;
+  --text-h1--letter-spacing: -0.022em;
+
+  --text-h2: 1.625rem;
+  --text-h2--line-height: 1.2;
+  --text-h2--font-weight: 640;
+  --text-h2--letter-spacing: -0.018em;
+
+  --text-h3: 1.25rem;
+  --text-h3--line-height: 1.3;
+  --text-h3--font-weight: 620;
+  --text-h3--letter-spacing: -0.012em;
+
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.55;
+
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.55;
+
+  --text-body-sm: 0.84375rem;
+  --text-body-sm--line-height: 1.5;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.2;
+  --text-label--font-weight: 550;
+
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--font-weight: 600;
+  --text-eyebrow--letter-spacing: 0.18em;
+
+  --text-num-lg: 1.75rem;
+  --text-num-lg--line-height: 1;
+  --text-num-lg--font-weight: 600;
+  --text-num-lg--letter-spacing: -0.01em;
+
+  --text-num: 0.875rem;
+  --text-num--line-height: 1;
+  --text-num--font-weight: 550;
+
+  /* Stock numeric sizes pulled onto the same scale, so a stray `text-sm`
+     still lands on system. */
+  --text-xs: 0.6875rem;
+  --text-sm: 0.84375rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.625rem;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --ease-out: var(--ease);
+  --ease-spring: var(--ease-spring);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+@layer base {
+  * {
+    border-color: var(--lm-border);
+  }
+
+  html {
+    /* Stop the toggle from flashing the wrong ground behind a rubber-band
+       scroll on iOS. */
+    background-color: var(--lm-bg);
+  }
+
+  body {
+    background-color: var(--lm-bg);
+    color: var(--lm-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+
+  /* One focus treatment everywhere, on the brand hue. Keyboard only — a
+     mouse press never draws it. */
+  :focus-visible {
+    outline: 2px solid var(--lm-brand);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Digits in a column must not jitter as they change. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--lm-brand-soft);
+    color: var(--lm-brand-text);
+  }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+@utility grid-paper {
+  /* The drafting grid the 3D stages are drawn on, escaped onto the page as
+     a very faint ground. Restrained on purpose: the canvas is the loud thing. */
+  background-image:
+    repeating-linear-gradient(0deg, var(--fig-grid-soft) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, var(--fig-grid-soft) 0 1px, transparent 1px 32px);
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  70% { transform: translateX(3px); }
+}
+
+@utility press {
+  transition:
+    background-color var(--dur-press) var(--ease),
+    border-color var(--dur-press) var(--ease),
+    color var(--dur-press) var(--ease),
+    transform var(--dur-press) var(--ease);
+  &:active {
+    transform: scale(0.972);
+  }
+}
+
+/* ============================================================
+   KATEX
+   Equations inherit the page's ink rather than KaTeX's own black, and the
+   \textcolor calls in the lesson content are left to speak for themselves.
+   ============================================================ */
+.katex {
+  color: inherit;
+  font-size: 1.03em;
+}
+
+/* ============================================================
+   3D STAGES
+   All three scenes position these elements themselves, projecting points
+   from the world each frame, so they are plain DOM with class names rather
+   than React nodes. The class names are a contract that the scene builders
+   under lib/ write, so only their appearance changes here.
+   ============================================================ */
+.explainer-stage,
+.problem-stage,
+.game-stage {
+  background-color: var(--fig-ground);
+  background-image:
+    repeating-linear-gradient(60deg, var(--fig-grid) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, var(--fig-grid) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg, var(--fig-grid-soft) 0 1px, transparent 1px 36.4px);
+}
+.game-stage {
+  background-image:
+    radial-gradient(90% 60% at 50% -8%, var(--lm-brand-ring) 0%, transparent 60%),
+    repeating-linear-gradient(60deg, var(--fig-grid) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, var(--fig-grid) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg, var(--fig-grid-soft) 0 1px, transparent 1px 36.4px);
+}
+.explainer-stage canvas,
+.problem-stage canvas,
+.game-stage canvas {
   display: block;
   width: 100%;
   height: 100%;
 }
-.explainer-labels {
+
+.explainer-labels,
+.problem-layer,
+.game-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
 }
+.problem-layer .pin,
+.game-layer .gpin {
+  pointer-events: auto;
+}
+
+/* ---- explainer: dimension and area labels ---- */
 .lab {
   position: absolute;
   transform: translate(-50%, -50%);
   font-weight: 700;
   white-space: nowrap;
-  transition: opacity 0.25s ease;
-  text-shadow: 0 1px 6px rgba(242, 244, 243, 0.95);
-  color: #14181a;
+  transition: opacity var(--dur-state) var(--ease);
+  color: var(--fig-ink);
+  text-shadow:
+    0 1px 6px var(--fig-halo),
+    0 0 3px var(--fig-halo);
 }
 .lab.dim {
   font-size: 19px;
@@ -84,21 +419,17 @@ body {
 .lab.area {
   font-size: 13.5px;
   padding: 3px 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #dce3e0;
+  border-radius: var(--radius-sm);
+  background: var(--fig-paper-soft);
+  border: 1px solid var(--fig-rule);
+  text-shadow: none;
 }
 .lab.hide {
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lab {
-    transition: none;
-  }
-}
-
-/* The original's disclosure marker: a red + that becomes – when open. */
+/* The disclosure marker on "what you need to know": a brand + that becomes
+   a – when open. */
 .know-summary {
   list-style: none;
 }
@@ -116,33 +447,7 @@ details[open] > .know-summary::before {
   content: "–";
 }
 
-/* ============================================================
-   problem stage
-   The scene positions these pins and length labels itself, projecting
-   points from 3D each frame, so they are plain DOM like the explainer's.
-   ============================================================ */
-.problem-stage {
-  background-color: #f2f4f3;
-  background-image:
-    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.05) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.035) 0 1px, transparent 1px 36.4px);
-}
-.problem-stage canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.problem-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.problem-layer .pin {
-  pointer-events: auto;
-}
-
+/* ---- problems: tappable vertices and length readouts ---- */
 .pin {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -152,88 +457,67 @@ details[open] > .know-summary::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   font-size: 12.5px;
-  color: #5a6560;
+  color: var(--fig-dim);
   cursor: pointer;
   user-select: none;
-  border: 1px solid #d3dad6;
-  background: rgba(250, 251, 250, 0.82);
+  border: 1px solid var(--fig-rule);
+  background: var(--fig-paper-soft);
   backdrop-filter: blur(6px);
-  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.3, 1.4), background 0.16s,
-    border-color 0.16s;
+  transition:
+    transform var(--dur-press) var(--ease-spring),
+    background-color var(--dur-press) var(--ease),
+    border-color var(--dur-press) var(--ease),
+    color var(--dur-press) var(--ease);
 }
 .pin:hover {
   transform: translate(-50%, -50%) scale(1.14);
-  border-color: #2b4fe8;
+  border-color: var(--fig-known-bright);
+  color: var(--fig-ink);
+}
+.pin:focus-visible {
+  outline-offset: 3px;
 }
 .pin.new {
-  animation: pin-popin 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+  animation: pin-popin 0.5s var(--ease-spring);
 }
 @keyframes pin-popin {
   0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 .pin.on {
-  background: #2b4fe8;
+  background: var(--fig-known-bright);
   color: #fff;
-  border-color: #2b4fe8;
-  box-shadow: 0 0 0 6px rgba(43, 79, 232, 0.14);
+  border-color: var(--fig-known-bright);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--fig-known-bright) 16%, transparent);
 }
 
 .len {
   position: absolute;
   transform: translate(-50%, -50%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   letter-spacing: -0.01em;
-  color: #2340c4;
-  text-shadow: 0 0 4px #f2f4f3, 0 0 4px #f2f4f3, 0 0 8px #f2f4f3, 0 0 8px #f2f4f3;
-  transition: color 0.4s;
+  color: var(--fig-known);
+  text-shadow:
+    0 0 4px var(--fig-halo), 0 0 4px var(--fig-halo),
+    0 0 8px var(--fig-halo), 0 0 8px var(--fig-halo);
+  transition: color var(--dur-enter) var(--ease);
 }
-.len.given { color: #3e4744; }
-.len.tgt { color: #c4331c; }
-.len.fresh { animation: len-ping 0.8s ease; }
+.len.given { color: var(--fig-dim); }
+.len.tgt { color: var(--fig-target); }
+.len.fresh { animation: len-ping 0.8s var(--ease); }
 @keyframes len-ping {
-  0% { transform: translate(-50%, -50%) scale(1.9); color: #e8442a; }
+  0% { transform: translate(-50%, -50%) scale(1.9); color: var(--fig-target); }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pin.new, .len.fresh { animation: none; }
-}
-
-/* ============================================================
-   game stage
-   Pins and length chips are positioned by the scene each frame, like the
-   other two stages, so they are plain DOM rather than React nodes.
-   ============================================================ */
-.game-stage {
-  background-color: #f2f4f3;
-  background-image:
-    radial-gradient(90% 60% at 50% -8%, rgba(43, 79, 232, 0.055) 0%, transparent 60%),
-    repeating-linear-gradient(60deg, rgba(20, 24, 26, 0.055) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(-60deg, rgba(20, 24, 26, 0.055) 0 1px, transparent 1px 42px),
-    repeating-linear-gradient(0deg, rgba(20, 24, 26, 0.04) 0 1px, transparent 1px 36.4px);
-}
-.game-stage canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.game-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.game-layer .gpin {
-  pointer-events: auto;
-}
-
+/* ---- game: pins and length chips ---- */
 .gpin {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -245,24 +529,29 @@ details[open] > .know-summary::before {
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
-  color: #14181a;
+  color: var(--fig-ink);
   cursor: pointer;
   user-select: none;
-  border: 1px solid #cbd3cf;
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--fig-rule);
+  background: var(--fig-paper-soft);
   backdrop-filter: blur(8px);
-  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4), background 0.18s,
-    border-color 0.18s;
+  transition:
+    transform var(--dur-press) var(--ease-spring),
+    background-color var(--dur-press) var(--ease),
+    border-color var(--dur-press) var(--ease);
 }
 .gpin:hover {
   transform: translate(-50%, -50%) scale(1.13);
-  border-color: #14181a;
+  border-color: var(--fig-ink);
+}
+.gpin:focus-visible {
+  outline-offset: 3px;
 }
 .gpin.sel {
-  background: #e8442a;
+  background: var(--fig-target);
   color: #fff;
-  border-color: #e8442a;
-  box-shadow: 0 0 0 8px rgba(232, 68, 42, 0.15);
+  border-color: var(--fig-target);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--fig-target) 17%, transparent);
 }
 .gpin .ord {
   position: absolute;
@@ -271,11 +560,11 @@ details[open] > .know-summary::before {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
-  color: #e8442a;
-  border: 1px solid #e8442a;
+  background: var(--fig-paper);
+  color: var(--fig-target);
+  border: 1px solid var(--fig-target);
   font-size: 9.5px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -284,28 +573,57 @@ details[open] > .know-summary::before {
 .glen {
   position: absolute;
   transform: translate(-50%, -50%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-weight: 700;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   padding: 2px 8px;
   border-radius: 20px;
   white-space: nowrap;
-  background: rgba(255, 255, 255, 0.94);
-  color: #2340c4;
-  border: 1px solid #bfc9df;
+  background: var(--fig-paper);
+  color: var(--fig-known);
+  border: 1px solid var(--fig-rule);
 }
 .glen.tgt {
-  color: #e8442a;
-  border-color: #f7d3cb;
+  color: var(--fig-target);
+  border-color: color-mix(in srgb, var(--fig-target) 45%, var(--fig-paper));
 }
 .glen.fresh {
-  animation: glen-ping 0.85s ease;
+  animation: glen-ping 0.85s var(--ease);
 }
 @keyframes glen-ping {
-  0% { transform: translate(-50%, -50%) scale(1.55); background: #e8442a; color: #fff; }
+  0% {
+    transform: translate(-50%, -50%) scale(1.55);
+    background: var(--fig-target);
+    color: #fff;
+  }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
+/* ============================================================
+   REDUCED MOTION
+   Everything that moves collapses to a state change. Nothing that
+   conveys meaning is removed — only the travel.
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-  .glen.fresh { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .pin.new,
+  .len.fresh,
+  .glen.fresh {
+    animation: none;
+  }
+  .pin:hover,
+  .gpin:hover {
+    transform: translate(-50%, -50%);
+  }
+  .press:active {
+    transform: none;
+  }
 }

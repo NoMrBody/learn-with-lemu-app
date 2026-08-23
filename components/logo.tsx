@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/logo.png";
+import { cn } from "@/lib/utils";
 
 /**
  * The lemur mark. Only the height is set — the width follows from the static
@@ -37,15 +38,51 @@ export function Logo({
 }
 
 /**
- * "← LeMiu" home link, used at the top of the pages that would otherwise be
- * dead ends. The arrow and wordmark stay: the mark on its own reads as
- * decoration, not as a way back.
+ * Mark plus wordmark, linking home. The wordmark is set in mono small-caps —
+ * the mark itself is achromatic, so the type is what has to carry the name.
  */
-export function HomeLink() {
+export function Wordmark({
+  className,
+  markClass = "h-6 w-auto",
+  sizes = "28px",
+  priority = false,
+}: {
+  className?: string;
+  markClass?: string;
+  sizes?: string;
+  priority?: boolean;
+}) {
   return (
     <Link
       href="/"
-      className="inline-flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-zinc-500 hover:text-foreground"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md",
+        "transition-opacity duration-(--dur-press) ease-out hover:opacity-80",
+        className,
+      )}
+    >
+      <Logo className={markClass} sizes={sizes} priority={priority} />
+      <span className="font-mono text-eyebrow uppercase text-fg max-[400px]:hidden">
+        LeMiu
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * "← LeMiu" home link, used at the top of pages that would otherwise be dead
+ * ends. The arrow and wordmark stay: the mark on its own reads as decoration,
+ * not as a way back.
+ */
+export function HomeLink({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md font-mono text-eyebrow uppercase",
+        "text-muted transition-colors duration-(--dur-press) ease-out hover:text-fg",
+        className,
+      )}
     >
       <span aria-hidden="true">←</span>
       <Logo className="h-[18px] w-auto" sizes="20px" />

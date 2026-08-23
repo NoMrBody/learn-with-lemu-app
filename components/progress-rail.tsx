@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { stageOwner } from "@/lib/stages";
+import { cn } from "@/lib/utils";
 import type { ProgressByStage, StageType, TopicStage } from "@/lib/topics";
 
 /**
@@ -34,9 +36,9 @@ function nodeState(
 
 const DOT_CLASS: Record<NodeState, string> = {
   // The ring is what makes "you are here" readable at a 7px dot size.
-  current: "bg-rail-current ring-4 ring-rail-current/15",
-  done: "bg-rail-done",
-  todo: "bg-rail-todo",
+  current: "bg-brand ring-4 ring-brand/20 scale-110",
+  done: "bg-correct",
+  todo: "bg-line-strong",
 };
 
 const STATE_LABEL: Record<NodeState, string> = {
@@ -58,10 +60,14 @@ export type ProgressRailProps = {
 };
 
 /**
- * The three-node progress indicator that sits above every stage.
+ * The three-node progress indicator above every stage.
+ *
+ * It is also the only chrome the stage routes have — they are full-viewport
+ * and deliberately skip AppHeader — so it carries the theme toggle too.
  *
  * Progression is not enforced: every node is a live link no matter what the
- * user has finished, so this reports state and never gates on it.
+ * user has finished, so this reports state and never gates on it. Its height
+ * is --rail-h, which the stage pages size their canvas against.
  */
 export default function ProgressRail({
   subject,
@@ -78,18 +84,26 @@ export default function ProgressRail({
   return (
     <nav
       aria-label="Topic progress"
-      className="flex flex-none items-center gap-3.5 border-b border-rail-line px-4 py-2 font-mono text-[10.5px] uppercase tracking-[0.16em]"
+      className={cn(
+        "flex h-(--rail-h) flex-none items-center gap-4 px-3 sm:px-4",
+        "border-b border-line bg-bg/85 backdrop-blur-md",
+        "font-mono text-eyebrow uppercase",
+      )}
     >
       {backHref && (
         <Link
           href={backHref}
-          className="whitespace-nowrap text-zinc-500 transition-colors hover:text-foreground"
+          className={cn(
+            "flex items-center gap-1.5 whitespace-nowrap rounded-md text-muted",
+            "transition-colors duration-(--dur-press) ease-out hover:text-fg",
+          )}
         >
-          ← {backLabel ?? "Back"}
+          <span aria-hidden="true">←</span>
+          <span className="max-sm:sr-only">{backLabel ?? "Back"}</span>
         </Link>
       )}
 
-      <ol className="flex max-w-[340px] flex-1 items-center">
+      <ol className="flex max-w-[320px] flex-1 items-center">
         {ordered.map((stage, i) => {
           const state = nodeState(stage, currentStage, progress);
           // A segment is lit by the stage behind it, so the trail fills in
@@ -103,12 +117,18 @@ export default function ProgressRail({
             // <li> from the accessibility tree in several browsers.
             <li
               key={stage.id}
-              className={i === 0 ? "flex flex-none items-center" : "flex flex-1 items-center"}
+              className={cn(
+                "flex items-center",
+                i === 0 ? "flex-none" : "flex-1",
+              )}
             >
               {i > 0 && (
                 <span
                   aria-hidden="true"
-                  className={`h-px flex-1 ${prevDone ? "bg-rail-done" : "bg-rail-line"}`}
+                  className={cn(
+                    "h-px flex-1 transition-colors duration-(--dur-enter) ease-out",
+                    prevDone ? "bg-correct" : "bg-line-strong",
+                  )}
                 />
               )}
               <Link
@@ -121,7 +141,12 @@ export default function ProgressRail({
                 className="group -my-2 grid size-6 flex-none place-items-center rounded-full"
               >
                 <span
-                  className={`size-[7px] rounded-full transition-all duration-300 group-hover:scale-125 ${DOT_CLASS[state]}`}
+                  className={cn(
+                    "size-[7px] rounded-full",
+                    "transition-all duration-(--dur-enter) ease-[cubic-bezier(0.2,0.9,0.3,1.4)]",
+                    "group-hover:scale-125 motion-reduce:transition-none",
+                    DOT_CLASS[state],
+                  )}
                 />
                 <span className="sr-only">
                   {stage.title} — {STATE_LABEL[state]}
@@ -133,10 +158,12 @@ export default function ProgressRail({
       </ol>
 
       {current && (
-        <span className="hidden whitespace-nowrap text-rail-current sm:inline">
+        <span className="hidden whitespace-nowrap text-brand-text sm:inline">
           {current.title}
         </span>
       )}
+
+      <ThemeToggle className="ml-auto" />
     </nav>
   );
 }

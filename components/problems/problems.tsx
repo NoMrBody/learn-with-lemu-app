@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { M } from "@/components/explainer/math";
 import TriBoard from "./tri-board";
+import { Ledger, type LedgerRow } from "@/components/ledger";
+import { Button } from "@/components/ui/button";
 import { Rich } from "@/lib/problems/rich";
 import { getProblems, type Problem } from "@/lib/problems/data";
 
 /** Named so the callback below does not reference `problem` in a type position,
  *  which the exhaustive-deps rule reads as a real dependency. */
 type AnswerOption = Problem["options"][number];
-import { nm, shuffled, type Points } from "@/lib/problems/geometry";
+import { dist, keyOf, nice, nm, shuffled, type Points } from "@/lib/problems/geometry";
 import { createProblemScene, type ProblemScene, type Tri3 } from "@/lib/problems/scene";
 import { markStageProgress } from "@/app/[subject]/[topicSlug]/actions";
 
@@ -223,16 +225,44 @@ export default function Problems({
 
   const toolsGot = new Set(problem.steps.slice(0, shown).map((s) => s.tool));
 
+  // The Ledger: what the statement gave you, plus everything the steps so far
+  // have established, plus the one length you are still after. Built here
+  // rather than in the component so the ordering — given, then found in the
+  // order they were won — matches how the reader got them.
+  const ledgerRows: LedgerRow[] = (() => {
+    const rows: LedgerRow[] = [];
+    const seen = new Set<string>();
+    const push = (a: string, b: string, state: LedgerRow["state"]) => {
+      const id = keyOf(a, b);
+      if (seen.has(id)) return;
+      seen.add(id);
+      rows.push({
+        id,
+        label: `${nm(a)}${nm(b)}`,
+        value: state === "target" ? "?" : nice(dist(points, a, b)),
+        state,
+      });
+    };
+    for (const [a, b] of problem.known) push(a, b, "given");
+    for (const step of problem.steps.slice(0, shown)) {
+      for (const [a, b] of step.lens ?? []) push(a, b, "found");
+    }
+    // Once the last step has landed the target is no longer a question.
+    const solvedTarget = shown >= problem.steps.length;
+    push(problem.target[0], problem.target[1], solvedTarget ? "found" : "target");
+    return rows;
+  })();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <div
         ref={stageRef}
-        className="problem-stage relative h-[44dvh] min-h-[250px] flex-none touch-none overflow-hidden lg:sticky lg:top-0 lg:h-[calc(100dvh-2.5rem)] lg:flex-1 lg:border-r lg:border-zinc-200 dark:lg:border-zinc-800"
+        className="problem-stage relative h-[44dvh] min-h-[250px] flex-none touch-none overflow-hidden lg:sticky lg:top-0 lg:h-[calc(100dvh-var(--rail-h))] lg:flex-1 lg:border-r lg:border-line"
       >
         <div ref={layerRef} className="problem-layer" />
         <p
           aria-hidden="true"
-          className={`pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500 transition-opacity duration-500 ${
+          className={`pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-fig-rule bg-fig-paper/70 px-3 py-1 font-mono text-eyebrow uppercase text-fig-dim backdrop-blur-sm transition-opacity duration-500 ease-out ${
             hint3d ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -240,16 +270,14 @@ export default function Problems({
         </p>
       </div>
 
-      <div className="w-full max-w-[660px] flex-none px-5 py-10 lg:max-w-[620px] lg:flex-[0_0_48%] lg:overflow-y-auto lg:px-10">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-zinc-500">
-          Solved problems
-        </p>
-        <h1 className="mt-3 text-[clamp(28px,5.4vw,40px)] font-bold leading-none tracking-[-0.028em]">
+      <div className="w-full max-w-[660px] flex-none bg-bg px-5 py-10 lg:max-w-[620px] lg:flex-[0_0_48%] lg:overflow-y-auto lg:px-10">
+        <p className="font-mono text-eyebrow uppercase text-muted">Solved problems</p>
+        <h1 className="mt-3 text-display">
           {idx === 0 ? "Nothing here is hard." : `${problem.tab}.`}
         </h1>
-        <p className="mt-3 max-w-[46ch] text-zinc-600 dark:text-zinc-400">
+        <p className="mt-4 max-w-[46ch] text-body-lg text-muted">
           Every stereometry problem is a{" "}
-          <b className="font-semibold text-foreground">short sequence of things you already know</b>.
+          <b className="font-semibold text-fg">short sequence of things you already know</b>.
           We take them one at a time, and you collect the tool each step needs.
         </p>
 
@@ -257,7 +285,7 @@ export default function Problems({
         <div
           role="tablist"
           aria-label="Problems"
-          className="mt-7 flex flex-wrap border-b border-zinc-200 dark:border-zinc-800"
+          className="mt-8 flex flex-wrap border-b border-line"
         >
           {problems.map((p, i) => (
             <button
@@ -266,15 +294,15 @@ export default function Problems({
               type="button"
               aria-selected={i === idx}
               onClick={() => openProblem(i)}
-              className={`-mb-px border-b-2 px-3.5 pb-2.5 pt-2 text-sm transition-colors ${
+              className={`-mb-px rounded-t-md border-b-2 px-3.5 pb-2.5 pt-2 text-body-sm transition-colors duration-(--dur-state) ease-out ${
                 i === idx
-                  ? "border-rail-current font-semibold text-foreground"
-                  : "border-transparent text-zinc-500 hover:text-foreground"
+                  ? "border-brand font-semibold text-fg"
+                  : "border-transparent text-muted hover:text-fg"
               }`}
             >
               {p.tab}
               {solved.includes(p.id) && (
-                <span className="ml-1.5 text-xs text-rail-done" aria-label="solved">
+                <span className="ml-1.5 text-correct" aria-label="solved">
                   ✓
                 </span>
               )}
@@ -284,21 +312,21 @@ export default function Problems({
 
         {/* statement */}
         <div className="mt-6">
-          <p className="text-[19px] leading-snug">
+          <p className="text-body-lg leading-snug">
             <Rich text={problem.statement} keyPrefix={`${problem.id}-stmt`} />
           </p>
-          <div className="mt-4 flex flex-wrap items-baseline gap-4 border-t border-zinc-200 pt-3.5 dark:border-zinc-800">
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-2 border-t border-line pt-3.5">
             {problem.given.map((g, i) => (
-              <span key={i} className="text-zinc-600 dark:text-zinc-400">
+              <span key={i} className="text-body-sm text-muted">
                 <Rich text={g} keyPrefix={`${problem.id}-g${i}`} />
               </span>
             ))}
-            <span className="block w-full font-medium text-rail-current">
+            <span className="block w-full font-medium text-brand-text">
               find <Rich text={problem.ask} keyPrefix={`${problem.id}-ask`} />
             </span>
           </div>
-          <p className="mt-5 border-l-2 border-[#E39A22] pl-4 text-[15.5px] leading-relaxed text-zinc-600 dark:text-zinc-400">
-            <b className="font-semibold text-foreground">The figure is not finished.</b>{" "}
+          <p className="mt-5 border-l-2 border-fig-built pl-4 text-body leading-relaxed text-muted">
+            <b className="font-semibold text-fg">The figure is not finished.</b>{" "}
             <Rich text={problem.incomplete} keyPrefix={`${problem.id}-inc`} />
           </p>
         </div>
@@ -306,27 +334,25 @@ export default function Problems({
         {/* gate */}
         {mode === "gate" && (
           <div className="mt-7">
-            <p className="text-[19px] font-bold tracking-[-0.018em]">Have a go first?</p>
+            <h2 className="text-h3">Have a go first?</h2>
             <div className="mt-3.5 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => setMode("try")}
-                className="rounded-xl border border-zinc-200 px-4 py-4 text-left transition-colors hover:border-rail-current dark:border-zinc-800"
+                className="press rounded-xl border border-line bg-surface px-4 py-4 text-left hover:border-brand/60 hover:bg-raised"
               >
-                <b className="block text-[17px] font-bold tracking-[-0.015em]">Let me try</b>
-                <span className="block text-[14.5px] text-zinc-600 dark:text-zinc-400">
+                <b className="block text-body-lg font-semibold">Let me try</b>
+                <span className="block text-body-sm text-muted">
                   Turn the figure, pull out triangles, then pick your answer.
                 </span>
               </button>
               <button
                 type="button"
                 onClick={startWalk}
-                className="rounded-xl border border-zinc-200 px-4 py-4 text-left transition-colors hover:border-rail-current dark:border-zinc-800"
+                className="press rounded-xl border border-line bg-surface px-4 py-4 text-left hover:border-brand/60 hover:bg-raised"
               >
-                <b className="block text-[17px] font-bold tracking-[-0.015em]">
-                  Walk me through it
-                </b>
-                <span className="block text-[14.5px] text-zinc-600 dark:text-zinc-400">
+                <b className="block text-body-lg font-semibold">Walk me through it</b>
+                <span className="block text-body-sm text-muted">
                   One step at a time, collecting the tool each step needs.
                 </span>
               </button>
@@ -337,7 +363,7 @@ export default function Problems({
         {/* have-a-go options */}
         {mode === "try" && (
           <div className="mt-7">
-            <p className="text-[19px] font-bold tracking-[-0.018em]">What did you get?</p>
+            <h2 className="text-h3">What did you get?</h2>
             <div className="mt-3.5 grid grid-cols-2 gap-2">
               {shuffled(problem.options, problem.id).map((o) => {
                 const st = optionState[o.v];
@@ -347,12 +373,12 @@ export default function Problems({
                     type="button"
                     disabled={!!st}
                     onClick={() => pickAnswer(o)}
-                    className={`rounded-xl border px-2.5 py-4 text-lg transition-colors ${
+                    className={`rounded-xl border px-2.5 py-4 text-lg transition-[background-color,border-color,box-shadow,opacity] duration-(--dur-enter) ease-out ${
                       st === "right"
-                        ? "border-rail-done bg-rail-done/10"
+                        ? "border-correct bg-correct-soft shadow-[0_0_0_4px_var(--lm-correct-soft)]"
                         : st === "wrong"
-                          ? "border-zinc-200 opacity-40 dark:border-zinc-800"
-                          : "border-zinc-200 hover:border-rail-done dark:border-zinc-800"
+                          ? "border-caution/60 opacity-45 motion-safe:animate-[nudge_180ms_var(--ease)]"
+                          : "press border-line bg-surface hover:border-correct hover:bg-raised"
                     }`}
                   >
                     <M tex={o.v} />
@@ -362,40 +388,45 @@ export default function Problems({
             </div>
             {verdict && (
               <p
-                className={`mt-4 border-l-2 pl-4 leading-relaxed text-zinc-600 dark:text-zinc-400 ${
-                  verdict.ok ? "border-rail-done" : "border-rail-current"
+                className={`mt-4 border-l-2 pl-4 text-body leading-relaxed text-muted ${
+                  verdict.ok ? "border-correct" : "border-caution"
                 }`}
               >
                 <Rich text={verdict.text} keyPrefix={`${problem.id}-verdict-${attempts}`} />
               </p>
             )}
             {!verdict && (
-              <p className="mt-3 text-center text-[13.5px] text-zinc-500">
+              <p className="mt-3 text-center text-body-sm text-faint">
                 Take your time. Pull out any triangle you like first.
               </p>
             )}
           </div>
         )}
 
+        {/* the Ledger — what you have, and the one thing you want */}
+        {mode !== "gate" && (
+          <Ledger rows={ledgerRows} className="mt-8" />
+        )}
+
         {/* toolbelt */}
         {mode === "walk" && (
           <div className="mt-7">
-            <h3 className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-zinc-500">
+            <h3 className="font-mono text-eyebrow uppercase text-muted">
               Tools this one needs
             </h3>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {problem.tools.map((t) => (
                 <div
                   key={t}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13.5px] transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-body-sm transition-colors duration-(--dur-enter) ease-out ${
                     toolsGot.has(t)
-                      ? "border-rail-done font-semibold text-rail-done"
-                      : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
+                      ? "border-correct bg-correct-soft font-semibold text-correct"
+                      : "border-line text-muted"
                   }`}
                 >
                   <i
                     className={`h-1.5 w-1.5 flex-none rounded-full ${
-                      toolsGot.has(t) ? "bg-rail-done" : "bg-zinc-300 dark:bg-zinc-700"
+                      toolsGot.has(t) ? "bg-correct" : "bg-line-strong"
                     }`}
                   />
                   {t}
@@ -408,13 +439,13 @@ export default function Problems({
         {/* scratchpad */}
         {boards.length > 0 && (
           <div className="mt-7">
-            <h3 className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[#8F5F12]">
+            <h3 className="font-mono text-eyebrow uppercase text-fig-scratch">
               Your scratchpad
             </h3>
             <div className="mt-2.5 flex flex-col gap-2.5">
               {boards.map((keys) => (
                 <div key={keys.join("")}>
-                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#8F5F12]">
+                  <div className="mb-1.5 flex items-center gap-2 font-mono text-eyebrow uppercase text-fig-scratch">
                     {keys.map(nm).join("")} — true shape, given lengths only
                     <button
                       type="button"
@@ -423,7 +454,7 @@ export default function Problems({
                         setBoards((b) => b.filter((x) => x.join("") !== keys.join("")));
                         sceneRef.current?.highlight(null);
                       }}
-                      className="ml-auto text-zinc-500 hover:text-foreground"
+                      className="ml-auto rounded-md px-1 text-muted transition-colors duration-(--dur-press) ease-out hover:text-fg"
                     >
                       ×
                     </button>
@@ -431,7 +462,7 @@ export default function Problems({
                   <TriBoard
                     points={points}
                     keys={keys as unknown as [string, string, string]}
-                    ink="#9A6614"
+                    ink="var(--fig-scratch)"
                     givenOnly
                     known={problem.known}
                     label={`Triangle ${keys.map(nm).join("")}, true shape`}
@@ -451,13 +482,13 @@ export default function Problems({
               return (
                 <div key={i} className="mb-7">
                   <div className="flex items-baseline gap-3">
-                    <span className="font-mono text-xs text-zinc-500">{i + 1}</span>
-                    <span className="text-xl font-bold tracking-[-0.02em]">{s.t}</span>
+                    <span className="font-mono text-eyebrow tabular-nums text-faint">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="text-h3">{s.t}</span>
                   </div>
 
                   {waiting && s.ask ? (
-                    <div className="mt-2.5 border-l-2 border-rail-done pl-4">
-                      <p className="font-bold tracking-[-0.015em]">
+                    <div className="mt-2.5 border-l-2 border-correct pl-4">
+                      <p className="font-semibold text-fg">
                         <Rich text={s.ask.q} keyPrefix={`${problem.id}-q${i}`} />
                       </p>
                       <div className="mt-3 flex flex-col gap-1.5">
@@ -476,10 +507,10 @@ export default function Problems({
                                   setWrongAsk((w) => ({ ...w, [key]: o.why }));
                                 }
                               }}
-                              className={`rounded-lg border px-3.5 py-2.5 text-left text-[15.5px] transition-colors ${
+                              className={`rounded-lg border px-3.5 py-2.5 text-left text-body transition-[background-color,border-color,opacity] duration-(--dur-state) ease-out ${
                                 wrong
-                                  ? "border-zinc-200 opacity-45 dark:border-zinc-800"
-                                  : "border-zinc-200 hover:border-rail-done dark:border-zinc-800"
+                                  ? "border-caution/60 opacity-45 motion-safe:animate-[nudge_180ms_var(--ease)]"
+                                  : "press border-line bg-surface hover:border-correct hover:bg-raised"
                               }`}
                             >
                               <Rich text={o.v} keyPrefix={`${problem.id}-o${i}-${o.v}`} />
@@ -491,31 +522,31 @@ export default function Problems({
                         .filter(([k]) => k.startsWith(`${i}:`))
                         .slice(-1)
                         .map(([k, why]) => (
-                          <p key={k} className="mt-3 text-[15.5px] text-rail-current">
+                          <p key={k} className="mt-3 text-body text-caution">
                             <Rich text={why} keyPrefix={`${problem.id}-why${i}`} />
                           </p>
                         ))}
                       <button
                         type="button"
                         onClick={() => setAnswered((a) => ({ ...a, [i]: true }))}
-                        className="mt-3 font-mono text-[11px] tracking-[0.1em] text-zinc-500 hover:underline"
+                        className="mt-3 rounded-md font-mono text-eyebrow uppercase text-muted underline-offset-4 hover:text-fg hover:underline"
                       >
                         Skip — just show me
                       </button>
                     </div>
                   ) : (
                     <>
-                      <p className="mt-2.5 leading-relaxed text-zinc-600 dark:text-zinc-400">
+                      <p className="mt-2.5 text-body leading-relaxed text-muted">
                         <Rich text={s.p} keyPrefix={`${problem.id}-p${i}`} />
                       </p>
                       {s.tex && (
-                        <div className="my-4 overflow-x-auto text-center text-[19px] text-[#2340C4]">
+                        <div className="my-4 overflow-x-auto rounded-lg border border-line bg-surface px-3 py-3 text-center text-body-lg text-fig-known">
                           <M tex={s.tex} />
                         </div>
                       )}
                       {s.board && (
                         <div className="mb-3.5">
-                          <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-zinc-500">
+                          <div className="mb-1.5 font-mono text-eyebrow uppercase text-muted">
                             flat, true shape
                           </div>
                           <TriBoard
@@ -527,11 +558,11 @@ export default function Problems({
                         </div>
                       )}
                       {s.note && (
-                        <p className="text-[15.5px] text-zinc-600 dark:text-zinc-400">
+                        <p className="text-body text-muted">
                           <Rich text={s.note} keyPrefix={`${problem.id}-n${i}`} />
                         </p>
                       )}
-                      <span className="mt-2 inline-flex items-center gap-1.5 font-mono text-[13px] font-medium text-rail-done">
+                      <span className="mt-2 inline-flex items-center gap-1.5 font-mono text-body-sm font-medium text-correct">
                         {s.got} — now on the figure
                       </span>
                     </>
@@ -541,14 +572,14 @@ export default function Problems({
             })}
 
             {shown >= problem.steps.length && (
-              <div className="mt-7 border-t-2 border-rail-current pt-5">
-                <div className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-rail-current">
+              <div className="mt-8 border-t-2 border-brand pt-5">
+                <div className="font-mono text-eyebrow uppercase text-brand-text">
                   answer
                 </div>
-                <div className="mb-3.5 mt-3 text-3xl">
+                <div className="mb-3.5 mt-3 text-num-lg">
                   <M tex={problem.answer} />
                 </div>
-                <p className="leading-relaxed text-zinc-600 dark:text-zinc-400">
+                <p className="text-body leading-relaxed text-muted">
                   <Rich text={problem.why} keyPrefix={`${problem.id}-why`} />
                 </p>
               </div>
@@ -558,17 +589,14 @@ export default function Problems({
         )}
 
         {allDone && (
-          <div className="mt-6 flex flex-col gap-3 rounded-lg border border-rail-done px-4 py-4">
-            <p className="text-rail-done">All four solved — this stage is complete.</p>
+          <div className="mt-8 flex flex-col gap-3 rounded-xl border border-correct bg-correct-soft px-4 py-4">
+            <p className="text-body font-medium text-correct">All four solved — this stage is complete.</p>
             {/* Only when the sticky bar is not already offering the hand-off,
                 so the two never appear as duplicate buttons. */}
             {nextStage && action?.kind !== "next-stage" && (
-              <Link
-                href={nextStage.href}
-                className="self-start rounded-lg bg-foreground px-4 py-2.5 font-medium text-background"
-              >
-                Next: {nextStage.title} →
-              </Link>
+              <Button asChild className="self-start">
+                <Link href={nextStage.href}>Next: {nextStage.title} →</Link>
+              </Button>
             )}
           </div>
         )}
@@ -577,28 +605,22 @@ export default function Problems({
         {action && (
           <div className="sticky bottom-4 z-10 mt-7">
             {action.kind === "next-stage" && nextStage ? (
-              <Link
-                href={nextStage.href}
-                className="block w-full rounded-xl bg-foreground px-5 py-4 text-center font-semibold text-background"
-              >
-                {action.label}
-              </Link>
+              <Button asChild size="xl">
+                <Link href={nextStage.href}>{action.label}</Link>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                size="xl"
+                variant={action.ghost ? "secondary" : "primary"}
                 onClick={action.kind === "walk" ? startWalk : advance}
                 disabled={action.disabled}
-                className={`w-full rounded-xl px-5 py-4 font-semibold transition-[filter] disabled:opacity-40 ${
-                  action.ghost
-                    ? "border border-zinc-200 bg-background text-foreground dark:border-zinc-800"
-                    : "bg-foreground text-background hover:brightness-125"
-                }`}
               >
                 {action.label}
-              </button>
+              </Button>
             )}
             {action.hint && (
-              <p className="mt-2.5 text-center text-[13.5px] text-zinc-500">{action.hint}</p>
+              <p className="mt-2.5 text-center text-body-sm text-muted">{action.hint}</p>
             )}
           </div>
         )}
