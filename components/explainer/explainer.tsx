@@ -2,10 +2,10 @@
 
 import "katex/dist/katex.min.css";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Controls from "./controls";
 import {
-  BEATS, BEAT_GROUPS, BEAT_LABELS, INITIAL_USER_STATE, beatText, type UserState,
+  BEAT_GROUPS, BEAT_LABELS, beatText, getBeats, initialUserState, type UserState,
 } from "@/lib/explainer/beats";
 import {
   createExplainerScene, volume, type ExplainerScene, type SceneParams,
@@ -15,6 +15,8 @@ import { markStageProgress } from "@/app/[subject]/[topicSlug]/actions";
 
 export type ExplainerProps = {
   topicId: string;
+  /** Which explainer to build — see getBeats(). 'box' and 'pyramid' differ. */
+  topicSlug: string;
   /** Already in progress or finished, so the mount write would be a no-op. */
   alreadyStarted: boolean;
   /** Already finished, so paging to the last slide again need not rewrite it. */
@@ -25,6 +27,7 @@ export type ExplainerProps = {
 
 export default function Explainer({
   topicId,
+  topicSlug,
   alreadyStarted,
   alreadyCompleted,
   nextStage,
@@ -33,9 +36,12 @@ export default function Explainer({
   const labelsRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ExplainerScene | null>(null);
 
+  // This topic's slides, with its solid already pinned into each one.
+  const beats = useMemo(() => getBeats(topicSlug), [topicSlug]);
+
   const [beat, setBeat] = useState(0);
   const [hint, setHint] = useState(true);
-  const [user, setUser] = useState<UserState>(INITIAL_USER_STATE);
+  const [user, setUser] = useState<UserState>(() => initialUserState(topicSlug));
   const completedRef = useRef(alreadyCompleted);
 
   /* ---- the 3D world: created once, then fed ---- */
@@ -59,7 +65,7 @@ export default function Explainer({
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-    const b = BEATS[beat];
+    const b = beats[beat];
     const params: SceneParams = {
       dims: user.dims,
       solid: user.solid,
@@ -91,7 +97,7 @@ export default function Explainer({
       showPrjArc: b.showPrjArc ?? true,
     };
     scene.update(params);
-  }, [beat, user]);
+  }, [beat, user, beats]);
 
   /* ---- mark the stage started ---- */
   useEffect(() => {
@@ -101,14 +107,14 @@ export default function Explainer({
 
   const go = useCallback(
     (next: number) => {
-      const i = Math.max(0, Math.min(BEATS.length - 1, next));
+      const i = Math.max(0, Math.min(beats.length - 1, next));
       setBeat(i);
-      const patch = BEATS[i].onEnter;
+      const patch = beats[i].onEnter;
       if (patch) setUser((u) => ({ ...u, ...patch }));
 
       // Finishing the last slide is what completes the stage. Guarded so
       // paging back and forth across the end doesn't rewrite it every time.
-      if (i === BEATS.length - 1 && !completedRef.current) {
+      if (i === beats.length - 1 && !completedRef.current) {
         completedRef.current = true;
         void markStageProgress({
           topicId,
@@ -118,15 +124,17 @@ export default function Explainer({
         });
       }
     },
-    [topicId],
+    [topicId, beats],
   );
 
+  // Kept wired, but unreachable: Controls renders the solid toggle only for a
+  // beat whose mode is 'both', and getBeats() resolves that away per topic.
   const setSolid = useCallback(
     (solid: Solid) => {
       sceneRef.current?.stopSpin();
-      setUser((u) => ({ ...u, ...BEATS[beat].onEnter, solid }));
+      setUser((u) => ({ ...u, ...beats[beat].onEnter, solid }));
     },
-    [beat],
+    [beat, beats],
   );
 
   const set = useCallback((patch: Partial<UserState>) => {
@@ -139,7 +147,7 @@ export default function Explainer({
     });
   }, []);
 
-  const b = BEATS[beat];
+  const b = beats[beat];
   const text = beatText(b, user.solid);
 
   return (
@@ -162,7 +170,7 @@ export default function Explainer({
       <div className="flex-none border-t border-zinc-200 bg-white/95 px-5 py-4 lg:flex lg:w-[38%] lg:max-w-[440px] lg:items-center lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-8 dark:border-zinc-800 dark:bg-zinc-950/95">
         <div className="mx-auto w-full max-w-[640px]">
           <ol className="mb-3 flex list-none gap-1.5" aria-label="Slide progress">
-            {BEATS.map((_, i) => (
+            {beats.map((_, i) => (
               <li
                 key={i}
                 aria-current={i === beat ? "step" : undefined}
@@ -208,7 +216,7 @@ export default function Explainer({
             >
               Back
             </button>
-            {beat === BEATS.length - 1 && nextStage ? (
+            {beat === beats.length - 1 && nextStage ? (
               // The lesson is over, so the primary action stops being "next
               // slide" and becomes the hand-off to the next stage.
               <Link
@@ -221,7 +229,7 @@ export default function Explainer({
               <button
                 type="button"
                 onClick={() => go(beat + 1)}
-                disabled={beat === BEATS.length - 1}
+                disabled={beat === beats.length - 1}
                 className="flex-1 rounded bg-rail-current px-4 py-3 text-[15px] font-semibold text-white disabled:opacity-25"
               >
                 Next

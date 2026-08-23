@@ -4,14 +4,20 @@ import type {
 } from "./scene";
 
 /**
- * The nine beats of the topic explainer, ported from the BEATS array in
+ * The beats of the stereometry explainers, ported from the BEATS array in
  * legacy/topic.html (which reworked legacy/cuboid.html).
  *
- * Roughly half the beats let the learner switch between the box and the
- * pyramid on the same slide. That is a `solids` mode per beat:
- *   'both' — show the toggle
- *   'box'  — pinned; entering forces the box
- *   'none' — neither solid is drawn (the two abstract plane beats)
+ * The box and the pyramid are separate topics, each with its own explainer,
+ * but they are the same nine slides seen from two sides — so this stays one
+ * array and `getBeats(topicSlug)` cuts it down per topic. A `solids` mode says
+ * which topics a beat belongs to:
+ *   'both' — both topics; pinned to whichever solid the topic is about
+ *   'box'  — the box explainer only
+ *   'pyr'  — the pyramid explainer only
+ *   'none' — neither solid is drawn (the two abstract plane beats), both topics
+ *
+ * There is no toggle any more: `getBeats` resolves 'both' down to one solid on
+ * the way out, so nothing downstream ever sees it.
  *
  * Where a slide's wording only makes sense for one solid, `titleBySolid` /
  * `bodyBySolid` / `knowBySolid` override it. The original kept a single
@@ -27,7 +33,11 @@ export type ControlKind =
   // scene groups are still built, so restoring a slide is a one-line change.
   | "par" | "tpp" | "solo";
 
-export type SolidMode = "both" | "box" | "none";
+/**
+ * Which explainer(s) a beat appears in. 'both' never survives getBeats() — it
+ * is resolved to the topic's own solid there.
+ */
+export type SolidMode = "both" | "box" | "pyr" | "none";
 
 /** Everything the learner can change that outlives a single beat. */
 export type UserState = {
@@ -99,17 +109,48 @@ export function beatText(b: Beat, solid: Solid) {
 
 export const BEATS: Beat[] = [
   {
-    title: "Pick your solid.",
-    body: "Box or pyramid, and the three numbers that describe it. Whatever you choose stays with you for the whole page — every face, every net, every diagonal from here on is yours, not ours.",
+    // Wording only: with the topics split there is no toggle here any more, so
+    // the shared text would be promising a choice the page cannot offer.
+    title: "Three numbers, and they are yours.",
+    body: "Pick them now. Whatever you choose stays with you for the whole page — every face, every net, every diagonal from here on is yours, not ours.",
+    titleBySolid: {
+      box: "Three numbers, one box.",
+      pyr: "Three numbers, one pyramid.",
+    },
+    bodyBySolid: {
+      box: "Length, width and height — that is the whole description. Whatever you choose stays with you for the whole page: every face, every net, every diagonal from here on is yours, not ours.",
+      pyr: "A rectangular base, and an apex directly above its centre. The same three numbers describe all of it. Whatever you choose stays with you for the whole page: every face, every net, every slant from here on is yours, not ours.",
+    },
     know: {
       t: "Worth trying",
       p: (
         <>
-          Set all three equal for a <b>cube</b>, or switch to the pyramid and watch the
-          same three numbers describe something completely different. Come back to this
-          slider at any point — nothing on this page is locked to one shape.
+          Come back to this slider at any point — nothing on this page is locked to one
+          set of numbers.
         </>
       ),
+    },
+    knowBySolid: {
+      box: {
+        t: "Worth trying",
+        p: (
+          <>
+            Set all three equal and you have a <b>cube</b>. Come back to this slider at
+            any point — nothing on this page is locked to one set of numbers.
+          </>
+        ),
+      },
+      pyr: {
+        t: "Worth trying",
+        p: (
+          <>
+            Make the base square for a <b>right square pyramid</b>, then flatten the
+            height right down and watch the slant faces fall towards the base. Come back
+            to this slider at any point — nothing on this page is locked to one set of
+            numbers.
+          </>
+        ),
+      },
     },
     control: "dims",
     solids: "both",
@@ -321,3 +362,47 @@ export const BEATS: Beat[] = [
     onEnter: { unfold: 0, fill: 0, doubled: false, solid: "box" },
   },
 ];
+
+/* ============================================================
+   per-topic selection
+
+   The box and the pyramid are separate topics over one array of
+   beats. Everything below turns "which topic" into "which beats,
+   showing which solid".
+   ============================================================ */
+
+/** The solid each stereometry topic is about. */
+const TOPIC_SOLID: Readonly<Record<string, Solid>> = {
+  box: "box",
+  pyramid: "pyr",
+};
+
+/**
+ * The solid a topic's explainer shows. Unknown slugs fall back to the box:
+ * a topic that reaches this without an entry is a wiring mistake, and showing
+ * the box is a better failure than showing nothing.
+ */
+export function solidFor(topicSlug: string): Solid {
+  return TOPIC_SOLID[topicSlug] ?? "box";
+}
+
+/** The starting state for a topic, with its solid already pinned. */
+export function initialUserState(topicSlug: string): UserState {
+  return { ...INITIAL_USER_STATE, solid: solidFor(topicSlug) };
+}
+
+/**
+ * The beats for one topic's explainer.
+ *
+ * Two things happen here. Beats belonging to the other solid are dropped —
+ * the box keeps the Pythagoras and projection slides, which have no pyramid
+ * reading. And 'both' is resolved to this topic's solid, so no beat downstream
+ * still claims to offer a choice: `Controls` renders the solid toggle exactly
+ * when it sees 'both', and with the topics split there is nothing to toggle.
+ */
+export function getBeats(topicSlug: string): Beat[] {
+  const solid = solidFor(topicSlug);
+  return BEATS.filter(
+    (b) => b.solids === "both" || b.solids === "none" || b.solids === solid,
+  ).map((b) => (b.solids === "both" ? { ...b, solids: solid } : b));
+}

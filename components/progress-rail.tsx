@@ -1,13 +1,20 @@
 import Link from "next/link";
+import { stageOwner } from "@/lib/stages";
 import type { ProgressByStage, StageType, TopicStage } from "@/lib/topics";
 
-/** Canonical URL for one stage of one topic. */
+/**
+ * Canonical URL for one stage of one topic.
+ *
+ * A stage a topic borrows resolves to the owner's route, not its own: the
+ * pyramid's puzzle node links into /stereometry/box/game. That keeps one URL,
+ * and so one progress row, for the shared stage.
+ */
 export function stageHref(
   subject: string,
   topicSlug: string,
   stageType: StageType,
 ): string {
-  return `/${subject}/${topicSlug}/${stageType}`;
+  return `/${subject}/${stageOwner(subject, topicSlug, stageType)}/${stageType}`;
 }
 
 type NodeState = "current" | "done" | "todo";

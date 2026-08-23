@@ -1,7 +1,11 @@
 import type { Points } from "./geometry";
 
 /**
- * The four problems, ported from the PROBLEMS array in legacy/problems.html.
+ * The problem sets, ported from the PROBLEMS array in legacy/problems.html.
+ *
+ * Unlike the explainer beats, the box and the pyramid do NOT share these: each
+ * topic has its own set, selected by `getProblems(topicSlug)` at the bottom of
+ * this file. BOX_PROBLEMS are the original four.
  *
  * Prose keeps the original `$…$` maths and `<b>` emphasis as authored, so it
  * still diffs cleanly against the legacy file; lib/problems/rich.tsx turns
@@ -59,7 +63,7 @@ export type Problem = {
   plane?: { at: number; quad: () => readonly (readonly [number, number, number])[] };
 };
 
-export const PROBLEMS: readonly Problem[] = [
+export const BOX_PROBLEMS: readonly Problem[] = [
   {
     id: "p1451",
     no: "14.51",
@@ -383,3 +387,26 @@ export const PROBLEMS: readonly Problem[] = [
     why: "In general this is AB = √(a²+b²+c²−2ab cos x). Fold to 90° and the cosine term vanishes — it becomes the diagonal of a box.",
   },
 ];
+
+/**
+ * The pyramid's problems.
+ *
+ * Empty until they are written — the problem stage renders an explicit
+ * "nothing here yet" state for an empty set rather than crashing on
+ * PROBLEMS[0], so the topic stays navigable while this fills up.
+ */
+export const PYRAMID_PROBLEMS: readonly Problem[] = [];
+
+const TOPIC_PROBLEMS: Readonly<Record<string, readonly Problem[]>> = {
+  box: BOX_PROBLEMS,
+  pyramid: PYRAMID_PROBLEMS,
+};
+
+/**
+ * The problem set for one topic. An unknown slug gets an empty set, which the
+ * stage renders as "not written yet" — the honest answer for a topic nobody
+ * has authored problems for.
+ */
+export function getProblems(topicSlug: string): readonly Problem[] {
+  return TOPIC_PROBLEMS[topicSlug] ?? [];
+}

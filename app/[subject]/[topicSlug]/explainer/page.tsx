@@ -37,6 +37,7 @@ export default async function ExplainerPage(
       />
       <Explainer
         topicId={view.topic.id}
+        topicSlug={topicSlug}
         alreadyStarted={progress.status !== "not_started"}
         alreadyCompleted={progress.status === "completed"}
         nextStage={

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { delegationsFor } from "@/lib/stages";
 import type { Json } from "@/lib/supabase/types";
 
 /* ============================================================
@@ -505,6 +506,43 @@ export type StageView = {
 };
 
 /**
+ * A copy of `byStage` with the owning topic's progress folded in for every
+ * stage this topic borrows, so a rail reports the shared stage's real state
+ * rather than an empty row of its own.
+ *
+ * Returns a new object: `byStage` came out of a cache()d read, and mutating it
+ * would leak one topic's borrowed progress into every other caller in the same
+ * render.
+ */
+async function withDelegatedProgress(
+  subjectSlug: string,
+  topicSlug: string,
+  byStage: ProgressByStage,
+): Promise<ProgressByStage> {
+  const pairs = delegationsFor(subjectSlug, topicSlug);
+  if (pairs.length === 0) return byStage;
+
+  const owned = await Promise.all(
+    pairs.map(async ([stage, ownerSlug]) => {
+      const owner = await getTopic(subjectSlug, ownerSlug);
+      // getTopic and getUserProgress are both cache()d, so a page that also
+      // renders the owner topic pays for this once.
+      return [stage, owner ? await getUserProgress(owner.id) : null] as const;
+    }),
+  );
+
+  const merged: ProgressByStage = { ...byStage };
+  for (const [stage, progress] of owned) {
+    // A missing owner leaves the borrowed stage reading not_started, which is
+    // the safe direction: the rail shows it unfinished rather than claiming a
+    // completion that was never recorded.
+    if (!progress) continue;
+    (merged as Record<StageType, StageProgress>)[stage] = progress.byStage[stage];
+  }
+  return merged;
+}
+
+/**
  * Everything the three stage routes need. Returns null when the subject,
  * topic, or stage doesn't exist, or when the topic isn't `available` yet —
  * callers turn that into notFound().
@@ -529,5 +567,7 @@ export async function getStageView(
   const stage = stages.find((s) => s.stageType === stageType);
   if (!stage) return null;
 
-  return { subject, topic, stages, stage, progress };
+  const byStage = await withDelegatedProgress(subjectSlug, topicSlug, progress.byStage);
+
+  return { subject, topic, stages, stage, progress: { ...progress, byStage } };
 }

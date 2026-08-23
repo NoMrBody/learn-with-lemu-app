@@ -1,6 +1,19 @@
 -- Seed content. Idempotent: re-running updates titles/order in place rather
 -- than erroring or duplicating, so it is safe to replay against a live DB.
 -- User progress is never touched here.
+--
+-- This file describes the END STATE. Where the live database was built up in
+-- steps, the numbered fix-up migrations after it bring an existing database in
+-- line; on a fresh database this produces the same thing directly and those
+-- fix-ups match nothing.
+--
+-- ORDER MATTERS ON A DATABASE THAT PREDATES THE BOX/PYRAMID SPLIT.
+-- Such a database still calls the topic 'solids'. Running this file against it
+-- would insert a SECOND topic at stereometry/box with a fresh uuid — carrying
+-- no progress — and 05 would then fail renaming solids -> box against the
+-- unique (subject, slug). Apply 05_split_pyramid.sql FIRST on any database
+-- that has not been split yet; after that this file is idempotent again and
+-- updates the two topics in place.
 
 -- Top-level areas first: a subject's parent must already exist.
 insert into public.subjects (slug, title, blurb, order_index, status) values
@@ -32,13 +45,15 @@ on conflict (slug) do update set
   parent_slug = excluded.parent_slug;
 
 insert into public.topics (subject, slug, title, order_index, status) values
-  -- The one topic with real content today. Covers the box and the pyramid
-  -- together: half its slides let the learner switch between the two.
-  ('stereometry', 'solids',   'Box & Pyramid', 1, 'available'),
+  -- The box and the pyramid are separate topics: each has its own explainer
+  -- and its own problem set. They share the puzzle stage — see the note on
+  -- topic_stages below.
+  ('stereometry', 'box',      'The Box',     1, 'available'),
+  ('stereometry', 'pyramid',  'The Pyramid', 2, 'available'),
   -- Placeholders so the "in development" state on the index has something
   -- to render against.
-  ('stereometry', 'sphere',   'The Sphere',    2, 'in_development'),
-  ('planimetry',  'triangle', 'The Triangle',  1, 'in_development'),
+  ('stereometry', 'sphere',   'The Sphere',  3, 'in_development'),
+  ('planimetry',  'triangle', 'The Triangle', 1, 'in_development'),
   -- Algebra has nothing built yet; these render as "Coming Soon".
   ('algebra', 'functions',             'Functions',             1, 'in_development'),
   ('algebra', 'linear-equations',      'Linear Equations',      2, 'in_development'),
@@ -50,15 +65,25 @@ on conflict (subject, slug) do update set
 
 -- Stages exist only for topics that have content. An in_development topic is
 -- not navigable, so it has no stages to navigate to.
+--
+-- Both stereometry topics carry all three stages, so both rails show three
+-- nodes. The puzzle is shared: pyramid's game node links to the box's game
+-- route and progress records against the box. That delegation lives in the
+-- TypeScript (DELEGATED_STAGES in lib/stages.ts), not here — there is exactly
+-- one of them, and a column would mean regenerating the generated DB types.
 insert into public.topic_stages (topic_id, stage_type, order_index, title)
 select t.id, s.stage_type, s.order_index, s.title
 from public.topics t
-cross join (values
-  ('explainer', 1, 'The topic'),
-  ('problem',   2, 'The problem'),
-  ('game',      3, 'The puzzle')
-) as s(stage_type, order_index, title)
-where t.subject = 'stereometry' and t.slug = 'solids'
+join (values
+  ('box',     'explainer', 1, 'The box'),
+  ('box',     'problem',   2, 'The problem'),
+  ('box',     'game',      3, 'The puzzle'),
+  ('pyramid', 'explainer', 1, 'The pyramid'),
+  ('pyramid', 'problem',   2, 'The problem'),
+  ('pyramid', 'game',      3, 'The puzzle')
+) as s(topic_slug, stage_type, order_index, title)
+  on s.topic_slug = t.slug
+where t.subject = 'stereometry'
 on conflict (topic_id, stage_type) do update set
   order_index = excluded.order_index,
   title       = excluded.title;

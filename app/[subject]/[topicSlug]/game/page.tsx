@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import ProgressRail from "@/components/progress-rail";
 import Game from "@/components/game/game";
+import { stageOwner } from "@/lib/stages";
 import { getStageView } from "@/lib/topics";
 
 export async function generateMetadata(props: PageProps<"/[subject]/[topicSlug]/game">) {
@@ -11,6 +12,13 @@ export async function generateMetadata(props: PageProps<"/[subject]/[topicSlug]/
 
 export default async function GamePage(props: PageProps<"/[subject]/[topicSlug]/game">) {
   const { subject, topicSlug } = await props.params;
+
+  // The pyramid borrows the box's puzzle. Every in-app link already points at
+  // the owner via stageHref(), so this only catches a typed or bookmarked URL —
+  // but it has to, or the same puzzle would record progress under two topics.
+  const owner = stageOwner(subject, topicSlug, "game");
+  if (owner !== topicSlug) redirect(`/${subject}/${owner}/game`);
+
   const view = await getStageView(subject, topicSlug, "game");
   if (!view) notFound();
 

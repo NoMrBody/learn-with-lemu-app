@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { M } from "@/components/explainer/math";
 import TriBoard from "./tri-board";
 import { Rich } from "@/lib/problems/rich";
-import { PROBLEMS, type Problem } from "@/lib/problems/data";
+import { getProblems, type Problem } from "@/lib/problems/data";
 
 /** Named so the callback below does not reference `problem` in a type position,
  *  which the exhaustive-deps rule reads as a real dependency. */
@@ -19,6 +19,8 @@ type Mode = "gate" | "try" | "walk";
 
 export type ProblemsProps = {
   topicId: string;
+  /** Which problem set to run — the box and the pyramid have their own. */
+  topicSlug: string;
   alreadyStarted: boolean;
   /** Problem ids already solved, restored from user_progress.details. */
   initialSolved: readonly string[];
@@ -27,8 +29,11 @@ export type ProblemsProps = {
 };
 
 export default function Problems({
-  topicId, alreadyStarted, initialSolved, nextStage,
+  topicId, topicSlug, alreadyStarted, initialSolved, nextStage,
 }: ProblemsProps) {
+  // The route renders a placeholder instead of mounting this when the set is
+  // empty, so `problems[idx]` below is safe.
+  const problems = useMemo(() => getProblems(topicSlug), [topicSlug]);
   const stageRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ProblemScene | null>(null);
@@ -46,9 +51,9 @@ export default function Problems({
   const [solved, setSolved] = useState<string[]>([...initialSolved]);
   const [hint3d, setHint3d] = useState(true);
 
-  const problem: Problem = PROBLEMS[idx];
+  const problem: Problem = problems[idx];
   const points: Points = useMemo(() => problem.pts(), [problem]);
-  const allDone = solved.length >= PROBLEMS.length;
+  const allDone = solved.length >= problems.length;
 
   /* ---- scene lifecycle ---- */
   useEffect(() => {
@@ -103,14 +108,14 @@ export default function Problems({
       topicId,
       stageType: "problem",
       // The stage is finished only once every problem is solved.
-      status: solved.length >= PROBLEMS.length ? "completed" : "in_progress",
+      status: solved.length >= problems.length ? "completed" : "in_progress",
       details: { solved },
     });
-  }, [solved, topicId]);
+  }, [solved, topicId, problems.length]);
 
   /* ---- navigation ---- */
   const openProblem = useCallback((i: number) => {
-    setIdx(((i % PROBLEMS.length) + PROBLEMS.length) % PROBLEMS.length);
+    setIdx(((i % problems.length) + problems.length) % problems.length);
     setMode("gate");
     setShown(0);
     setAnswered({});
@@ -120,7 +125,7 @@ export default function Problems({
     setVerdict(null);
     setBoards([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  }, [problems.length]);
 
   const advance = useCallback(() => {
     if (shown > 0 && problem.steps[shown - 1].ask && !answered[shown - 1]) return;
@@ -208,8 +213,8 @@ export default function Problems({
     return {
       kind: "advance",
       label:
-        idx + 1 < PROBLEMS.length
-          ? `Next problem: ${PROBLEMS[idx + 1].tab}`
+        idx + 1 < problems.length
+          ? `Next problem: ${problems[idx + 1].tab}`
           : "Back to the start",
       ghost: true,
       hint: "",
@@ -254,7 +259,7 @@ export default function Problems({
           aria-label="Problems"
           className="mt-7 flex flex-wrap border-b border-zinc-200 dark:border-zinc-800"
         >
-          {PROBLEMS.map((p, i) => (
+          {problems.map((p, i) => (
             <button
               key={p.id}
               role="tab"
