@@ -3,9 +3,11 @@
 import type { ReactNode } from "react";
 import { M } from "./math";
 import {
-  MAXD, apoLW, apoWH, faceDiag, halfDiag, nice, projPhi, pyrSurfaceArea,
-  pyrVolume, soloAngle, soloLen, spaceDiag, surfaceArea, tppOblAngle, volume,
-  type Dims, type FaceKind, type PyrFaceKind, type Solid,
+  MAXD, PYR_ANG_CSS, PYR_TRI_CSS, apoLW, apoWH, faceDiag, halfDiag, lateralEdge,
+  nice, projPhi, pyrEdgeAngle, pyrFaceAngle, pyrSurfaceArea, pyrVolume,
+  soloAngle, soloLen, spaceDiag, surfaceArea, tppOblAngle, volume,
+  type FaceKind, type PyrAngKind, type PyrFaceKind, type PyrTriKind,
+  type Solid,
 } from "@/lib/explainer/scene";
 import { texNum } from "@/lib/explainer/cuboid-figures";
 import {
@@ -266,6 +268,83 @@ const PYR_FACES: Record<
   },
 };
 
+/* ---------- the three right triangles, from TRIANGLES_PYR in the legacy file ----------
+
+   The legacy pyramid was regular and square, so it had one apothem. This one
+   is rectangular: the apothem these triangles use is the one onto a base edge
+   of length l, and the notes name the other where it matters. */
+
+const PYR_TRIS: Record<
+  PyrTriKind,
+  { label: string; css: string; note: ReactNode; tex: (d: UserState["dims"]) => string }
+> = {
+  apo: {
+    label: "h, w/2, apothem", css: PYR_TRI_CSS.apo,
+    note: (
+      <>
+        The <b>apothem</b> — the height of a lateral face, and what the surface area is
+        built from. The pair of faces on the other sides has its own,{" "}
+        <span className="whitespace-nowrap">√(h² + (l/2)²)</span>.
+      </>
+    ),
+    tex: (D) =>
+      `m=\\sqrt{${D.H}^2+${nice(D.W / 2)}^2}=${nice(apoLW(D))}`,
+  },
+  edge: {
+    label: "h, R, lateral edge", css: PYR_TRI_CSS.edge,
+    note: (
+      <>
+        The <b>lateral edge</b>, apex to corner. Its foot is a corner, so the second leg
+        is the half-diagonal R — not w/2. This is the slip that costs the most marks.
+      </>
+    ),
+    tex: (D) =>
+      `e=\\sqrt{${D.H}^2+${nice(halfDiag(D))}^2}=${nice(lateralEdge(D))}`,
+  },
+  face: {
+    label: "apothem, l/2, edge", css: PYR_TRI_CSS.face,
+    note: (
+      <>
+        This one lies flat inside a single lateral face. It ties the other two together —
+        the same lateral edge falls out, which is the check that you picked the right
+        legs above.
+      </>
+    ),
+    tex: (D) =>
+      `e=\\sqrt{${nice(apoLW(D))}^2+${nice(D.L / 2)}^2}=${nice(lateralEdge(D))}`,
+  },
+};
+
+/* ---------- face vs edge, from ANGLES_PYR in the legacy file ---------- */
+
+const PYR_ANGS: Record<
+  PyrAngKind,
+  { label: string; css: string; note: ReactNode; tex: (d: UserState["dims"]) => string }
+> = {
+  face: {
+    label: "lateral face ∠ base", css: PYR_ANG_CSS.face,
+    note: (
+      <>
+        The face touches down along a base edge, so the shadow of its apothem is w/2 —
+        the shortest run of the two, which is why this is the steeper angle.
+      </>
+    ),
+    tex: (D) =>
+      `\\tan\\alpha=\\frac{${D.H}}{${nice(D.W / 2)}}\\;\\Rightarrow\\;${pyrFaceAngle(D).toFixed(1)}^\\circ`,
+  },
+  edge: {
+    label: "lateral edge ∠ base", css: PYR_ANG_CSS.edge,
+    note: (
+      <>
+        The edge touches down at a corner, so its shadow is the half-diagonal R. Same
+        height, longer run, shallower angle — every time.
+      </>
+    ),
+    tex: (D) =>
+      `\\tan\\beta=\\frac{${D.H}}{${nice(halfDiag(D))}}\\;\\Rightarrow\\;${pyrEdgeAngle(D).toFixed(1)}^\\circ`,
+  },
+};
+
 /* ---------- the panel ---------- */
 
 export type ControlProps = {
@@ -379,6 +458,9 @@ export default function Controls({
                   <MRow tag="the slant heights">
                     <M tex="\sqrt{(w/2)^2+h^2},\ \sqrt{(l/2)^2+h^2}" />
                   </MRow>
+                  <MRow tag="in general">
+                    <M tex="S=B+\tfrac{Pm}{2}" />
+                  </MRow>
                 </>
               ) : (
                 <span className="text-muted">
@@ -423,6 +505,9 @@ export default function Controls({
               <span className="text-muted">
                 three of this pyramid fill the box exactly
               </span>
+            </MRow>
+            <MRow tag="in general">
+              <M tex="V=\tfrac{Bh}{3}" />
             </MRow>
           </div>
         );
@@ -627,6 +712,58 @@ export default function Controls({
           </div>
           <MBox hi><M tex={f.tex(D)} /></MBox>
           <p className="mt-2 text-body-sm text-muted">{f.note}</p>
+        </div>
+      );
+    }
+
+    case "pyrTri": {
+      const t = PYR_TRIS[user.pyrTri];
+      return (
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(PYR_TRIS) as PyrTriKind[]).map((k) => (
+              <Chip
+                key={k}
+                on={k === user.pyrTri}
+                color={PYR_TRIS[k].css}
+                onClick={() => set({ pyrTri: k })}
+              >
+                {PYR_TRIS[k].label}
+              </Chip>
+            ))}
+          </div>
+          <MBox hi><M tex={t.tex(D)} /></MBox>
+          <MRow tag="in general">
+            <M tex="m=\sqrt{h^2+(w/2)^2},\quad e=\sqrt{h^2+R^2}" />
+          </MRow>
+          <p className="mt-2 text-body-sm text-muted">{t.note}</p>
+        </div>
+      );
+    }
+
+    case "pyrAng": {
+      const a = PYR_ANGS[user.pyrAng];
+      return (
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(PYR_ANGS) as PyrAngKind[]).map((k) => (
+              <Chip
+                key={k}
+                on={k === user.pyrAng}
+                color={PYR_ANGS[k].css}
+                onClick={() => set({ pyrAng: k })}
+              >
+                {PYR_ANGS[k].label}
+              </Chip>
+            ))}
+          </div>
+          <MBox hi><M tex={a.tex(D)} /></MBox>
+          <MRow tag="the two, side by side">
+            <M
+              tex={`\\text{face }${pyrFaceAngle(D).toFixed(1)}^\\circ\\;>\\;\\text{edge }${pyrEdgeAngle(D).toFixed(1)}^\\circ`}
+            />
+          </MRow>
+          <p className="mt-2 text-body-sm text-muted">{a.note}</p>
         </div>
       );
     }
