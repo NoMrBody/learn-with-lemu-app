@@ -6,7 +6,7 @@ import {
   MAXD, PYR_ANG_CSS, PYR_TRI_CSS, apoLW, apoWH, faceDiag, halfDiag, lateralEdge,
   nice, projPhi, pyrEdgeAngle, pyrFaceAngle, pyrSurfaceArea, pyrVolume,
   soloAngle, soloLen, spaceDiag, surfaceArea, tppOblAngle, volume,
-  type FaceKind, type PyrAngKind, type PyrFaceKind, type PyrTriKind,
+  type Dims, type FaceKind, type PyrAngKind, type PyrFaceKind, type PyrTriKind,
   type Solid,
 } from "@/lib/explainer/scene";
 import { texNum } from "@/lib/explainer/cuboid-figures";

@@ -428,6 +428,14 @@ export function createExplainerScene(
   const world = new THREE.Group();
   scene.add(world);
 
+  /* ---- the two ring prisms, drawn by their own layer ----
+     The cuboid's six hinged faces cannot describe a triangular or hexagonal
+     base, so those figures get a separate layer that owns its own plates,
+     net fold, glass fade and volume sweep. Only ever one of the two is
+     visible: see `showRing` / `showBox` in update(). */
+  const prism = createPrismLayer();
+  world.add(prism.group);
+
   /* ---- box faces and the hinged net ---- */
   const base = face(COL.a);
   world.add(base);
@@ -725,6 +733,13 @@ export function createExplainerScene(
 
   let D: Dims = { L: 6, W: 4, H: 3 };
   let solid: Solid = "box";
+  let fig: PrismId = "cuboid";
+  /**
+   * Whether the figure stands on a regular polygon ring rather than on the
+   * cuboid's rectangle. The two are alternatives everywhere: the ring figures
+   * are drawn by `prism`, the cuboid by FACES / HINGES, and nothing shows both.
+   */
+  const ringFig = () => fig !== "cuboid";
   let pyrTri: PyrTriKind = "apo";
   let pyrAng: PyrAngKind = "face";
 

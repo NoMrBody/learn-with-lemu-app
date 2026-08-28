@@ -35,6 +35,9 @@ import { PRISM_COPY, type PrismCopy, type PrismId } from "./prisms";
 export type ControlKind =
   | "dims" | "none" | "unfoldSum" | "fill" | "double" | "diag"
   | "faces" | "pyrTri" | "pyrAng" | "cri" | "angDist" | "prj"
+  // The prism spine's own panels: volume by sweep rather than by counting,
+  // and the three chip catalogues.
+  | "vol" | "tris" | "secs" | "ang"
   // Retained for the beats that were cut (parallel translation, three
   // perpendiculars, the plain angle panel, and the cuboid's old Pythagoras
   // slide). No beat references them; their scene groups are still built, so
@@ -122,7 +125,7 @@ export type Beat = {
 export const BEAT_GROUPS: SceneGroups = {
   solidVisible: true, third: false, ptri: false, pang: false, diag: false,
   tri: false, highlight: false, tpp: false, prj: false, solo: false,
-  par: false, cri: false, doubled: false,
+  par: false, cri: false, doubled: false, angle: false,
 };
 
 export const BEAT_LABELS: SceneLabels = {
@@ -399,6 +402,17 @@ const NARRATIVE_BEATS: Beat[] = [
     groups: { pang: true },
     onEnter: { unfold: 0, fill: 0, doubled: false, solid: "pyr", pyrAng: "face" },
   },
+];
+
+/**
+ * The three abstract slides, shared by both topics.
+ *
+ * Nothing solid is drawn on the first two — they are about planes, not about
+ * a figure — which is why they sit outside both spines and get appended to
+ * each. The third leans on the cuboid, so it carries `solids: 'box'` and the
+ * pyramid's filter in getBeats drops it.
+ */
+const TOOLKIT_BEATS: Beat[] = [
   {
     title: "Two lines are enough.",
     body: "A plane holds infinitely many lines, so proving a line is perpendicular to all of them sounds hopeless. It is not. Get it square to just two that cross, and every other line in the plane follows. Turn the gold one and watch the right angle survive.",
