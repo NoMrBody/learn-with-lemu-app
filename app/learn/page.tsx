@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { Gamepad2, SquareArrowOutUpRight } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { TopicList } from "@/components/topic-list";
 import { getLearnTree, listStagesFor } from "@/lib/topics";
 
 export const metadata = { title: "Subjects" };
+
+// TODO: replace with the hosted game's real URL.
+const GAME_URL = "https://example.com/lemus-math-quest";
 
 /**
  * Subject selection. Open to everyone — there are no auth guards on any
@@ -30,6 +34,38 @@ export default async function LearnPage() {
             Free to browse. Sign in only if you want your progress kept.
           </p>
         </header>
+
+        <section className="flex flex-col gap-5">
+          <a
+            href={GAME_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center justify-between gap-4 rounded-xl border border-brand/40 bg-brand/5 px-5 py-4 transition-[background-color,border-color,transform] duration-(--dur-state) ease-out hover:border-brand/60 hover:bg-brand/10"
+          >
+            <div className="flex min-w-0 items-start gap-4">
+              <Gamepad2 className="mt-0.5 size-6 shrink-0 text-brand-text" aria-hidden="true" />
+              <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <h2 className="text-body font-semibold">Lemu&apos;s Math Quest</h2>
+                  <span className="whitespace-nowrap rounded-full border border-brand/40 px-2.5 py-0.5 font-mono text-eyebrow uppercase text-brand-text">
+                    Game
+                  </span>
+                </div>
+                <p className="text-body-sm text-muted">
+                  Jump, dodge, and solve math problems to beat every level — play the full game
+                  in a new tab.
+                </p>
+              </div>
+            </div>
+            <span
+              aria-hidden="true"
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap font-mono text-eyebrow uppercase text-faint transition-[transform,color] duration-(--dur-state) ease-out group-hover:translate-x-0.5 group-hover:text-brand-text motion-reduce:group-hover:translate-x-0"
+            >
+              New tab
+              <SquareArrowOutUpRight className="size-3.5" />
+            </span>
+          </a>
+        </section>
 
         {areas.map((area) => {
           // Algebra is entirely unbuilt, so its topics read "Coming Soon";
