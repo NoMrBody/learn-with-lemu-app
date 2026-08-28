@@ -7,7 +7,7 @@ import { getLearnTree, listStagesFor } from "@/lib/topics";
 export const metadata = { title: "Subjects" };
 
 // TODO: replace with the hosted game's real URL.
-const GAME_URL = "https://example.com/lemus-math-quest";
+const GAME_URL = "https://lemiu-teaser.vercel.app";
 
 /**
  * Subject selection. Open to everyone — there are no auth guards on any
