@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { figColor, onFigureTheme } from "@/lib/figure-theme";
+import {
+  CUBOID_ANGS, CUBOID_SECS, CUBOID_TRIS, surd,
+  type CuboidAng, type CuboidSec, type CuboidTri, type Pt,
+} from "./cuboid-figures";
 
 /**
  * The cuboid explainer's 3D world, ported from legacy/cuboid.html.
@@ -12,6 +16,11 @@ import { figColor, onFigureTheme } from "@/lib/figure-theme";
  *
  * The original also built `lpG`, `dsG`, `freeG` and `fatLine`, which no beat
  * ever made visible. Those are not ported.
+ *
+ * The cuboid's three catalogues — triangles, sections, angles — were added
+ * later from legacy/topic-cuboid.html. They draw through the same primitives
+ * as everything else here; only their contents live outside, in
+ * ./cuboid-figures.
  */
 
 /* ============================================================
@@ -120,6 +129,8 @@ export type SceneGroups = {
   par: boolean;
   cri: boolean;
   doubled: boolean;
+  /** The cuboid's angle catalogue: a leaning line, its shadow and the upright. */
+  angle: boolean;
 };
 
 export type SceneLabels = {
@@ -153,6 +164,13 @@ export type SceneParams = {
   showMarkBase: boolean;
   /** The shadow beat drops the dihedral arc and argues from areas instead. */
   showPrjArc: boolean;
+  /**
+   * Which entry of the cuboid's three catalogues is on screen, or null when
+   * that catalogue's beat is not the current one. Only one is ever non-null.
+   */
+  triIdx: number | null;
+  secIdx: number | null;
+  angIdx: number | null;
 };
 
 export type ExplainerScene = {
@@ -1055,6 +1073,90 @@ export function createExplainerScene(
   const sLab = { A: mkLabel("dim"), H: mkLabel("dim"), M: mkLabel("dim") };
   sLab.A.textContent = "A"; sLab.H.textContent = "H"; sLab.M.textContent = "M";
 
+  /* ============================================================
+     the cuboid catalogues
+
+     One triangle, one section or one angle at a time, picked from a
+     chip row. Fill and outline reuse showQuad — a triangle is passed
+     as a quad with its last point repeated, the same trick the
+     pyramid's cuts already use — so only the extras live here: the
+     right-angle mark and side labels for a triangle, and the three
+     tinted segments plus a degree readout for an angle.
+     ============================================================ */
+
+  /** The right-angle mark and side labels that dress a catalogue triangle. */
+  const catTriG = new THREE.Group();
+  catTriG.visible = false;
+  world.add(catTriG);
+  const catMark = figRole(rightMark(figColor("ink")), "ink");
+  catTriG.add(catMark);
+  const triLab = [mkLabel("area"), mkLabel("area"), mkLabel("area")];
+
+  /** The leaning line, its shadow and the upright. */
+  const angG = new THREE.Group();
+  angG.visible = false;
+  world.add(angG);
+  // Radii are per-entry, so these are built at the widest and rescaled on the
+  // X/Z axes when an entry is selected. `place` only ever touches Y.
+  const angSegs = [seg(0xffffff, 1), seg(0xffffff, 1), seg(0xffffff, 1)];
+  angSegs.forEach((m) => angG.add(m));
+  const angLab = mkLabel("area");
+
+  /** World positions the catalogue labels hang off, refreshed on selection. */
+  let triLabAt: Pt[] = [];
+  let angLabAt: Pt | null = null;
+
+  const between = (a: Pt, b: Pt): Pt => [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const midPt = (a: Pt, b: Pt): Pt => [
+    (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2,
+  ];
+
+  function setCatTri(t: CuboidTri) {
+    const p = t.pts(D);
+    showQuad([p[0], p[1], p[2], p[2]], t.col);
+
+    // The right angle sits at the vertex the catalogue names, opened along the
+    // two edges that meet there. Sized off the smallest dimension so it stays
+    // inside the triangle on a flattened figure.
+    const c = p[t.right];
+    const u = p[(t.right + 1) % 3];
+    const v = p[(t.right + 2) % 3];
+    setMark(catMark, c, between(c, u), between(c, v), Math.min(D.L, D.W, D.H) * 0.16);
+
+    triLabAt = [];
+    for (let i = 0; i < 3; i++) {
+      const a = p[i], b = p[(i + 1) % 3];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      triLab[i].textContent = surd(len);
+      triLab[i].style.color = "#" + t.col.toString(16).padStart(6, "0");
+      triLabAt.push(midPt(a, b));
+    }
+  }
+
+  function setCatSec(s: CuboidSec) {
+    const q = s.quad(D);
+    // A three-point cut closes as a degenerate quad, exactly as PYR_FACE_PTS.apo
+    // already does: showQuad drops the zero-length edge.
+    showQuad(q.length === 3 ? [...q, q[2]] : q, s.col);
+  }
+
+  function setCatAng(a: CuboidAng) {
+    const lines = a.lines(D);
+    angSegs.forEach((m, i) => {
+      const line = lines[i];
+      if (!line) { m.visible = false; return; }
+      const [from, to, col, r] = line;
+      place(m, from, to);
+      // `place` writes scale.y, so the radius has to ride the other two axes.
+      m.scale.x = m.scale.z = r;
+      (m.material as THREE.MeshBasicMaterial).color.setHex(col);
+    });
+    const [text, at] = a.mark(D);
+    angLab.textContent = text;
+    angLab.style.color = "#" + a.col.toString(16).padStart(6, "0");
+    angLabAt = at;
+  }
+
   function refreshLabelText() {
     dimLabels.forEach((d) => (d.el.textContent = String(d.get())));
     FACES.forEach((f) => {
@@ -1083,6 +1185,11 @@ export function createExplainerScene(
       f.label.style.left = (_v.x * 0.5 + 0.5) * w + "px";
       f.label.style.top = (-_v.y * 0.5 + 0.5) * h + "px";
     }
+
+    if (catTriG.visible) {
+      triLabAt.forEach((pt, i) => put(triLab[i], pt, w, h));
+    }
+    if (angG.visible && angLabAt) put(angLab, angLabAt, w, h);
 
     if (diagG.visible) {
       dLab.face.textContent = nice(faceDiag(D));
@@ -1328,10 +1435,24 @@ export function createExplainerScene(
     dbl.visible = p.groups.doubled && solid === "box";
     dblPyr.visible = p.groups.doubled && solid === "pyr";
 
+    // The cuboid's triangle and section catalogues borrow the highlight group
+    // for their fill and outline, so when one is selected it takes precedence
+    // over the named-face highlight.
+    const tri = p.triIdx != null ? CUBOID_TRIS[p.triIdx] : undefined;
+    const sec = p.secIdx != null ? CUBOID_SECS[p.secIdx] : undefined;
+    const ang = p.angIdx != null ? CUBOID_ANGS[p.angIdx] : undefined;
+
+    catTriG.visible = p.groups.highlight && tri !== undefined;
+    angG.visible = p.groups.angle && ang !== undefined;
+
     if (p.groups.highlight) {
-      if (solid === "pyr") setPyrFace(p.pyrFaceKind);
+      if (tri) setCatTri(tri);
+      else if (sec) setCatSec(sec);
+      else if (solid === "pyr") setPyrFace(p.pyrFaceKind);
       else setFace(p.faceKind);
     }
+    if (ang && angG.visible) setCatAng(ang);
+
     arc.visible = p.showArc;
     markBase.visible = p.showMarkBase;
     prjArc.visible = p.showPrjArc;
@@ -1345,6 +1466,8 @@ export function createExplainerScene(
     );
     (["A", "H", "M", "a"] as const).forEach((k) => toggle(tLab[k], p.labels.tpp));
     (["A", "H", "M"] as const).forEach((k) => toggle(sLab[k], p.labels.solo));
+    triLab.forEach((el) => toggle(el, catTriG.visible));
+    toggle(angLab, angG.visible);
 
     refreshLabelText();
   }

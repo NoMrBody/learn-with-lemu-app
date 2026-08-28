@@ -5,8 +5,11 @@ import { M } from "./math";
 import {
   MAXD, apoLW, apoWH, faceDiag, halfDiag, nice, projPhi, pyrSurfaceArea,
   pyrVolume, soloAngle, soloLen, spaceDiag, surfaceArea, tppOblAngle, volume,
-  type FaceKind, type PyrFaceKind, type Solid,
+  type Dims, type FaceKind, type PyrFaceKind, type Solid,
 } from "@/lib/explainer/scene";
+import {
+  CUBOID_ANGS, CUBOID_SECS, CUBOID_TRIS,
+} from "@/lib/explainer/cuboid-figures";
 import type { ControlKind, SolidMode, UserState } from "@/lib/explainer/beats";
 
 /* ---------- small pieces, matching the original panel's vocabulary ---------- */
@@ -94,6 +97,46 @@ function Chip({
       />
       {children}
     </button>
+  );
+}
+
+const hex = (col: number) => "#" + col.toString(16).padStart(6, "0");
+
+/**
+ * One of the cuboid's catalogues: a chip per entry, then the selected entry's
+ * arithmetic and the sentence that says what it is for.
+ *
+ * All three catalogues have the same shape, so they share one renderer — the
+ * chip row is a legend for what the figure is drawing, and each entry carries
+ * its own colour for both.
+ */
+function Catalogue<
+  T extends { label: string; col: number; note: string; tex: (d: Dims) => string },
+>({
+  items, at, onPick, dims, label,
+}: {
+  items: readonly T[];
+  at: number;
+  onPick: (i: number) => void;
+  dims: Dims;
+  label: string;
+}) {
+  // Defensive: a stale index from a previous beat must not blank the panel.
+  const cur = items[at] ?? items[0];
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
+        {items.map((it, i) => (
+          <Chip key={it.label} on={i === at} color={hex(it.col)} onClick={() => onPick(i)}>
+            {it.label}
+          </Chip>
+        ))}
+      </div>
+      <MBox hi>
+        <M tex={cur.tex(dims)} />
+      </MBox>
+      <p className="mt-2 text-body-sm text-muted">{cur.note}</p>
+    </div>
   );
 }
 
@@ -369,6 +412,81 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
         </div>
       );
     }
+
+    /* ---- the cuboid's own panels ---- */
+
+    case "vol": {
+      // The cuboid's volume slide argues both counting and scaling, where the
+      // pyramid still splits them over 'fill' and 'double'.
+      const V = volume(D), per = D.L * D.W, n = Math.round(user.fill);
+      const layers = Math.floor(n / per), rem = n % per;
+      const sa = surfaceArea(D);
+      return (
+        <div>
+          <Scrub
+            label="Fill the cuboid with unit cubes" left="empty" right="full"
+            min={0} max={V} value={n} onChange={(v) => set({ fill: v })}
+          />
+          <MBox>
+            {n === V ? (
+              <M tex={`\\underbrace{${per}}_{\\text{one layer}} \\times \\underbrace{${D.H}}_{\\text{layers}} = \\textbf{${V}}`} />
+            ) : layers > 0 ? (
+              <M tex={`${layers}\\times${per} + ${rem} = ${n}`} />
+            ) : (
+              <M tex={`${n}\\ \\text{cubes} \\quad (${per}\\ \\text{fill one layer})`} />
+            )}
+          </MBox>
+          <button
+            type="button"
+            aria-pressed={user.doubled}
+            onClick={() => set({ doubled: !user.doubled })}
+            className={`press mt-2 w-full rounded-lg border px-4 py-2.5 text-body ${
+              user.doubled
+                ? "border-brand bg-brand font-semibold text-brand-on"
+                : "border-line bg-raised hover:border-line-strong"
+            }`}
+          >
+            {user.doubled ? "back to original" : "double every length"}
+          </button>
+          {user.doubled && (
+            <>
+              <MBox><M tex={`S:\\ ${nice(sa)}\\ \\to\\ ${nice(sa * 4)}\\quad(\\times 2^2)`} /></MBox>
+              <MBox><M tex={`V:\\ ${nice(V)}\\ \\to\\ ${nice(V * 8)}\\quad(\\times 2^3)`} /></MBox>
+              <p className="mt-2 text-body-sm text-muted">
+                the original sits in the corner
+              </p>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    case "tris":
+      return (
+        <Catalogue
+          items={CUBOID_TRIS} at={user.triIdx} dims={D}
+          onPick={(i) => set({ triIdx: i })}
+          label="Choose a right triangle"
+        />
+      );
+
+    case "secs":
+      return (
+        <Catalogue
+          items={CUBOID_SECS} at={user.secIdx} dims={D}
+          onPick={(i) => set({ secIdx: i })}
+          label="Choose a section"
+        />
+      );
+
+    case "ang":
+      return (
+        <Catalogue
+          items={CUBOID_ANGS} at={user.angIdx} dims={D}
+          onPick={(i) => set({ angIdx: i })}
+          label="Choose an angle"
+        />
+      );
 
     case "diag":
       return (

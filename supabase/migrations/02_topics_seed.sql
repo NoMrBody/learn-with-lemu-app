@@ -48,10 +48,10 @@ insert into public.topics (subject, slug, title, order_index, status) values
   -- Axioms comes first: the box explainer already talks about planes and
   -- perpendicularity as settled, and this is where they get settled.
   ('stereometry', 'axioms',   'Axioms',      1, 'available'),
-  -- The box and the pyramid are separate topics: each has its own explainer
+  -- The cuboid and the pyramid are separate topics: each has its own explainer
   -- and its own problem set. They share the puzzle stage — see the note on
   -- topic_stages below.
-  ('stereometry', 'box',      'The Box',     2, 'available'),
+  ('stereometry', 'box',      'The Cuboid',  2, 'available'),
   ('stereometry', 'pyramid',  'The Pyramid', 3, 'available'),
   -- Placeholders so the "in development" state on the index has something
   -- to render against.
@@ -83,7 +83,7 @@ select t.id, s.stage_type, s.order_index, s.title
 from public.topics t
 join (values
   ('axioms',  'explainer', 1, 'The axioms'),
-  ('box',     'explainer', 1, 'The box'),
+  ('box',     'explainer', 1, 'The cuboid'),
   ('box',     'problem',   2, 'The problem'),
   ('box',     'game',      3, 'The puzzle'),
   ('pyramid', 'explainer', 1, 'The pyramid'),

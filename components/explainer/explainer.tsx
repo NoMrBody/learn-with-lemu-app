@@ -80,7 +80,10 @@ export default function Explainer({
         solidVisible: b.solids !== "none",
         // The containing box only appears while arguing the pyramid's third.
         third: b.control === "fill" && user.solid === "pyr",
-        doubled: user.doubled && b.control === "double",
+        // The cuboid folds doubling into its volume slide; the pyramid still
+        // gives it one of its own.
+        doubled: user.doubled && (b.control === "double" || b.control === "vol"),
+        angle: b.control === "ang",
       },
       labels: {
         ...BEAT_LABELS,
@@ -96,6 +99,11 @@ export default function Explainer({
       showArc: b.showArc ?? true,
       showMarkBase: b.showMarkBase ?? true,
       showPrjArc: b.showPrjArc ?? true,
+      // A catalogue index only means anything on its own beat; elsewhere it is
+      // null so the scene falls back to the named-face highlight.
+      triIdx: b.control === "tris" ? user.triIdx : null,
+      secIdx: b.control === "secs" ? user.secIdx : null,
+      angIdx: b.control === "ang" ? user.angIdx : null,
     };
     scene.update(params);
   }, [beat, user, beats]);
