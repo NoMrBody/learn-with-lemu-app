@@ -1,0 +1,3175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The cuboid — Sightlines</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F2F4F3%22/%3E%3Cpath d=%22M6 22 L16 6 L26 22 Z%22 fill=%22none%22 stroke=%22%232B4FE8%22 stroke-width=%222%22 stroke-linejoin=%22round%22/%3E%3Cline x1=%2216%22 y1=%226%22 x2=%2216%22 y2=%2222%22 stroke=%22%23E8442A%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<meta name="theme-color" content="#F2F4F3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F3; --bg-2:#FFFFFF; --line:#DCE3E0;
+  --fg:#14181A; --fg-dim:#5A6560;
+  --a:#E8442A; --b:#2340C4; --c:#9A6614;
+  --tk-line:#F7D3CB; --tk-bg:#FDECE8; --tk-field:#FFFFFF;
+}
+*{box-sizing:border-box}
+html,body{opacity:0;animation:pagein .5s ease forwards;margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg);color:var(--fg);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;height:100dvh;
+}
+#stage{position:relative;flex:1;padding-top:0;min-height:0;touch-action:none;overflow:hidden;
+  background-color:#F2F4F3;
+  background-image:
+    repeating-linear-gradient(60deg,  rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg,   rgba(20,24,26,.035) 0 1px, transparent 1px 36.4px)}
+#stage canvas{display:block;width:100%;height:100%}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lab{
+  position:absolute;transform:translate(-50%,-50%);
+  font-family:"IBM Plex Sans",sans-serif;font-weight:700;white-space:nowrap;
+  letter-spacing:.01em;transition:opacity .25s ease;
+  /* a tight outline in the paper colour: readable on any face, no box */
+  text-shadow:
+    -1px -1px 0 #F2F4F3,  1px -1px 0 #F2F4F3,
+    -1px  1px 0 #F2F4F3,  1px  1px 0 #F2F4F3,
+    -1px  0   0 #F2F4F3,  1px  0   0 #F2F4F3,
+     0   -1px 0 #F2F4F3,  0    1px 0 #F2F4F3,
+     0 0 4px rgba(242,244,243,.9);
+  paint-order:stroke fill;
+}
+.lab.dim{font-size:19px;color:var(--fg)}
+.lab.area{font-size:13.5px}
+.lab.hide{opacity:0}
+#hint{
+  position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-dim);
+  pointer-events:none;transition:opacity .4s ease;
+}
+#panel{
+  background:rgba(255,255,255,.94);border-top:1px solid var(--line);backdrop-filter:blur(10px);
+  padding:16px 20px calc(16px + env(safe-area-inset-bottom));flex:0 0 auto;
+}
+.wrap{max-width:640px;margin:0 auto;width:100%}
+#dots{display:flex;gap:5px;margin-bottom:13px}
+#dots i{flex:1;height:2px;background:var(--line);border-radius:2px;transition:background .3s}
+#dots i.on{background:var(--fg)}
+h2{font-family:"IBM Plex Sans",sans-serif;font-weight:700;
+  font-size:clamp(19px,4.4vw,25px);line-height:1.2;margin:0 0 6px;letter-spacing:-.01em}
+#body{margin:0;color:var(--fg-dim);font-size:14.8px;min-height:42px}
+
+details.know{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+details.know summary{
+  list-style:none;cursor:pointer;font-size:12.5px;letter-spacing:.06em;
+  color:var(--a);display:flex;align-items:center;gap:7px;font-weight:500;
+}
+details.know summary::-webkit-details-marker{display:none}
+details.know summary::before{content:'+';font-family:"Space Grotesk";font-weight:700;font-size:15px}
+details.know[open] summary::before{content:'–'}
+details.know p{margin:8px 0 0;font-size:14px;color:var(--fg-dim)}
+details.know b{color:var(--fg);font-weight:600}
+
+#control{margin:12px 0 0;min-height:50px}
+.scrub{display:flex;align-items:center;gap:11px}
+.scrub label{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);white-space:nowrap}
+.scrub .key{font-family:"Space Grotesk";font-weight:700;font-size:14px;width:16px;color:var(--fg)}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:32px;background:transparent;cursor:grab;min-width:0}
+input[type=range]:active{cursor:grabbing}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:4px}
+input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:4px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:var(--fg);margin-top:-10px;border:none;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--fg);border:none}
+.rows{display:flex;flex-direction:column;gap:2px}
+.toggle2{display:flex;gap:6px;margin:0 0 10px}
+.t2{flex:1;background:transparent;border:1px solid var(--line);color:var(--fg-dim);
+  border-radius:8px;padding:8px;font-family:inherit;font-size:13.5px;cursor:pointer}
+.t2.on{background:var(--a);border-color:var(--a);color:#fff;font-weight:600}
+
+.sum{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-family:"IBM Plex Sans",sans-serif;font-size:14.5px}
+.chip{padding:3px 8px;border-radius:3px;font-weight:700;color:#FFFFFF}
+.op{color:var(--fg-dim);font-weight:500}
+.tot{font-weight:700;color:var(--fg)}
+.katex{font-size:1.02em}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-size:15px}
+.mrow .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-dim)}
+.mbox{border:1px solid var(--line);border-radius:3px;padding:9px 12px;margin-top:9px}
+.mbox.hi{border-color:var(--a)}
+.res{color:var(--a)}
+.formula{margin-top:7px;font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;color:var(--fg-dim);
+  opacity:0;transition:opacity .5s ease}
+.formula.on{opacity:1}
+.count{font-family:"IBM Plex Sans",sans-serif;font-size:14.5px;margin-top:6px}
+.count b{color:var(--a);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.fchip{background:transparent;border:1px solid var(--line);color:var(--fg-dim);
+  padding:8px 12px;font-size:13.5px;font-weight:500}
+.fchip.on{font-weight:600;color:#fff}
+.tog{background:transparent;border:1px solid var(--line);color:var(--fg);padding:10px 16px;
+  font-size:14px;font-weight:500;width:100%}
+.tog.on{background:var(--a);color:#fff;border-color:var(--a)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;font-family:"Space Grotesk";font-size:14px}
+.cell{border:1px solid var(--line);padding:8px 10px;border-radius:3px}
+.cell span{display:block;font-size:11px;text-transform:uppercase;color:var(--fg-dim);
+  font-family:Inter;letter-spacing:.09em;margin-bottom:2px}
+.cell b{font-weight:700;font-size:17px}
+.mult{color:var(--a);font-size:13px;margin-left:5px}
+
+#nav{display:flex;gap:9px;margin-top:14px}
+button{font-family:inherit;font-size:15px;cursor:pointer;border-radius:3px}
+.btn{flex:1;background:var(--a);color:#fff;border:none;padding:13px 18px;font-weight:600}
+.btn:disabled{opacity:.25;cursor:default}
+.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);padding:13px 18px}
+
+@media(min-width:820px){
+  body{flex-direction:row}
+  #stage{flex:1 1 62%}
+  #panel{flex:0 0 38%;max-width:440px;border-top:none;border-left:1px solid var(--line);
+    display:flex;align-items:center;padding:30px;overflow-y:auto}
+}
+:focus-visible{outline:2px solid var(--a);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- shared progress rail ---- */
+#rail{position:fixed;left:0;right:0;top:0;z-index:9998;display:flex;align-items:center;gap:14px;
+  padding:11px 16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;background:linear-gradient(180deg,#F2F4F3 55%,rgba(242,244,243,0));
+  pointer-events:none}
+#rail a,#rail span{pointer-events:auto}
+#rail .home{color:#8B958F;text-decoration:none;white-space:nowrap}
+#rail .home:hover{color:#14181A}
+#rail .track{flex:1;display:flex;align-items:center;max-width:340px}
+#rail .node{width:7px;height:7px;border-radius:50%;background:#CBD3CF;flex:0 0 7px;
+  transition:background .3s,box-shadow .3s}
+#rail .node.on{background:#E8442A;box-shadow:0 0 0 4px rgba(232,68,42,.15)}
+#rail .node.done{background:#2340C4}
+#rail .seg{flex:1;height:1px;background:#D7DEDA}
+#rail .seg.done{background:#2B4FE8}
+#rail .now{color:#C4331C;white-space:nowrap}
+@media(max-width:560px){#rail .now{display:none}}
+@keyframes pagein{to{opacity:1}}
+
+#track{display:flex;flex-direction:column;height:100dvh}
+@media(min-width:900px){#track{flex-direction:row}}
+/* a term the student can hover for its plain meaning */
+.term{position:relative;border-bottom:1.5px dotted currentColor;cursor:help}
+.term .tip{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translate(-50%,4px);
+  background:var(--fg);color:#fff;font-family:"IBM Plex Sans",sans-serif;font-weight:500;
+  font-size:13px;line-height:1.4;padding:8px 12px;border-radius:9px;width:max-content;
+  max-width:250px;white-space:normal;text-align:left;
+  box-shadow:0 12px 28px -14px rgba(20,24,26,.7);z-index:40;
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .22s cubic-bezier(.2,.9,.3,1.4)}
+.term .tip::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:var(--fg)}
+.term:hover .tip,.term:focus .tip{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="track" class="on"><div id="stage">
+  <div id="labels"></div>
+  <div id="hint">drag to rotate</div>
+</div>
+
+<div id="panel"><div class="wrap">
+  <div id="dots"></div>
+  <h2 id="title"></h2>
+  <p id="body"></p>
+  <div id="know"></div>
+  <div id="control"></div>
+  <div id="tkfb"></div>
+  <div id="nav">
+    <button class="ghost" id="back">Back</button>
+    <button class="btn" id="next">Next</button>
+  </div>
+</div></div></div>
+
+<script>
+/* track.js — inlined so each page works standalone. Master copy: track.js */
+/* ============================================================
+   track.js — shared analytics + feedback for all parts
+   Loaded by index.html, topic.html, problems.html, game.html
+   ------------------------------------------------------------
+   PUBLIC API
+     Track.event(name, props)      record something
+     Track.part(name)             declare which part this page is
+     Track.mountFeedback(el, cfg) render the end-of-part feedback block
+     Track.debug()                open the live event panel (or press ` )
+   ------------------------------------------------------------
+   To go live: set POSTHOG_KEY below. Until then everything is
+   buffered locally and visible via the debug panel, so the page
+   works with no backend at all.
+   ============================================================ */
+(function(){
+'use strict';
+
+var POSTHOG_KEY = 'phc_khGJHZ5sECXB2bvTVURfwZJ58B4zwQUYSLF3XsESRW2g';
+var POSTHOG_HOST = 'https://eu.i.posthog.com';
+var STORE = 'sightlines.v1';
+
+/* ---------- identity (no personal data) ---------- */
+function uid(){
+  return 'v-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+}
+function load(){
+  try{ return JSON.parse(localStorage.getItem(STORE)) || {}; }catch(e){ return {}; }
+}
+function save(o){
+  try{ localStorage.setItem(STORE, JSON.stringify(o)); }catch(e){}
+}
+var mem = load();
+if(!mem.visitor){ mem.visitor = uid(); mem.firstSeen = Date.now(); mem.visits = 0; }
+if(!mem.parts) mem.parts = {};
+if(!mem.session || Date.now() - (mem.lastSeen||0) > 30*60*1000){
+  mem.session = uid(); mem.visits = (mem.visits||0) + 1;
+}
+mem.lastSeen = Date.now();
+save(mem);
+
+var ph = null;
+var phReady = false;
+var pending = [];
+var PART = 'unknown';
+var queue = [];
+var log = [];
+var t0 = Date.now();
+
+/* ---------- the one function everything goes through ---------- */
+function event(name, props){
+  var p = Object.assign({
+    part: PART,
+    visitor: mem.visitor,
+    session: mem.session,
+    visit_no: mem.visits,
+    returning: mem.visits > 1,
+    device: matchMedia('(pointer:coarse)').matches ? 'touch' : 'desktop',
+    t_ms: Date.now() - t0
+  }, props||{});
+  var rec = {name:name, props:p, at:new Date().toISOString()};
+  log.push(rec);
+  if(POSTHOG_KEY){
+    var P = window.posthog;                       // always look it up fresh
+    if(phReady && P && typeof P.capture === 'function'){ try{ P.capture(name, p); }catch(e){} }
+    else pending.push({name:name, props:p});      // wait for the recorder
+  } else queue.push(rec);
+  paintDebug();
+  return rec;
+}
+
+/* ---------- part lifecycle ---------- */
+var partStart = Date.now();
+function part(name){
+  PART = name;
+  partStart = Date.now();
+  mem.parts[name] = mem.parts[name] || {opened:0, completed:0};
+  mem.parts[name].opened++;
+  save(mem);
+  event('part_open', {opened_before: mem.parts[name].opened - 1});
+  event('visit', {visits: mem.visits});
+}
+function complete(extra){
+  mem.parts[PART] = mem.parts[PART] || {opened:1, completed:0};
+  mem.parts[PART].completed++;
+  save(mem);
+  var order = ['explainer','problem','game'];
+  var done = order.filter(function(k){ return mem.parts[k] && mem.parts[k].completed; });
+  event('part_complete', Object.assign({
+    seconds: Math.round((Date.now()-partStart)/1000),
+    completed_parts: done.length,
+    order_followed: done.join('>') === order.slice(0,done.length).join('>')
+  }, extra||{}));
+}
+addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){
+    event('part_leave', {seconds: Math.round((Date.now()-partStart)/1000)});
+  }
+});
+
+/* ============================================================
+   feedback block
+   ============================================================ */
+var CSS = '\
+.tk-fb{--tk-a:#E8442A;font-family:inherit;margin:26px 0 0;padding:18px 20px;border-radius:16px;\
+  border:1px solid var(--tk-line,rgba(128,128,128,.28));background:var(--tk-bg,rgba(128,128,128,.06))}\
+.tk-fb .tk-h{display:block;font-size:17px;font-weight:600;margin-bottom:3px}\
+.tk-fb .tk-sub{margin:0 0 13px;opacity:.68;font-size:14.5px;line-height:1.45}\
+.tk-inline{display:flex;gap:8px;flex-wrap:wrap}\
+.tk-fb input{flex:1 1 220px;min-width:0;font-family:inherit;font-size:15px;padding:11px 14px;\
+  border-radius:9px;border:1px solid var(--tk-line,rgba(128,128,128,.3));\
+  background:var(--tk-field,rgba(255,255,255,.05));color:inherit}\
+.tk-fb input:focus{outline:2px solid var(--tk-a);outline-offset:-1px}\
+.tk-send{background:var(--tk-a);color:#fff;border:none;border-radius:9px;padding:11px 20px;\
+  font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap}\
+.tk-send:hover{filter:brightness(1.09)}\
+.tk-send:disabled{opacity:.5;cursor:default}\
+.tk-hide{display:none}\
+.tk-ok{margin-top:10px;font-size:14.5px;color:var(--tk-a);font-weight:600}\
+.tk-mini{font-size:13px;opacity:.6;margin:12px 0 0;line-height:1.45}\
+.tk-mini a{color:inherit;text-decoration:underline;text-underline-offset:2px}\
+#tk-debug{position:fixed;left:10px;bottom:10px;z-index:99999;width:min(430px,92vw);max-height:60vh;\
+  overflow:auto;background:#0d0f16;color:#d8e2f5;border:1px solid #2b3550;border-radius:10px;\
+  padding:12px;font:12px/1.5 ui-monospace,monospace;display:none}\
+#tk-debug.on{display:block}\
+#tk-debug b{color:#f2b84b}\
+#tk-debug .r{border-bottom:1px solid #1e2740;padding:3px 0}\
+';
+var styled = false;
+function injectCSS(){
+  if(styled) return; styled = true;
+  var s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s);
+}
+
+function mountFeedback(host, cfg){
+  injectCSS();
+  cfg = cfg || {};
+  var box = document.createElement('div');
+  box.className = 'tk-fb';
+  box.innerHTML =
+    '<b class="tk-h">' + (cfg.title || 'Stay in the loop') + '</b>' +
+    '<p class="tk-sub">' + (cfg.sub || 'New topics are on the way. Drop your email and we will tell you when.') + '</p>' +
+    '<div class="tk-inline">' +
+      '<input type="email" id="tk-mail" placeholder="you@example.com" autocomplete="email">' +
+      '<button class="tk-send" id="tk-send">Notify me</button>' +
+    '</div>' +
+    '<div class="tk-ok tk-hide" id="tk-ok"></div>' +
+    '<p class="tk-mini">Or write to <a href="mailto:lemiu2026@gmail.com">lemiu2026@gmail.com</a> \u2014 thoughts, criticism, or a problem you want built. We read everything.</p>';
+  host.appendChild(box);
+
+  box.querySelector('#tk-send').onclick = function(){
+    var el = box.querySelector('#tk-mail');
+    var mail = el ? el.value.trim() : '';
+    var valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail);
+    event('email_submit', {email_given: valid, email: valid ? mail : '', from_part: PART});
+    if(valid){
+      try{
+        var P = window.posthog;
+        if(P && typeof P.identify === 'function') P.identify(mem.visitor, {email:mail});
+        else if(P && typeof P.setPersonProperties === 'function') P.setPersonProperties({email:mail});
+      }catch(e){}
+      mem.email = true; save(mem);
+    }
+    var ok = box.querySelector('#tk-ok');
+    ok.classList.remove('tk-hide');
+    ok.textContent = valid ? 'Done \u2014 you will hear from us first.' : 'That email does not look right.';
+    if(valid) box.querySelector('#tk-send').disabled = true;
+  };
+  box.querySelector('#tk-mail').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') box.querySelector('#tk-send').click();
+  });
+
+  event('feedback_shown');
+  return box;
+}
+
+/* ---------- share ---------- */
+function share(label){
+  var url = location.href.split('#')[0];
+  event('share_click', {label:label});
+  if(navigator.share){
+    navigator.share({title:document.title, url:url}).then(function(){
+      event('share_done', {method:'native'});
+    }).catch(function(){});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){ event('share_done', {method:'clipboard'}); });
+  }
+}
+
+/* ---------- debug panel ---------- */
+var dbg = null;
+function paintDebug(){
+  if(!dbg || !dbg.classList.contains('on')) return;
+  dbg.innerHTML = '<b>' + log.length + ' events · ' + mem.visitor + '</b>' +
+    log.slice(-60).reverse().map(function(r){
+      return '<div class="r">' + r.name + ' ' +
+        JSON.stringify(r.props, function(k,v){
+          return ['visitor','session','device','visit_no','returning'].indexOf(k) >= 0 ? undefined : v;
+        }) + '</div>';
+    }).join('');
+}
+function debug(){
+  injectCSS();
+  if(!dbg){ dbg = document.createElement('div'); dbg.id = 'tk-debug'; document.body.appendChild(dbg); }
+  dbg.classList.toggle('on');
+  paintDebug();
+}
+addEventListener('keydown', function(e){
+  if(e.key === '`' || (e.key === 'D' && e.shiftKey && e.ctrlKey)) debug();
+});
+
+var startPosthog = function(){
+/* ---------- posthog, loaded only if a key is set ---------- */
+if(!POSTHOG_KEY) return;
+  try{
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
+  function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);
+  t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}
+  (p=t.createElement("script")).type="text/javascript",p.async=!0,
+  p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);
+  var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){
+  var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){
+  return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),
+  n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  window.posthog.init(POSTHOG_KEY,{
+    api_host:POSTHOG_HOST,
+    persistence:'localStorage',
+    bootstrap:{distinctID: mem.visitor},
+    disable_cookie:true,
+    autocapture:false,
+    capture_pageview:false,
+    session_recording:{
+      maskAllInputs:false,
+      captureCanvas:{ canvasFps:4, canvasQuality:'0.5' }
+    },
+    loaded: function(p){
+      phReady = true;
+      try{ if(typeof p.startSessionRecording === 'function') p.startSessionRecording(); }catch(e){}
+      // replay is live now — send anything captured before it started
+      for(var i=0;i<pending.length;i++){
+        try{ p.capture(pending[i].name, pending[i].props); }catch(e){}
+      }
+      pending = [];
+    }
+  });
+  ph = window.posthog;
+  }catch(e){ ph = null; if(window.console) console.warn('analytics off:', e.message); }
+
+
+};
+
+window.Track = {
+  event: event,
+  part: part,
+  complete: complete,
+  mountFeedback: mountFeedback,
+  share: share,
+  debug: debug,
+  dump: function(){ return log.slice(); },
+  memory: function(){ return JSON.parse(JSON.stringify(mem)); }
+};
+try{ startPosthog(); }catch(e){}
+setTimeout(function(){
+  if(!phReady && POSTHOG_KEY && window.posthog && typeof window.posthog.capture === 'function'){
+    phReady = true;
+    for(var i=0;i<pending.length;i++){
+      try{ window.posthog.capture(pending[i].name, pending[i].props); }catch(e){}
+    }
+    pending = [];
+  }
+}, 6000);
+
+})();
+</script>
+<script>
+/* fallback: if the analytics library fails to load, pages still work */
+window.Track = window.Track || {event:function(){},part:function(){},complete:function(){},
+  mountFeedback:function(){},share:function(){},debug:function(){},
+  dump:function(){return[];},memory:function(){return {parts:{}};}};
+</script>
+
+
+
+
+
+
+
+
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   live dimensions
+   ============================================================ */
+const RSEG = 0.055;                 // construction-line radius (hoisted: used by early blocks)
+const D = { L:6, W:4, H:3 };
+const MAXD = 8;
+const CAP = MAXD*MAXD*MAXD;
+const COL = { a:0xE8442A, b:0x2B4FE8, c:0xE39A22 };
+const CSS = { a:'#E8442A', b:'#2340C4', c:'#9A6614' };
+// faces are decoration, so they stay clear of the red/blue/amber that carry meaning
+/* six jewel faces, near-opaque so the paper cannot wash them out */
+/* six hues, spaced far enough apart that no two faces read the same */
+const FACE6 = [0xEE4B3C,   // vermilion
+               0x8A3FD4,   // violet
+               0xF5901E,   // amber
+               0x2FA84F,   // green
+               0x2472D6,   // blue
+               0xD93B85];  // magenta
+const FACE = { lid:0xEE4B3C, wallA:0x2472D6, wallB:0xF5901E, edge:0x1B2028 };
+const OP   = { solid:0.94, focus:0.34, net:0.94, shell:0.06 };
+const SA  = ()=> 2*(D.L*D.W + D.L*D.H + D.W*D.H);
+const VOL = ()=> D.L*D.W*D.H;
+
+/* ============================================================
+   one engine for every figure:
+   a prism or a pyramid standing on a regular base polygon
+   ============================================================ */
+const S3=Math.sqrt(3);
+const SIZES = {cuboid:{L:6,W:4,H:3}, triprism:{L:6,W:6,H:5}, hexprism:{L:4,W:4,H:5},
+               sqpyr:{L:6,W:6,H:5}, tripyr:{L:6,W:6,H:5}};
+const SPEC = {
+  cuboid  :{kind:'prism', base:'rect', keys:['l','w','h']},
+  triprism:{kind:'prism', base:'tri',  keys:['a','h']},
+  hexprism:{kind:'prism', base:'hex',  keys:['a','h']},
+  sqpyr   :{kind:'pyr',   base:'sq',   keys:['a','h']},
+  tripyr  :{kind:'pyr',   base:'tri',  keys:['a','h']}
+};
+function dist3(u,v){ return Math.hypot(u[0]-v[0],u[1]-v[1],u[2]-v[2]); }
+function midOf(u,v){ return [(u[0]+v[0])/2,(u[1]+v[1])/2,(u[2]+v[2])/2]; }
+function ringPts(n,R,rot){
+  const p=[];
+  for(let i=0;i<n;i++){ const t=rot+i*2*Math.PI/n; p.push([R*Math.cos(t),R*Math.sin(t),0]); }
+  return p;
+}
+function baseRing(){
+  const sp=SPEC[FIGID]||SPEC.cuboid, k=sp.base, a=D.L, b=D.W;
+  if(k==='rect') return [[-a/2,-b/2,0],[a/2,-b/2,0],[a/2,b/2,0],[-a/2,b/2,0]];
+  if(k==='sq')   return [[-a/2,-a/2,0],[a/2,-a/2,0],[a/2,a/2,0],[-a/2,a/2,0]];
+  if(k==='tri')  return ringPts(3, a/S3, -Math.PI/2);
+  if(k==='hex')  return ringPts(6, a, 0);
+  return [];
+}
+function topRing(){ return baseRing().map(q=>[q[0],q[1],D.H]); }
+function baseArea(){
+  const p=baseRing(); let s=0;
+  for(let i=0;i<p.length;i++){const q=p[i],t=p[(i+1)%p.length]; s+=q[0]*t[1]-t[0]*q[1];}
+  return Math.abs(s)/2;
+}
+function basePerim(){
+  const p=baseRing(); let s=0;
+  for(let i=0;i<p.length;i++) s+=dist3(p[i],p[(i+1)%p.length]);
+  return s;
+}
+function circumR(){ const p=baseRing(); return Math.hypot(p[0][0],p[0][1]); }
+function inR(){ const p=baseRing(), m=midOf(p[0],p[1]); return Math.hypot(m[0],m[1]); }
+function sideLen(){ const p=baseRing(); return dist3(p[0],p[1]); }
+function widestDiag(){
+  const p=baseRing(); let m=0;
+  for(let i=0;i<p.length;i++)for(let j=i+1;j<p.length;j++) m=Math.max(m,dist3(p[i],p[j]));
+  return m;
+}
+function shortDiag(){ const p=baseRing(); return p.length>4 ? dist3(p[0],p[2]) : 0; }
+function apexPt(){ return [0,0,D.H]; }
+function apoLen(){ return Math.hypot(inR(),D.H); }
+function edgeLen(){ return Math.hypot(circumR(),D.H); }
+function isPyr(){ return (SPEC[FIGID]||SPEC.cuboid).kind==='pyr'; }
+function figSA(){
+  const B=baseArea();
+  return isPyr() ? B + basePerim()*apoLen()/2 : 2*B + basePerim()*D.H;
+}
+function figVOL(){ return isPyr() ? baseArea()*D.H/3 : baseArea()*D.H; }
+
+/* ============================================================
+   scene
+   ============================================================ */
+const stage = document.getElementById('stage');
+const labelBox = document.getElementById('labels');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x000000,0);
+stage.insertBefore(renderer.domElement, labelBox);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40,1,0.1,500);
+camera.up.set(0,0,1);
+scene.add(new THREE.AmbientLight(0xffffff,0.58));
+const k1=new THREE.DirectionalLight(0xffffff,0.6); k1.position.set(7,-10,14); scene.add(k1);
+const k2=new THREE.DirectionalLight(0xffffff,0.22); k2.position.set(-8,6,4); scene.add(k2);
+const world = new THREE.Group(); scene.add(world);
+
+/* ---- one face: unit plate + unit outline, sized by an inner group ---- */
+function face(color){
+  const g = new THREE.Group();
+  const inner = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({color, side:THREE.DoubleSide, transparent:true, opacity:1});
+  inner.add(new THREE.Mesh(new THREE.PlaneGeometry(1,1), mat));
+  const sq = [[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5],[-.5,-.5]].map(p=>new THREE.Vector3(p[0],p[1],0.004));
+  const lineMat = new THREE.LineBasicMaterial({color:0x14181A, transparent:true, opacity:0.55});
+  inner.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(sq), lineMat));
+  g.add(inner);
+  g.userData = {inner, mat, lineMat};
+  return g;
+}
+
+/* ---- hinged net ---- */
+function hinged(axis, end, standZ, color){
+  const pivot = new THREE.Group();
+  const f = face(color);
+  // three.js Euler order is XYZ (Z applies before X) — compose explicitly as Rz·Rx
+  const m = new THREE.Matrix4().makeRotationX(Math.PI/2);
+  if(standZ) m.premultiply(new THREE.Matrix4().makeRotationZ(standZ));
+  f.quaternion.setFromRotationMatrix(m);
+  pivot.add(f);
+  pivot.userData = {axis, end};
+  return {pivot, f};
+}
+
+const base  = face(COL.a); world.add(base);
+const back  = hinged('x', -Math.PI/2, 0, COL.b);
+const front = hinged('x',  Math.PI/2, 0, COL.b);
+const right = hinged('y',  Math.PI/2, Math.PI/2, COL.c);
+const left  = hinged('y', -Math.PI/2, Math.PI/2, COL.c);
+world.add(back.pivot, front.pivot, right.pivot, left.pivot);
+
+const topPivot = new THREE.Group();
+back.pivot.add(topPivot);
+const topFace = face(COL.a);
+topPivot.add(topFace);
+topPivot.userData = {axis:'x', end:-Math.PI/2};
+
+const HINGES = [back.pivot, front.pivot, right.pivot, left.pivot, topPivot];
+
+/* ============================================================
+   the pyramid — same three sliders: base L × W, apex above the centre at H
+   ============================================================ */
+let SOLID = 'box';
+const pyrG = new THREE.Group(); pyrG.visible = false; world.add(pyrG);
+const pyrBase = face(0xE0B36A); pyrG.add(pyrBase);          // square/rectangular base
+const pyrSides = [];                                      // four hinged triangles
+function triFace(color){
+  const g = new THREE.Group(), inner = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({color, side:THREE.DoubleSide, transparent:true, opacity:1});
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 1,0,0, .5,1,0],3));
+  geo.computeVertexNormals();
+  inner.add(new THREE.Mesh(geo, mat));
+  const lineMat = new THREE.LineBasicMaterial({color:0x2A3634, transparent:true, opacity:.5});
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.Float32BufferAttribute([0,0,.004, 1,0,.004, .5,1,.004, 0,0,.004],3));
+  inner.add(new THREE.Line(lg, lineMat));
+  g.add(inner);
+  g.userData = {inner, mat, lineMat, geo, lineGeo:lg};
+  return g;
+}
+for(let i=0;i<4;i++){
+  const pivot = new THREE.Group();
+  const f = triFace(i%2 ? 0x9AB6E8 : 0x8FA9E0);
+  pivot.add(f); pyrG.add(pivot);
+  pyrSides.push({pivot, f});
+}
+const pyrApexDot = new THREE.Mesh(new THREE.SphereGeometry(0.16,14,10),
+  new THREE.MeshBasicMaterial({color:0x6D5BD0}));
+pyrG.add(pyrApexDot);
+
+/* the box that contains it — used to show why volume is a third */
+const thirdG = new THREE.Group(); thirdG.visible=false; world.add(thirdG);
+
+/* the three right triangles inside a regular pyramid */
+const ptriG = new THREE.Group(); ptriG.visible=false; world.add(ptriG);
+const angG2 = new THREE.Group(); angG2.visible=false; world.add(angG2);
+function angSeg(a,b,col,rad){
+  const s=Math.max(D.L,D.W,D.H)/10;
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(rad*s,rad*s,1,10),
+    new THREE.MeshBasicMaterial({color:col}));
+  const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);
+  m.scale.set(1,A.distanceTo(B),1);
+  m.position.copy(A).add(B).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
+  angG2.add(m);
+}
+function showBoxAngle(){
+  while(angG2.children.length) angG2.remove(angG2.children[0]);
+  angG2.visible=true;
+  const a=D.L/2,b=D.W/2,h=D.H;
+  const A=[-a,-b,0], C=[a,b,0], C1=[a,b,h];
+  angSeg(A,C1,0xE8442A,.075);      // the space diagonal
+  angSeg(A,C ,0x2B4FE8,.06);       // its shadow on the base
+  angSeg(C,C1,0xE39A22,.05);       // the rise
+}
+function showPyrAngles(){
+  while(angG2.children.length) angG2.remove(angG2.children[0]);
+  angG2.visible=true;
+  const P=pyrPts();
+  angSeg(P.S,[0,-D.W/2,0],0x2B4FE8,.065);   // apothem
+  angSeg([0,0,0],[0,-D.W/2,0],0x6E7A75,.05);
+  angSeg(P.S,P.A,0xE8442A,.065);            // lateral edge
+  angSeg([0,0,0],P.A,0x6E7A75,.05);
+  angSeg(P.S,[0,0,0],0xE39A22,.05);         // the shared height
+}
+function showPyrTri(t){
+  while(ptriG.children.length) ptriG.remove(ptriG.children[0]);
+  ptriG.visible=true;
+  const p=t.pts(), s=Math.max(D.L,D.W,D.H)/10;
+  const mk=(a,b,col,rad)=>{
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(rad*s,rad*s,1,10),
+      new THREE.MeshBasicMaterial({color:col}));
+    const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b);
+    m.scale.set(1,A.distanceTo(B),1);
+    m.position.copy(A).add(B).multiplyScalar(.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
+    ptriG.add(m);
+  };
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(
+    [...p[0],...p[1],...p[2]],3));
+  g.computeVertexNormals();
+  ptriG.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial(
+    {color:t.col,transparent:true,opacity:.16,side:THREE.DoubleSide})));
+  mk(p[0],p[1],t.col,.055); mk(p[1],p[2],t.col,.055); mk(p[2],p[0],t.col,.075);
+}
+
+/* the doubled pyramid, drawn as an outline around the original */
+const dblPyr = new THREE.Group(); dblPyr.visible=false; world.add(dblPyr);
+const dblPyrLines = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x6D5BD0, transparent:true, opacity:.9}));
+dblPyr.add(dblPyrLines);
+function layoutDblPyr(){
+  const {L,W,H}=D, l=L, w=W, h=H;                 // doubled: 2l × 2w × 2h
+  const A=[-l,-w,0], B=[l,-w,0], C=[l,w,0], Dd=[-l,w,0], S=[0,0,2*h];
+  const seg=[[A,B],[B,C],[C,Dd],[Dd,A],[A,S],[B,S],[C,S],[Dd,S]];
+  const pts=[]; seg.forEach(e=>pts.push(...e[0],...e[1]));
+  dblPyrLines.geometry.dispose();
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+  dblPyrLines.geometry=g;
+}
+const thirdWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+  new THREE.LineBasicMaterial({color:0x6D5BD0, transparent:true, opacity:.85}));
+thirdG.add(thirdWire);
+
+function pyrPts(){
+  const {L,W,H}=D;
+  return { A:[-L/2,-W/2,0], B:[L/2,-W/2,0], C:[L/2,W/2,0], D:[-L/2,W/2,0],
+           O:[0,0,0], S:[0,0,H] };
+}
+/* slant heights: apothem onto each base edge */
+const apoLW = ()=> Math.hypot(D.W/2, D.H);     // onto an edge of length L
+const apoWH = ()=> Math.hypot(D.L/2, D.H);     // onto an edge of length W
+const halfDiag = ()=> Math.hypot(D.L/2, D.W/2);
+const lateralEdge = ()=> Math.hypot(halfDiag(), D.H);
+
+function layoutPyramid(t){
+  const {L,W,H}=D;
+  const P = pyrPts();
+  pyrBase.userData.inner.scale.set(L,W,1);
+  pyrBase.position.set(0,0,0);
+  const e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;   // 0 = flat net, 1 = closed
+
+  // each face swings about its base edge; the apex rides a circle of radius = apothem
+  const edges = [
+    {a:P.A, b:P.B, out:[0,-1,0], half:W/2},
+    {a:P.B, b:P.C, out:[1,0,0],  half:L/2},
+    {a:P.C, b:P.D, out:[0,1,0],  half:W/2},
+    {a:P.D, b:P.A, out:[-1,0,0], half:L/2}
+  ];
+  edges.forEach((ed,i)=>{
+    const f = pyrSides[i].f, pivot = pyrSides[i].pivot;
+    pivot.position.set(0,0,0); pivot.rotation.set(0,0,0);
+    const mid = [(ed.a[0]+ed.b[0])/2, (ed.a[1]+ed.b[1])/2, 0];
+    const ap  = Math.hypot(ed.half, H);                 // apothem of this face
+    const flat = Math.PI, fold = Math.atan2(H, ed.half);
+    const phi = flat + (fold-flat)*e;
+    const apex = [ mid[0] - ap*Math.cos(phi)*ed.out[0],
+                   mid[1] - ap*Math.cos(phi)*ed.out[1],
+                   ap*Math.sin(phi) ];
+    const g = f.userData.geo;
+    g.setAttribute('position', new THREE.Float32BufferAttribute(
+      [ed.a[0],ed.a[1],ed.a[2], ed.b[0],ed.b[1],ed.b[2], apex[0],apex[1],apex[2]],3));
+    if(g.attributes && g.attributes.position) g.attributes.position.needsUpdate = true;
+    g.computeVertexNormals();
+    // outline, lifted a hair so it reads over the fill
+    const lg = f.userData.lineGeo;
+    if(lg){
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(
+        [ed.a[0],ed.a[1],ed.a[2]+.006, ed.b[0],ed.b[1],ed.b[2]+.006,
+         apex[0],apex[1],apex[2]+.006, ed.a[0],ed.a[1],ed.a[2]+.006],3));
+      if(lg.attributes && lg.attributes.position) lg.attributes.position.needsUpdate = true;
+    }
+    f.position.set(0,0,0); f.rotation.set(0,0,0);
+    f.userData.inner.scale.set(1,1,1);
+  });
+  pyrApexDot.position.set(0,0,H);
+  pyrApexDot.visible = e>0.985;
+  thirdWire.scale.set(L,W,H);
+  thirdWire.position.set(0,0,H/2);
+}
+
+const FACES = [
+  {g:base,    pair:'a', dims:()=>[D.L,D.W]},
+  {g:topFace, pair:'a', dims:()=>[D.L,D.W]},
+  {g:back.f,  pair:'b', dims:()=>[D.L,D.H]},
+  {g:front.f, pair:'b', dims:()=>[D.L,D.H]},
+  {g:right.f, pair:'c', dims:()=>[D.W,D.H]},
+  {g:left.f,  pair:'c', dims:()=>[D.W,D.H]}
+];
+
+/* ---- unit cubes ---- */
+const cubes = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(0.86,0.86,0.86),
+  new THREE.MeshLambertMaterial({color:0xCBD6EE}), CAP);
+cubes.count = 0; world.add(cubes);
+const dummy = new THREE.Object3D();
+function layoutCubes(){
+  let i=0;
+  for(let z=0;z<D.H;z++) for(let y=0;y<D.W;y++) for(let x=0;x<D.L;x++){
+    dummy.position.set(-D.L/2+x+0.5, -D.W/2+y+0.5, z+0.5);
+    dummy.updateMatrix(); cubes.setMatrixAt(i++, dummy.matrix);
+  }
+  cubes.instanceMatrix.needsUpdate = true;
+}
+
+/* ---- free-standing plane, used by the abstract slides ---- */
+const freeG = new THREE.Group(); freeG.visible=false; world.add(freeG);
+const freePlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+freeG.add(freePlane);
+const freeGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.3}));
+freeG.add(freeGrid);
+function buildGrid(size, step){
+  const pts=[], h=size/2;
+  for(let i=-h;i<=h;i+=step){ pts.push(-h,i,0, h,i,0, i,-h,0, i,h,0); }
+  freeGrid.geometry.dispose();
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  freeGrid.geometry=g;
+  freePlane.scale.set(size,size,1);
+}
+
+/* --- angle between a line and a plane --- */
+const lpG = new THREE.Group(); lpG.visible=false; world.add(lpG);
+const lpLine = seg(0xE8B84B, 0.062);   // the line itself
+const lpProj = seg(0x5FB0A6, 0.062);   // its projection
+const lpDrop = seg(0xE27A5F, 0.05);    // the perpendicular dropped to the plane
+lpG.add(lpLine, lpProj, lpDrop);
+const lpMark = rightMark(0xE27A5F);
+lpG.add(lpMark);
+const lpArc = new THREE.Line(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0xE8B84B}));
+lpG.add(lpArc);
+const lpDotO = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const lpDotA = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const lpDotH = new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+lpG.add(lpDotO, lpDotA, lpDotH);
+let lpAlpha = 35;                      // degrees between the line and the plane
+const LPR = 5.2;                       // horizontal reach
+function lpPts(){
+  const a=lpAlpha*Math.PI/180;
+  const O=[-2.6,-1.4,0];
+  const H=[O[0]+LPR, O[1], 0];
+  const A=[H[0], H[1], LPR*Math.tan(a)];
+  return {O,H,A};
+}
+function layoutLP(){
+  const {O,H,A}=lpPts();
+  place(lpLine, O, A);
+  place(lpProj, O, H);
+  place(lpDrop, H, A);
+  setMark(lpMark, H, [O[0]-H[0],O[1]-H[1],0], [0,0,1], 0.42);
+  const r=2.0, N=26, pts=[];
+  const u=new THREE.Vector3(H[0]-O[0],H[1]-O[1],0).normalize();
+  const v=new THREE.Vector3(A[0]-O[0],A[1]-O[1],A[2]-O[2]).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  for(let i=0;i<=N;i++) pts.push(new THREE.Vector3(...O).add(u.clone().applyAxisAngle(ax,tot*i/N).multiplyScalar(r)));
+  lpArc.geometry.dispose(); lpArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+  lpDotO.position.set(...O); lpDotA.position.set(...A); lpDotH.position.set(...H);
+}
+
+/* --- distance from a point to a plane / to a line --- */
+const dsG = new THREE.Group(); dsG.visible=false; world.add(dsG);
+const dsPerp = seg(0xE8B84B, 0.062);
+const dsSlant1 = seg(0x8B978F, 0.04);
+const dsSlant2 = seg(0x8B978F, 0.04);
+const dsLine = seg(0x5FB0A6, 0.055);
+dsG.add(dsPerp, dsSlant1, dsSlant2, dsLine);
+const dsMark = rightMark(0xE8B84B);
+dsG.add(dsMark);
+const dsDotP = new THREE.Mesh(new THREE.SphereGeometry(0.14,14,10), new THREE.MeshBasicMaterial({color:0x14181A}));
+const dsDotF = new THREE.Mesh(new THREE.SphereGeometry(0.12,14,10), new THREE.MeshBasicMaterial({color:0xE8B84B}));
+dsG.add(dsDotP, dsDotF);
+let dsMode = 'plane';
+function layoutDS(){
+  const P=[0,0,4.2], F=[0,0,0];
+  dsPerp.visible=true;
+  place(dsPerp, P, F);
+  dsDotP.position.set(...P); dsDotF.position.set(...F);
+  if(dsMode==='plane'){
+    dsLine.visible=false;
+    place(dsSlant1, P, [-3.4,-1.6,0]);
+    place(dsSlant2, P, [ 2.9,-2.2,0]);
+    setMark(dsMark, F, [-1,0,0], [0,0,1], 0.42);
+  } else {
+    dsLine.visible=true;
+    place(dsLine, [-4.2,0,0], [4.2,0,0]);
+    place(dsSlant1, P, [-3.0,0,0]);
+    place(dsSlant2, P, [ 2.6,0,0]);
+    setMark(dsMark, F, [-1,0,0], [0,0,1], 0.42);
+  }
+}
+
+/* ---- standalone stage (no box): a plane, a point above it ---- */
+const soloG = new THREE.Group(); soloG.visible=false; world.add(soloG);
+const soloPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+soloG.add(soloPlane);
+const soloGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.28}));
+soloG.add(soloGrid);
+(function(){
+  const pts=[], S=9, n=6;
+  for(let i=0;i<=n;i++){
+    const t=-S/2+S*i/n;
+    pts.push(-S/2,t,0, S/2,t,0, t,-S/2,0, t,S/2,0);
+  }
+  soloGrid.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+})();
+const sPerp = seg(0xE27A5F, 0.05);   // AH ⊥ plane
+const sObl  = seg(0xE8B84B, 0.06);   // AM the oblique
+const sProj = seg(0x5FB0A6, 0.06);   // HM the projection
+soloG.add(sPerp, sObl, sProj);
+const sMarkH = rightMark(0xE27A5F);
+soloG.add(sMarkH);
+const sArc = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xE8B84B}));
+soloG.add(sArc);
+const sDot = k => new THREE.Mesh(new THREE.SphereGeometry(0.13,14,10),
+  new THREE.MeshBasicMaterial({color:k}));
+const sA=sDot(0x14181A), sH=sDot(0x14181A), sM=sDot(0x14181A);
+soloG.add(sA,sH,sM);
+
+let soloH = 4;                       // height of A above the plane
+const soloPts = ()=>({ H:[0,0,0], A:[0,0,soloH], M:[3.2,1.9,0] });
+function layoutSolo(){
+  const {H,A,M}=soloPts();
+  place(sPerp,H,A); place(sObl,A,M); place(sProj,H,M);
+  setMark(sMarkH, H, [0,0,1], [M[0]-H[0],M[1]-H[1],0], 0.45);
+  sA.position.set(...A); sH.position.set(...H); sM.position.set(...M);
+  soloPlane.scale.set(9,9,1); soloPlane.position.set(0,0,-0.015);
+  // arc at M, between MH (projection) and MA (oblique)
+  const u=new THREE.Vector3(H[0]-M[0],H[1]-M[1],0).normalize();
+  const v=new THREE.Vector3(A[0]-M[0],A[1]-M[1],A[2]-M[2]).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  const pts=[], r=1.15;
+  for(let i=0;i<=24;i++){
+    const q=u.clone().applyAxisAngle(ax, tot*i/24).multiplyScalar(r);
+    pts.push(new THREE.Vector3(...M).add(q));
+  }
+  sArc.geometry.dispose(); sArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+const soloLen = ()=>{ const {H,M}=soloPts(); return Math.hypot(M[0]-H[0],M[1]-H[1]); };
+const soloAng = ()=> Math.atan2(soloH, soloLen())*180/Math.PI;
+
+/* ---- parallel translation: slide a segment, nothing changes but where it is ---- */
+const parG = new THREE.Group(); parG.visible=false; world.add(parG);
+const pOrig = seg(0xE8B84B, 0.07);          // the original segment
+const pCopy = seg(0x5FB0A6, 0.07);          // the slid copy
+parG.add(pOrig, pCopy);
+const pRail = [];
+for(let i=0;i<2;i++){ const m=seg(0x93A09A,0.022); parG.add(m); pRail.push(m); }
+let parT = 0;                                // 0 = home, 1 = fully slid
+function parEnds(){
+  const {L,W,H}=D;
+  const a=[-L/2,-W/2,0], b=[-L/2,-W/2,H];    // the vertical edge AA₁
+  const d=[L*parT, 0, 0];                    // slide along the base edge
+  return {a,b, a2:[a[0]+d[0],a[1],a[2]], b2:[b[0]+d[0],b[1],b[2]]};
+}
+function layoutPar(){
+  const {a,b,a2,b2}=parEnds();
+  place(pOrig,a,b); place(pCopy,a2,b2);
+  place(pRail[0],a,a2); place(pRail[1],b,b2);
+  pRail.forEach(r=>r.visible = parT>0.02);
+}
+
+/* ---- line ⊥ plane: two lines in the plane are enough ---- */
+const criG = new THREE.Group(); criG.visible=false; world.add(criG);
+const cVert = seg(0xE27A5F, 0.06);          // the standing line
+const cL1   = seg(0x5FB0A6, 0.055);         // first line in the plane
+const cL2   = seg(0x5FB0A6, 0.055);         // second line in the plane
+const cTest = seg(0xE8B84B, 0.055);         // any third line — comes out perpendicular for free
+criG.add(cVert, cL1, cL2, cTest);
+const cM1=rightMark(0x5FB0A6), cM2=rightMark(0x5FB0A6), cMT=rightMark(0xE8B84B);
+criG.add(cM1,cM2,cMT);
+const criPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.12, side:THREE.DoubleSide}));
+criG.add(criPlane);
+const criGrid = new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.26}));
+criG.add(criGrid);
+(function(){ const pts=[], SZ=9, n=6;
+  for(let i=0;i<=n;i++){ const t=-SZ/2+SZ*i/n; pts.push(-SZ/2,t,0, SZ/2,t,0, t,-SZ/2,0, t,SZ/2,0); }
+  criGrid.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+})();
+let criAng = 25;                             // direction of the free test line, degrees
+function layoutCri(){
+  const O=[0,0,0], R=3.4;
+  place(cVert, O, [0,0,4.2]);
+  place(cL1, [-R,0,0], [R,0,0]);
+  const d2=[Math.cos(1.15), Math.sin(1.15), 0];
+  place(cL2, [-d2[0]*R,-d2[1]*R,0], [d2[0]*R,d2[1]*R,0]);
+  const th=criAng*Math.PI/180, u=[Math.cos(th),Math.sin(th),0];
+  place(cTest, [-u[0]*R,-u[1]*R,0], [u[0]*R,u[1]*R,0]);
+  setMark(cM1,O,[1,0,0],[0,0,1],0.44);
+  setMark(cM2,O,d2,[0,0,1],0.44);
+  setMark(cMT,O,u,[0,0,1],0.52);
+  criPlane.scale.set(9,9,1); criPlane.position.set(0,0,-0.015);
+}
+
+/* ---- projected area: tilted plane vs its shadow ---- */
+const prjG = new THREE.Group(); prjG.visible=false; world.add(prjG);
+function plate(color, op){
+  const m=new THREE.Mesh(new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:op, side:THREE.DoubleSide}));
+  return m;
+}
+const prjTilt = plate(0x7A5AF8, 0.26);
+const prjShad = plate(0x5FB0A6, 0.30);
+prjG.add(prjTilt, prjShad);
+const prjEdges=[];
+for(let i=0;i<8;i++){ const m=seg(0xB88BE0,0.05); prjG.add(m); prjEdges.push(m); }
+const prjArc = new THREE.Line(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({color:0xE8B84B}));
+prjG.add(prjArc);
+function quadGeo(mesh, p){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(
+    [...p[0],...p[1],...p[2], ...p[0],...p[2],...p[3]],3));
+  mesh.geometry.dispose(); mesh.geometry=g;
+}
+function layoutPrj(){
+  const {L,W,H}=D, x=L/2, y=W/2;
+  const A=[-x,-y,0], B=[x,-y,0], C=[x,y,0], Dd=[-x,y,0];
+  const C1=[x,y,H], D1=[-x,y,H];
+  quadGeo(prjTilt, [A,B,C1,D1]);
+  quadGeo(prjShad, [A,B,C,Dd]);
+  const tp=[A,B,C1,D1], sp=[A,B,C,Dd];
+  for(let i=0;i<4;i++){
+    place(prjEdges[i],   tp[i], tp[(i+1)%4]); prjEdges[i].material.color.setHex(0x7A5AF8);
+    place(prjEdges[4+i], sp[i], sp[(i+1)%4]); prjEdges[4+i].material.color.setHex(0x5FB0A6);
+  }
+  // dihedral angle along AB, drawn at A between AD (base) and AD1 (tilted)
+  const r=Math.min(W,H)*0.45+0.35, N=24, pts=[];
+  const u=new THREE.Vector3(0,W,0).normalize(), v=new THREE.Vector3(0,W,H).normalize();
+  const tot=u.angleTo(v), ax=new THREE.Vector3().crossVectors(u,v).normalize();
+  for(let i=0;i<=N;i++){
+    const q=u.clone().applyAxisAngle(ax, tot*i/N).multiplyScalar(r);
+    pts.push(new THREE.Vector3(...A).add(q));
+  }
+  prjArc.geometry.dispose(); prjArc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+const prjPhi = ()=> Math.acos(D.W/Math.hypot(D.W,D.H))*180/Math.PI;
+
+/* ---- highlight a named face / plane on the box ---- */
+const hlG = new THREE.Group(); hlG.visible=false; world.add(hlG);
+const hlFill = new THREE.Mesh(new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.3, side:THREE.DoubleSide}));
+hlG.add(hlFill);
+const hlEdges = [];
+for(let i=0;i<8;i++){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,1,10),
+    new THREE.MeshBasicMaterial({color:0xE8B84B}));
+  m.visible=false; hlG.add(m); hlEdges.push(m);
+}
+function putEdge(m,a,b){
+  const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b), len=A.distanceTo(B);
+  if(len<1e-6){m.visible=false;return;}
+  m.visible=true; m.scale.set(1,len,1);
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+}
+function showQuad(pts, color){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(
+    [...pts[0],...pts[1],...pts[2], ...pts[0],...pts[2],...pts[3]],3));
+  hlFill.geometry.dispose(); hlFill.geometry=g;
+  hlFill.material.color.setHex(color);
+  hlEdges.forEach(m=>m.visible=false);
+  for(let i=0;i<4;i++){ putEdge(hlEdges[i], pts[i], pts[(i+1)%4]); hlEdges[i].material.color.setHex(color); }
+  hlG.visible=true;
+}
+/* the box corners, named the way problems name them */
+function corner(k){
+  const {L,W,H}=D, x=L/2, y=W/2;
+  return { A:[-x,-y,0], B:[x,-y,0], C:[x,y,0], D:[-x,y,0],
+           A1:[-x,-y,H], B1:[x,-y,H], C1:[x,y,H], D1:[-x,y,H] }[k];
+}
+const FACE_KINDS = {
+  diagonal:{label:'diagonal section', pts:()=>['A','C','C1','A1'], col:0xE27A5F,
+            note:'A cut through two opposite vertical edges. Its width is the base diagonal \u2014 find that first.',
+            tex:()=>`S=\\sqrt{${D.L}^2+${D.W}^2}\\cdot${D.H}=${nice(fd())}\\cdot${D.H}=${nice(fd()*D.H)}`},
+  tilted:  {label:'tilted section', pts:()=>['A','B','C1','D1'], col:0xB88BE0,
+            note:'A cut that is parallel to nothing. Still a rectangle \u2014 one side is an edge, the other is a face diagonal.',
+            tex:()=>`S=${D.L}\\cdot\\sqrt{${D.W}^2+${D.H}^2}=${D.L}\\cdot${nice(Math.hypot(D.W,D.H))}=${nice(D.L*Math.hypot(D.W,D.H))}`}
+};
+const PYR_FACES = {
+  apo:     {label:'through the apothem', col:0xE39A22,
+            note:'A cut straight down the middle, hitting two opposite base edges. Contains the height.',
+            tri:false, pts:()=>['M1','M2','S','S'],
+            tex:()=>`S=\\tfrac12\\cdot${D.W}\\cdot${D.H}=${nice(D.W*D.H/2)}`},
+  diag:    {label:'through the diagonal', col:0xE8442A,
+            note:'A cut through two opposite base corners and the apex. Its base is the base diagonal.',
+            tri:false, pts:()=>['A','C','S','S'],
+            tex:()=>`S=\\tfrac12\\cdot${nice(2*halfDiag())}\\cdot${D.H}=${nice(halfDiag()*D.H)}`}
+};
+function pyrPoint(k){
+  const P=pyrPts();
+  if(k==='M1') return [0,-D.W/2,0];
+  if(k==='M2') return [0, D.W/2,0];
+  return P[k];
+}
+function setPyrFace(kind){
+  const f=PYR_FACES[kind];
+  const p=f.pts().map(pyrPoint);
+  showQuad(f.tri ? [p[0],p[1],p[2],p[2]] : p, f.col);
+}
+function setFace(kind){
+  const f=FACE_KINDS[kind];
+  showQuad(f.pts().map(corner), f.col);
+}
+
+/* ---- diagonals, right-angle marks, angle arc ---- */
+function fatLine(color, w){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 1,1,1], 3));
+  return new THREE.Line(g, new THREE.LineBasicMaterial({color, linewidth:w}));
+}
+// tube-based segments so thickness is real on every device
+function seg(color, r){
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, 1, 10, 1, false),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:1}));
+  m.userData.r = r;
+  return m;
+}
+function place(mesh, a, b){
+  const A=new THREE.Vector3(...a), B=new THREE.Vector3(...b);
+  const len=A.distanceTo(B);
+  if(len<1e-6){ mesh.visible=false; return; }
+  mesh.visible=true;
+  mesh.scale.set(1,len,1);
+  mesh.position.copy(A).add(B).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+}
+const diagG = new THREE.Group(); diagG.visible=false; world.add(diagG);
+const segFace  = seg(0x5FB0A6, RSEG);   // base diagonal
+const segSpace = seg(0xE8B84B, RSEG*1.15); // space diagonal
+const segVert  = seg(0xE27A5F, RSEG);   // vertical edge
+diagG.add(segFace, segSpace, segVert);
+
+// right-angle square marker
+function rightMark(color){
+  const g=new THREE.Group();
+  const a=seg(color,RSEG*0.6), b=seg(color,RSEG*0.6);
+  g.add(a,b); g.userData={a,b};
+  return g;
+}
+const markBase = rightMark(0x14181A);   // between l and w on the base
+const markVert = rightMark(0x14181A);   // between base diagonal and vertical
+diagG.add(markBase, markVert);
+function setMark(mk, corner, u, v, size){
+  const U=new THREE.Vector3(...u).normalize().multiplyScalar(size);
+  const V=new THREE.Vector3(...v).normalize().multiplyScalar(size);
+  const C=new THREE.Vector3(...corner);
+  const p1=C.clone().add(U), p2=C.clone().add(U).add(V), p3=C.clone().add(V);
+  place(mk.userData.a, p1.toArray(), p2.toArray());
+  place(mk.userData.b, p2.toArray(), p3.toArray());
+}
+// angle arc between the space diagonal and its projection
+const arcMat = new THREE.LineBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.95});
+const arc = new THREE.Line(new THREE.BufferGeometry(), arcMat);
+diagG.add(arc);
+function setArc(origin, d1, d2, radius){
+  const O=new THREE.Vector3(...origin);
+  const A=new THREE.Vector3(...d1).normalize(), B=new THREE.Vector3(...d2).normalize();
+  const pts=[]; const total=A.angleTo(B); const N=26;
+  const axis=new THREE.Vector3().crossVectors(A,B).normalize();
+  for(let i=0;i<=N;i++){
+    const v=A.clone().applyAxisAngle(axis, total*i/N).multiplyScalar(radius);
+    pts.push(O.clone().add(v));
+  }
+  arc.geometry.dispose();
+  arc.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+}
+
+// the isolated triangle (base diagonal, vertical, space diagonal) drawn as a filled plate
+const triG = new THREE.Group(); triG.visible=false; world.add(triG);
+const triFill = new THREE.Mesh(new THREE.BufferGeometry(),
+  new THREE.MeshBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.13, side:THREE.DoubleSide}));
+triG.add(triFill);
+function setTri(p1,p2,p3){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([...p1,...p2,...p3],3));
+  triFill.geometry.dispose(); triFill.geometry=g;
+}
+
+// corners used throughout: A(near-left-bottom) -> C(far-right-bottom) -> C1(far-right-top)
+const cA  = ()=>[-D.L/2,-D.W/2,0];
+const cC  = ()=>[ D.L/2, D.W/2,0];
+const cC1 = ()=>[ D.L/2, D.W/2,D.H];
+const cB  = ()=>[ D.L/2,-D.W/2,0];
+
+function layoutDiagonals(){
+  const A=cA(), C=cC(), C1=cC1(), B=cB();
+  place(segFace,  A, C);
+  place(segSpace, A, C1);
+  place(segVert,  C, C1);
+  setMark(markBase, B, [-1,0,0], [0,1,0], Math.min(D.L,D.W)*0.22+0.25);
+  setMark(markVert, C, [A[0]-C[0],A[1]-C[1],0], [0,0,1], Math.min(Math.hypot(D.L,D.W),D.H)*0.16+0.25);
+  setArc(A, [C[0]-A[0],C[1]-A[1],0], [C1[0]-A[0],C1[1]-A[1],C1[2]-A[2]], Math.hypot(D.L,D.W)*0.32+0.4);
+  setTri(A, C, C1);
+}
+
+/* ---- three perpendiculars: A above the plane, H its foot, M in the plane ---- */
+const tppG = new THREE.Group(); tppG.visible=false; world.add(tppG);
+const tPerp = seg(0xE27A5F, 0.055);   // AH — perpendicular to the plane
+const tObl  = seg(0xE8B84B, 0.062);   // AM — the oblique
+const tProj = seg(0x5FB0A6, 0.062);   // HM — its projection
+const tLine = seg(0x14181A, 0.062);   // a  — the line lying in the plane
+tppG.add(tPerp, tObl, tProj, tLine);
+const mkH = rightMark(0xE27A5F);      // AH ⊥ HM
+const mkP = rightMark(0x5FB0A6);      // a ⊥ HM
+const mkO = rightMark(0xE8B84B);      // a ⊥ AM  (the one you get free)
+tppG.add(mkH, mkP, mkO);
+const dotGeo = new THREE.SphereGeometry(0.13,14,10);
+const dotMat = ()=> new THREE.MeshBasicMaterial({color:0x14181A});
+const dotA = new THREE.Mesh(dotGeo, dotMat());
+const dotH = new THREE.Mesh(dotGeo, dotMat());
+const dotM = new THREE.Mesh(dotGeo, dotMat());
+tppG.add(dotA, dotH, dotM);
+const planeTint = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({color:0x5FB0A6, transparent:true, opacity:0.10, side:THREE.DoubleSide}));
+tppG.add(planeTint);
+
+let tppTheta = 90;                    // angle (deg) between line a and the projection HM
+function tppPts(){
+  const {L,W,H}=D;
+  return {
+    Hh:[-L/2,-W/2,0],                 // foot of the perpendicular
+    Ap:[-L/2,-W/2,H],                 // point above the plane
+    M :[-L/2+L*0.62, -W/2+W*0.55, 0]  // a point in the plane
+  };
+}
+function tppDir(){
+  const {Hh,M}=tppPts();
+  const d=[M[0]-Hh[0], M[1]-Hh[1]], dl=Math.hypot(d[0],d[1])||1;
+  const th=tppTheta*Math.PI/180;
+  return [(d[0]*Math.cos(th)-d[1]*Math.sin(th))/dl,
+          (d[0]*Math.sin(th)+d[1]*Math.cos(th))/dl, 0];
+}
+function layoutTPP(){
+  const {L,W}=D, {Hh,Ap,M}=tppPts(), u=tppDir();
+  place(tPerp, Hh, Ap);
+  place(tObl,  Ap, M);
+  place(tProj, Hh, M);
+  const r=Math.max(L,W)*0.5;
+  place(tLine, [M[0]-u[0]*r, M[1]-u[1]*r, 0], [M[0]+u[0]*r, M[1]+u[1]*r, 0]);
+  const sz=Math.min(L,W)*0.15+0.28;
+  setMark(mkH, Hh, [0,0,1], [M[0]-Hh[0], M[1]-Hh[1], 0], sz);
+  setMark(mkP, M,  u, [Hh[0]-M[0], Hh[1]-M[1], 0], sz);
+  setMark(mkO, M,  u, [Ap[0]-M[0], Ap[1]-M[1], Ap[2]-M[2]], sz*1.15);
+  dotA.position.set(...Ap); dotH.position.set(...Hh); dotM.position.set(...M);
+  planeTint.scale.set(D.L,D.W,1); planeTint.position.set(0,0,-0.014);
+}
+/* angle between a and the oblique AM, in degrees */
+function tppOblAngle(){
+  const {Ap,M}=tppPts(), u=tppDir();
+  const o=[Ap[0]-M[0], Ap[1]-M[1], Ap[2]-M[2]];
+  const d=u[0]*o[0]+u[1]*o[1]+u[2]*o[2];
+  return Math.acos(Math.max(-1,Math.min(1, d/Math.hypot(o[0],o[1],o[2])))) * 180/Math.PI;
+}
+
+
+/* ---- doubling ---- */
+const dbl = new THREE.Group(); dbl.visible=false; world.add(dbl);
+const bigWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+  new THREE.LineBasicMaterial({color:0xE8B84B, transparent:true, opacity:0.9}));
+dbl.add(bigWire);
+const ghosts=[];
+for(let i=0;i<8;i++){
+  const gg=new THREE.Group();
+  gg.add(new THREE.Mesh(new THREE.BoxGeometry(1,1,1),
+    new THREE.MeshLambertMaterial({color:0x5FB0A6,transparent:true,opacity:0.16})));
+  gg.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),
+    new THREE.LineBasicMaterial({color:0x14181A,transparent:true,opacity:0.3})));
+  dbl.add(gg); ghosts.push(gg);
+}
+function layoutDouble(){
+  const {L,W,H}=D;
+  bigWire.scale.set(2*L,2*W,2*H);
+  bigWire.position.set(L/2,W/2,H);
+  let n=0;
+  for(let i=0;i<2;i++) for(let j=0;j<2;j++) for(let k=0;k<2;k++){
+    const gg=ghosts[n++];
+    gg.scale.set(L,W,H);
+    gg.position.set(i*L, j*W, H/2 + k*H);
+    gg.visible = !(i===0&&j===0&&k===0);
+  }
+}
+
+/* ============================================================
+   apply dimensions
+   ============================================================ */
+function setDims(){
+  const {L,W,H}=D;
+  base.userData.inner.scale.set(L,W,1);
+  topFace.userData.inner.scale.set(L,W,1);
+  back.f.userData.inner.scale.set(L,H,1);
+  front.f.userData.inner.scale.set(L,H,1);
+  right.f.userData.inner.scale.set(W,H,1);
+  left.f.userData.inner.scale.set(W,H,1);
+  back.pivot.position.set(0,W/2,0);
+  front.pivot.position.set(0,-W/2,0);
+  right.pivot.position.set(L/2,0,0);
+  left.pivot.position.set(-L/2,0,0);
+  [back,front,right,left].forEach(w=> w.f.position.set(0,0,H/2));
+  topPivot.position.set(0,0,H);
+  topFace.position.set(0,-W/2,0);
+  layoutCubes(); layoutDouble(); layoutDblPyr(); layoutDiagonals(); layoutTPP(); layoutPrj(); layoutLP(); layoutDS(); refreshLabelText();
+}
+
+/* ============================================================
+   labels
+   ============================================================ */
+function mkLabel(cls){
+  const el=document.createElement('div'); el.className='lab '+cls+' hide';
+  labelBox.appendChild(el); return el;
+}
+const dimLabels=[
+  {el:mkLabel('dim'), get:()=>D.L, pos:()=>[0,-D.W/2-0.95,-0.5]},
+  {el:mkLabel('dim'), get:()=>D.W, pos:()=>[D.L/2+0.95,0,-0.5]},
+  {el:mkLabel('dim'), get:()=>D.H, pos:()=>SOLID==='pyr'?[0.55,0,D.H/2]:[D.L/2+0.7,-D.W/2-0.7,D.H/2]}
+];
+FACES.forEach(f=>{ f.label=mkLabel('area'); f.label.style.color=CSS[f.pair]; });
+function refreshLabelText(){
+  dimLabels.forEach(d=> d.el.textContent=d.get());
+  FACES.forEach(f=>{ const [a,b]=f.dims(); f.label.textContent=`${a} × ${b} = ${a*b}`; });
+}
+const _v=new THREE.Vector3();
+function updateLabels(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  for(const d of dimLabels){
+    _v.set(...d.pos()).project(camera);
+    d.el.style.left=((_v.x*0.5+0.5)*w)+'px'; d.el.style.top=((-_v.y*0.5+0.5)*h)+'px';
+  }
+  for(const f of FACES){
+    f.g.getWorldPosition(_v); _v.project(camera);
+    f.label.style.left=((_v.x*0.5+0.5)*w)+'px'; f.label.style.top=((-_v.y*0.5+0.5)*h)+'px';
+  }
+}
+const dLab = {
+  face:  mkLabel('area'), space: mkLabel('area'), vert: mkLabel('area'), ang: mkLabel('area')
+};
+dLab.face.style.color='#5FB0A6'; dLab.space.style.color='#E8B84B';
+dLab.vert.style.color='#E27A5F'; dLab.ang.style.color='#E8B84B';
+const fd  = ()=> Math.sqrt(D.L*D.L + D.W*D.W);
+const sd  = ()=> Math.sqrt(D.L*D.L + D.W*D.W + D.H*D.H);
+const ang = ()=> Math.atan2(D.H, fd())*180/Math.PI;
+/* write a length the way a student would: whole, a\u221Ab, or a decimal only when it really is one */
+function surdOf(v){
+  if(!isFinite(v)) return null;
+  if(Math.abs(v-Math.round(v))<1e-9) return {a:Math.round(v),b:1,n:1};
+  const sq=v*v;
+  for(let n=1;n<=8;n++){
+    const t=sq*n*n;
+    if(Math.abs(t-Math.round(t))<1e-6){
+      let r=Math.round(t), a=1;
+      for(let k=Math.floor(Math.sqrt(r));k>=2;k--){ if(r%(k*k)===0){ a=k; r/=k*k; break; } }
+      let A=a,N=n; const g=(x,y)=>y?g(y,x%y):x; const d=g(A,N); A/=d; N/=d;
+      return {a:A,b:r,n:N};
+    }
+  }
+  return null;
+}
+/* the same rule, written for prose rather than for KaTeX */
+/* plain meanings, shown on hover the first time a word appears on a slide */
+const GLOSS = [
+  ['surface area','the total area of all the faces, added together'],
+  ['net',        'the solid unfolded flat, so every face lies side by side'],
+  ['volume',     'how much space fits inside the solid'],
+  ['apothem',    'the height of one slanted face, measured from the base edge up to the apex'],
+  ['base edge',  'one side of the polygon the solid stands on'],
+  ['face diagonal','a diagonal drawn across one flat face'],
+  ['base diagonal','a diagonal drawn across the bottom face'],
+  ['space diagonal','a line from a corner straight through the inside to the opposite corner'],
+  ['diagonal',   'a line joining two corners that are not already joined by an edge'],
+  ['section',    'the flat shape you see when the solid is sliced straight through'],
+  ['shadow',     'where the line would land if light came straight down onto the base'],
+  ['prism',      'a solid with the same shape at top and bottom, joined straight up'],
+  ['apex',       'the single point at the top of a pyramid'],
+  ['face',       'one flat side of the solid'],
+  ['edge',       'a line where two faces meet']
+];
+function withTerms(html){
+  if(!html) return html;
+  const text=String(html);
+  // longest phrases first, so "space diagonal" wins over "diagonal"
+  const words=GLOSS.slice().sort((x,y)=>y[0].length-x[0].length);
+  const hits=[];
+  words.forEach(([word,meaning])=>{
+    const re=new RegExp('\\b'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+    const m=re.exec(text);
+    if(!m) return;
+    const from=m.index, to=from+m[0].length;
+    // never inside a tag, and never overlapping a phrase already claimed
+    const before=text.slice(0,from);
+    const open=before.lastIndexOf('<'), close=before.lastIndexOf('>');
+    if(open>close) return;
+    if(hits.some(h=>from<h.to && to>h.from)) return;
+    hits.push({from,to,word:m[0],meaning});
+  });
+  // splice from the back so earlier indices stay valid
+  hits.sort((x,y)=>y.from-x.from);
+  let out=text;
+  hits.forEach(h=>{
+    out=out.slice(0,h.from)
+      +'<span class="term" tabindex="0">'+h.word
+      +'<span class="tip">'+h.meaning+'</span></span>'
+      +out.slice(h.to);
+  });
+  return out;
+}
+function plainRule(t){
+  return String(t)
+    .replace(/\\tfrac\{([^}]*)\}\{([^}]*)\}/g,'$1/$2')
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g,'$1/$2')
+    .replace(/\\sqrt3/g,'\u221A3')
+    .replace(/\\sqrt\{([^}]*)\}/g,'\u221A$1')
+    .replace(/\\text\{([^}]*)\}/g,'$1')
+    .replace(/\\quad/g,'  ')
+    .replace(/\\times/g,'\u00d7')
+    .replace(/\^2/g,'\u00b2')
+    .replace(/\\/g,'');
+}
+const nice = v => {
+  const s=surdOf(v);
+  if(!s) return v.toFixed(2);
+  if(s.b===1) return s.n===1?String(s.a):(s.a/s.n).toFixed(2);
+  const core=(s.a===1?'':s.a)+'\u221A'+s.b;
+  return s.n===1?core:core+'/'+s.n;
+};
+const tex = v => {                       // the same value, as LaTeX
+  const s=surdOf(v);
+  if(!s) return v.toFixed(2);
+  if(s.b===1) return s.n===1?String(s.a):'\\tfrac{'+s.a+'}{'+s.n+'}';
+  const core=(s.a===1?'':s.a)+'\\sqrt{'+s.b+'}';
+  return s.n===1?core:'\\tfrac{'+core+'}{'+s.n+'}';
+};
+function updateDiagLabels(){
+  dLab.face.textContent  = nice(fd());
+  dLab.space.textContent = nice(sd());
+  dLab.vert.textContent  = String(D.H);
+  dLab.ang.textContent   = ang().toFixed(1)+'\u00B0';
+  const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
+  const A=cA(),C=cC(),C1=cC1();
+  const w=stage.clientWidth,h=stage.clientHeight;
+  const put=(el,p)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w)+'px'; el.style.top=((-_v.y*0.5+0.5)*h)+'px'; };
+  put(dLab.face,  mid(A,C));
+  put(dLab.space, mid(A,C1));
+  put(dLab.vert,  mid(C,C1));
+  const dir=[(C[0]-A[0]),(C[1]-A[1]),0], L2=Math.hypot(dir[0],dir[1])||1;
+  const rr=Math.hypot(D.L,D.W)*0.32+0.4;
+  put(dLab.ang, [A[0]+dir[0]/L2*rr*1.25, A[1]+dir[1]/L2*rr*1.25, D.H*0.12+0.25]);
+}
+const tLab = {A:mkLabel('dim'), H:mkLabel('dim'), M:mkLabel('dim'), a:mkLabel('dim')};
+tLab.A.textContent='A'; tLab.H.textContent='H'; tLab.M.textContent='M'; tLab.a.textContent='a';
+tLab.a.style.color='#F2F0EA';
+function updateTppLabels(){
+  if(!tppG.visible) return;
+  const {Hh,Ap,M}=tppPts();
+  const w=stage.clientWidth,h=stage.clientHeight;
+  const put=(el,p,dx,dy)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w+(dx||0))+'px'; el.style.top=((-_v.y*0.5+0.5)*h+(dy||0))+'px'; };
+  put(tLab.A, Ap, 0, -20); put(tLab.H, Hh, -16, 14); put(tLab.M, M, 10, 16);
+  const d=[M[0]-Hh[0],M[1]-Hh[1]], dl=Math.hypot(...d)||1, th=tppTheta*Math.PI/180;
+  const ux=(d[0]*Math.cos(th)-d[1]*Math.sin(th))/dl, uy=(d[0]*Math.sin(th)+d[1]*Math.cos(th))/dl;
+  const r=Math.max(D.L,D.W)*0.5;
+  put(tLab.a, [M[0]+ux*r, M[1]+uy*r, 0], 14, 0);
+}
+const sLab={A:mkLabel('dim'),H:mkLabel('dim'),M:mkLabel('dim')};
+sLab.A.textContent='A'; sLab.H.textContent='H'; sLab.M.textContent='M';
+function updateSoloLabels(){
+  if(!soloG.visible) return;
+  const {H,A,M}=soloPts(), w=stage.clientWidth, h=stage.clientHeight;
+  const put=(el,p,dx,dy)=>{ _v.set(...p).project(camera);
+    el.style.left=((_v.x*0.5+0.5)*w+(dx||0))+'px'; el.style.top=((-_v.y*0.5+0.5)*h+(dy||0))+'px'; };
+  put(sLab.A,A,0,-20); put(sLab.H,H,-16,16); put(sLab.M,M,16,10);
+}
+const showSolo = on => ['A','H','M'].forEach(k=> sLab[k].classList.toggle('hide',!on));
+const showTpp = on => ['A','H','M','a'].forEach(k=> tLab[k].classList.toggle('hide', !on));
+const showDiag = on => ['face','space','vert','ang'].forEach(k=> dLab[k].classList.toggle('hide', !on));
+const showDiagPart = keys => ['face','space','vert','ang'].forEach(k=> dLab[k].classList.toggle('hide', !keys.includes(k)));
+const showDims  = on=> dimLabels.forEach(d=>d.el.classList.toggle('hide',!on));
+const showAreas = on=> FACES.forEach(f=>f.label.classList.toggle('hide',!on));
+
+/* ============================================================
+   animated state
+   ============================================================ */
+let unfold=0,unfoldT=0,glass=0,glassT=0,fill=0,fillT=0;
+let doubled=false,autoSpin=true,zoomMul=1;
+const orbit={theta:-56,phi:24,dist:15,target:new THREE.Vector3(0,0,1.5)};
+const want ={dist:15,target:new THREE.Vector3(0,0,1.5)};
+const fitDist = r=> r/Math.sin(20*Math.PI/180)*1.18;
+
+function showSolid(){
+  const isPyr = SOLID==='pyr';
+  FACES.forEach(f=>f.g.visible = !isPyr);
+  HINGES.forEach(h=>h.visible = !isPyr);
+  base.visible = !isPyr;
+  pyrG.visible = isPyr;
+  if(isPyr) layoutPyramid(1-unfold);
+}
+function applyUnfold(t){
+  if(SOLID==='pyr'){ layoutPyramid(1-t); applyCam(t); return; }
+  const e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+  for(const p of HINGES){
+    const a=p.userData.end*e;
+    if(p.userData.axis==='x') p.rotation.x=a; else p.rotation.y=a;
+  }
+  applyCam(t);
+}
+function applyCam(t){
+  const e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+  const {L,W,H}=D;
+  let rSolid, rNet;
+  if(SOLID==='pyr'){
+    rSolid = 0.5*Math.hypot(L,W) + H*0.35;
+    rNet   = 0.5*Math.hypot(L+2*apoWH(), W+2*apoLW());
+  } else {
+    rSolid = 0.5*Math.hypot(L,W,H);
+    rNet   = 0.5*Math.hypot(L+2*H, 2*W+2*H);
+  }
+  const r = rSolid+(rNet-rSolid)*e;
+  want.dist = fitDist(doubled ? r*2 : r)*zoomMul;
+  want.target.set(
+    doubled ? L/2 : 0,
+    SOLID==='pyr' ? 0 : (W/2)*e + (doubled ? W/2 : 0),
+    SOLID==='pyr' ? (H/2)*(1-e)*0.55 : (H/2)*(1-e) + (doubled ? H/2 : 0)
+  );
+}
+function applyGlass(g){
+  FACES.forEach(f=>{
+    f.g.userData.mat.opacity = 1-0.86*g;
+    f.g.userData.lineMat.opacity = 0.55+0.45*g;
+  });
+  pyrBase.userData.mat.opacity = 1-0.86*g;
+  pyrSides.forEach(x=>{ x.f.userData.mat.opacity = 1-0.86*g; });
+}
+
+/* ============================================================
+   camera + input
+   ============================================================ */
+function applyOrbit(){
+  const t=orbit.theta*Math.PI/180,p=orbit.phi*Math.PI/180;
+  camera.position.set(
+    orbit.dist*Math.cos(p)*Math.cos(t),
+    orbit.dist*Math.cos(p)*Math.sin(t),
+    orbit.dist*Math.sin(p)).add(orbit.target);
+  camera.lookAt(orbit.target);
+}
+(function(){
+  const pts=new Map(); let lx=0,ly=0,pd=0;
+  const d2=()=>{const a=[...pts.values()];return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1;};
+  stage.addEventListener('pointerdown',e=>{
+    stage.setPointerCapture(e.pointerId); pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){lx=e.clientX;ly=e.clientY;} else if(pts.size===2) pd=d2();
+    autoSpin=false; document.getElementById('hint').style.opacity=0;
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){
+      orbit.theta-=(e.clientX-lx)*0.4;
+      orbit.phi=Math.max(-85,Math.min(85,orbit.phi+(e.clientY-ly)*0.34));
+      lx=e.clientX; ly=e.clientY;
+    } else if(pts.size===2){
+      const d=d2(); if(pd) zoomMul=Math.max(0.5,Math.min(2.4,zoomMul*pd/d)); pd=d;
+    }
+  });
+  const up=e=>pts.delete(e.pointerId);
+  stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+  stage.addEventListener('wheel',e=>{
+    e.preventDefault();
+    zoomMul=Math.max(0.5,Math.min(2.4,zoomMul*(1+Math.sign(e.deltaY)*0.1)));
+  },{passive:false});
+})();
+function dialRoom(){
+  // how much of the stage the bubble column occupies, as a fraction of width
+  var d=document.getElementById('dial');
+  if(!d || !stage.clientWidth) return 0;
+  return (d.offsetWidth + 26) / stage.clientWidth;
+}
+function dialRoom(){ return 0; }            // single-figure build: no bubble column
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight; if(!w||!h)return;
+  renderer.setSize(w,h,false); camera.aspect=w/h;
+  // widen the frustum and view its right-hand part, so the solid centres
+  // in the space the bubble column leaves rather than behind it
+  const shift=Math.min(dialRoom(), w*0.24);
+  camera.setViewOffset(w+shift, h, shift, 0, w, h);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize);
+
+/* ============================================================
+   panel controls
+   ============================================================ */
+const ctrl=document.getElementById('control');
+const BOTH = [];   // the chooser picks the figure now, not the slides   // slides that work for either solid
+function solidSwitch(kind){
+  if(BOTH.indexOf(kind)<0) return '';
+  return `<div class="toggle2" data-switch="1">
+      <button class="t2 ${SOLID==='box'?'on':''}" data-s="box">Box</button>
+      <button class="t2 ${SOLID==='pyr'?'on':''}" data-s="pyr">Pyramid</button>
+    </div>`;
+}
+function wireSwitch(){
+  ctrl.querySelectorAll('[data-switch] .t2').forEach(b=>{
+    b.onclick=()=>{
+      if(SOLID===b.dataset.s) return;
+      SOLID=b.dataset.s; showSolid(); applyUnfold(unfold);
+      if(window.Track) Track.event('solid_switch',{solid:SOLID,slide:beat});
+      BEATS[beat].enter();
+    };
+  });
+}
+const knowBox=document.getElementById('know');
+const chip=(v,c)=>`<span class="chip" style="background:${c}">${v}</span>`;
+
+/* render every [data-tex] inside the panel */
+function typeset(root){
+  if(typeof katex === 'undefined'){ setTimeout(()=>typeset(root), 120); return; }
+  root.querySelectorAll('[data-tex]').forEach(el=>{
+    if(el.dataset.done) return;
+    try{ katex.render(el.dataset.tex, el, {throwOnError:false, displayMode:false}); el.dataset.done=1; }
+    catch(e){ el.textContent = el.dataset.tex; }
+  });
+}
+const M = tex => `<span data-tex="${tex.replace(/"/g,'&quot;')}"></span>`;
+
+function ctrlNone(){ ctrl.innerHTML=''; }
+const _oldSet = v => { ctrl.innerHTML = v; typeset(ctrl); };
+
+function ctrlUnfold(){
+  const {L,W,H}=D;
+  ctrl.innerHTML=SW+`<div class="scrub"><label>folded</label>
+    <input type="range" id="sl" min="0" max="100" value="${Math.round(unfold*100)}">
+    <label>flat</label></div>
+    <div class="mbox hi">${M(`2(${L}\\cdot${W}) + 2(${L}\\cdot${H}) + 2(${W}\\cdot${H}) = \\textbf{${SA()}}`)}</div>
+    <div class="mrow"><span class="tag">in general</span>${M(`S = 2(lw + lh + wh)`)}</div>`;
+  typeset(ctrl);
+  document.getElementById('sl').oninput=e=>{
+    unfoldT=unfold=+e.target.value/100;
+    applyUnfold(unfold); showAreas(unfold>0.45);
+  };
+}
+function ctrlUnfoldSum(){
+  const SW = solidSwitch('unfold');
+  ctrl.innerHTML=SW+`<div class="scrub"><label>folded</label>
+    <input type="range" id="sl" min="0" max="100" value="${Math.round(unfold*100)}">
+    <label>flat</label></div><div class="mbox" id="sm"></div>`;
+  const box=document.getElementById('sm');
+  const paint=()=>{
+    const {L,W,H}=D;
+    if(SOLID==='pyr'){
+      const base=L*W, sides=L*apoLW()+W*apoWH();
+      box.innerHTML = unfold>0.45
+        ? M(`\\underbrace{${L}\\cdot${W}}_{\\text{base}}+\\underbrace{2\\cdot\\tfrac12 ${L}\\cdot${tex(apoLW())}+2\\cdot\\tfrac12 ${W}\\cdot${tex(apoWH())}}_{\\text{four triangles}}=\\textbf{${tex(base+sides)}}`)
+          + `<div class="mrow"><span class="tag">the slant heights</span>${M(`\\sqrt{(w/2)^2+h^2},\\ \\sqrt{(l/2)^2+h^2}`)}</div>`
+        : `<div class="mrow" style="color:var(--fg-dim)">drag it flat \u2014 a pyramid opens into a base and four triangles</div>`;
+      box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+      typeset(box); return;
+    }
+    box.innerHTML = unfold>0.45
+      ? M(`2(${L}\\cdot${W})+2(${L}\\cdot${H})+2(${W}\\cdot${H})=\\textbf{${SA()}}`) +
+        `<div class="mrow"><span class="tag">in general</span>${M(`S=2(lw+lh+wh)`)}</div>`
+      : `<div class="mrow" style="color:var(--fg-dim)">drag it flat to see all six faces at once</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint(); wireSwitch();
+  document.getElementById('sl').oninput=e=>{
+    unfoldT=unfold=+e.target.value/100;
+    applyUnfold(unfold); showAreas(unfold>0.45); paint();
+  };
+}
+function ctrlSum(){
+  const {L,W,H}=D;
+  ctrl.innerHTML=`
+    <div class="mbox hi">
+      ${M(`2(${L}\\cdot${W}) + 2(${L}\\cdot${H}) + 2(${W}\\cdot${H}) = \\textbf{${SA()}}`)}
+    </div>
+    <div class="mrow"><span class="tag">in general</span>${M(`S = 2(lw + lh + wh)`)}</div>`;
+  typeset(ctrl);
+}
+function ctrlFill(){
+  const SW = solidSwitch('fill');
+  if(SOLID==='pyr'){
+    thirdG.visible=true;
+    const V=D.L*D.W*D.H;
+    ctrl.innerHTML=SW+`<div class="mbox">
+      ${M(`V_{\\text{box}}=${D.L}\\cdot${D.W}\\cdot${D.H}=${V}`)}</div>
+      <div class="mbox hi">${M(`V_{\\text{pyramid}}=\\tfrac13\\cdot${V}=${tex(V/3)}`)}</div>
+      <div class="mrow"><span class="tag">why a third</span>three of this pyramid fill the box exactly</div>`;
+    typeset(ctrl); wireSwitch(); return;
+  }
+  thirdG.visible=false;
+  const V=VOL(), per=D.L*D.W;
+  ctrl.innerHTML=SW+`<div class="scrub"><label>empty</label>
+    <input type="range" id="fl" min="0" max="${V}" value="${Math.round(fill)}">
+    <label>full</label></div><div class="mbox" id="fc"></div>`;
+  const fc=document.getElementById('fc');
+  const paint=n=>{
+    const layers=Math.floor(n/per), rem=n%per;
+    if(n===V) fc.innerHTML = M(`\\underbrace{${per}}_{\\text{one layer}} \\times \\underbrace{${D.H}}_{\\text{layers}} = \\textbf{${V}}`);
+    else if(layers>0) fc.innerHTML = M(`${layers}\\times${per} + ${rem} = ${n}`);
+    else fc.innerHTML = M(`${n}\\ \\text{cubes} \\quad (${per}\\ \\text{fill one layer})`);
+    fc.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(fc);
+  };
+  paint(Math.round(fill)); wireSwitch();
+  document.getElementById('fl').oninput=e=>{ fillT=fill=+e.target.value; paint(fill); };
+}
+function ctrlAngles(){
+  if(SOLID==='pyr'){
+    const fa=Math.atan2(D.H, D.W/2)*180/Math.PI;
+    const ea=Math.atan2(D.H, halfDiag())*180/Math.PI;
+    ctrl.innerHTML=`
+      <div class="mbox"><div class="mrow"><span class="tag">lateral face \u2220 base</span>
+        ${M(`\\tan=\\frac{h}{a/2}=${fa.toFixed(1)}^\\circ`)}</div></div>
+      <div class="mbox hi"><div class="mrow"><span class="tag">lateral edge \u2220 base</span>
+        ${M(`\\tan=\\frac{h}{R}=${ea.toFixed(1)}^\\circ`)}</div></div>
+      <div class="mrow" style="color:var(--fg-dim);font-size:14px">
+        Same height, different foot \u2014 that is the only difference, and it is the one people miss.</div>`;
+    typeset(ctrl); showPyrAngles(); return;
+  }
+  const ang=Math.atan2(D.H, fd())*180/Math.PI;
+  ctrl.innerHTML=`
+    <div class="mbox hi"><div class="mrow"><span class="tag">space diagonal \u2220 base</span>
+      ${M(`\\tan\\alpha=\\frac{h}{d_1}=\\frac{${D.H}}{${tex(fd())}}\\;\\Rightarrow\\;${ang.toFixed(1)}^\\circ`)}</div></div>
+    <div class="mrow" style="color:var(--fg-dim);font-size:14px">
+      Measured against the <b>shadow</b> on the base, never against an edge.</div>`;
+  typeset(ctrl); showBoxAngle();
+}
+function ctrlPyrTri(){
+  const {a,h}=({a:D.L,h:D.H});
+  ctrl.innerHTML=`
+    <div class="chips" id="ptri"></div>
+    <div class="mbox hi" id="ptxt"></div>`;
+  const T=[
+    {k:'apo', label:'h, a/2, apothem', col:0x2B4FE8,
+     pts:()=>{const P=pyrPts();return [P.S,[0,0,0],[0,-D.W/2,0]];},
+     tex:()=>`m=\\sqrt{${D.H}^2+${nice(D.W/2)}^2}=${nice(apoLW())}`,
+     note:'The <b>apothem</b> \u2014 the height of a lateral face. Use it for surface area and for the angle a face makes with the base.'},
+    {k:'edge', label:'h, half-diagonal, lateral edge', col:0xE8442A,
+     pts:()=>{const P=pyrPts();return [P.S,[0,0,0],P.A];},
+     tex:()=>`SA=\\sqrt{${D.H}^2+${nice(halfDiag())}^2}=${nice(lateralEdge())}`,
+     note:'The <b>lateral edge</b>. Its foot is a corner, so the leg is half the base <b>diagonal</b> \u2014 not half a side.'},
+    {k:'face', label:'apothem, a/2, lateral edge', col:0xE39A22,
+     pts:()=>{const P=pyrPts();return [P.S,[0,-D.W/2,0],P.A];},
+     tex:()=>`SA=\\sqrt{${nice(apoLW())}^2+${nice(D.L/2)}^2}=${nice(lateralEdge())}`,
+     note:'Inside one lateral face. It ties the other two together \u2014 which is why the same lateral edge comes out of both.'}
+  ];
+  let cur=0;
+  const draw=()=>{
+    document.getElementById('ptri').innerHTML=T.map((t,i)=>
+      `<button class="fchip ${i===cur?'on':''}" data-i="${i}"
+        style="${i===cur?`background:#${t.col.toString(16).padStart(6,'0')};border-color:#${t.col.toString(16).padStart(6,'0')}`:''}">${t.label}</button>`).join('');
+    document.getElementById('ptxt').innerHTML=M(T[cur].tex())
+      +`<div class="mrow" style="color:var(--fg-dim);font-size:14px;margin-top:6px">${T[cur].note}</div>`;
+    showPyrTri(T[cur]);
+    typeset(ctrl);
+    ctrl.querySelectorAll('#ptri .fchip').forEach(b=>b.onclick=()=>{cur=+b.dataset.i;draw();});
+  };
+  draw();
+}
+function ctrlDiag(){
+  const SW='';
+  const {L,W,H}=D;
+  ctrl.innerHTML=SW+`
+    <div class="mbox"><div class="mrow"><span class="tag">across a face</span>
+      ${M(`d_1=\\sqrt{${L}^2+${W}^2}=\\textcolor{#5FB0A6}{${tex(fd())}}`)}</div></div>
+    <div class="mbox hi"><div class="mrow"><span class="tag">through the box</span>
+      ${M(`d=\\sqrt{${tex(fd())}^2+${H}^2}=\\textcolor{#E8B84B}{${tex(sd())}}`)}</div></div>
+    <div class="mrow"><span class="tag">in general</span>${M(`d=\\sqrt{l^2+w^2+h^2}`)}</div>`;
+  typeset(ctrl); wireSwitch();
+}
+function ctrlAngle(){
+  ctrl.innerHTML=`
+    <div class="mbox hi">${M(`\\tan\\alpha=\\frac{h}{d_1}=\\frac{${D.H}}{${tex(fd())}}
+      \\quad\\Rightarrow\\quad \\alpha=\\textcolor{#E8B84B}{${ang().toFixed(1)}^\\circ}`)}</div>
+    <div class="mrow"><span class="tag">measured against</span>the shadow on the floor, not an edge</div>`;
+  typeset(ctrl);
+}
+function ctrlFaces(){
+  const SW = solidSwitch('faces');
+  const SET = SOLID==='pyr' ? PYR_FACES : FACE_KINDS;
+  let cur=Object.keys(SET)[0];
+  const draw=()=>{
+    ctrl.innerHTML = SW+`<div class="chips">` +
+      Object.entries(SET).map(([k,f])=>
+        `<button class="fchip ${k===cur?'on':''}" data-k="${k}"
+           style="${k===cur?`background:#${f.col.toString(16).padStart(6,'0')};border-color:#${f.col.toString(16).padStart(6,'0')};color:#FFFFFF`:''}">${f.label}</button>`
+      ).join('') + `</div>
+      <div class="mbox hi" id="farea">${M(SET[cur].tex())}</div>
+      <div class="mrow" style="color:var(--fg-dim);font-size:14px">${SET[cur].note}</div>`;
+    typeset(ctrl);
+    ctrl.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ cur=b.dataset.k; pickFace(cur); draw(); });
+    wireSwitch();
+  };
+  const pickFace = k => SOLID==='pyr' ? setPyrFace(k) : setFace(k);
+  pickFace(cur); draw();
+}
+function ctrlTPP(){
+  ctrl.innerHTML=`<div class="scrub"><label>turn a</label>
+    <input type="range" id="tp" min="10" max="170" step="1" value="${Math.round(tppTheta)}"></div>
+    <div class="mbox" id="tpb"></div>`;
+  const box=document.getElementById('tpb');
+  const paint=()=>{
+    const o=tppOblAngle();
+    const locked = Math.round(tppTheta)===90;
+    box.className='mbox'+(locked?' hi':'');
+    box.innerHTML =
+      M(`a \\perp HM \\;?\\quad \\textcolor{#5FB0A6}{${tppTheta.toFixed(0)}^\\circ}`) +
+      '<br>' +
+      M(`a \\perp AM \\;?\\quad \\textcolor{#E8B84B}{${o.toFixed(1)}^\\circ}`) +
+      `<div class="mrow" style="color:${locked?'var(--a)':'var(--fg-dim)'}">${
+        locked ? 'both exactly 90° — the theorem holds'
+               : 'not 90° to the projection, so not 90° to the oblique either'}</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+    mkP.visible=locked; mkO.visible=locked;
+  };
+  paint();
+  document.getElementById('tp').oninput=e=>{
+    tppTheta=+e.target.value; layoutTPP(); paint(); autoSpin=false;
+  };
+}
+function ctrlLP(){
+  ctrl.innerHTML=`<div class="scrub"><label>tilt the line</label>
+    <input type="range" id="lp" min="5" max="85" step="1" value="${Math.round(lpAlpha)}"></div>
+    <div class="mbox" id="lpb"></div>`;
+  const box=document.getElementById('lpb');
+  const paint=()=>{
+    box.innerHTML = M(`\\varphi=\\angle(\\text{line},\\ \\textcolor{#5FB0A6}{\\text{its projection}})=
+      \\textcolor{#E8B84B}{${lpAlpha.toFixed(0)}^\\circ}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('lp').oninput=e=>{ lpAlpha=+e.target.value; layoutLP(); paint(); autoSpin=false; };
+}
+function ctrlDS(){
+  const draw=()=>{
+    ctrl.innerHTML=`<div class="chips">
+        <button class="fchip ${dsMode==='plane'?'on':''}" data-m="plane"
+          style="${dsMode==='plane'?'background:#E8442A;border-color:#E8442A;color:#FFFFFF':''}">to a plane</button>
+        <button class="fchip ${dsMode==='line'?'on':''}" data-m="line"
+          style="${dsMode==='line'?'background:#E8442A;border-color:#E8442A;color:#FFFFFF':''}">to a line</button>
+      </div>
+      <div class="mbox">${dsMode==='plane'
+        ? 'Every grey path is longer. The perpendicular is the distance.'
+        : 'Same rule against a line: drop a perpendicular to it, and that is the distance.'}</div>`;
+    ctrl.querySelectorAll('.fchip').forEach(b=> b.onclick=()=>{ dsMode=b.dataset.m; layoutDS(); draw(); });
+  };
+  layoutDS(); draw();
+}
+function ctrlAngDist(){
+  ctrl.innerHTML=`<div class="scrub"><label>raise A</label>
+    <input type="range" id="sh" min="10" max="90" step="1" value="${Math.round(soloH*10)}"></div>
+    <div class="mbox hi" id="adb"></div>`;
+  const box=document.getElementById('adb');
+  const paint=()=>{
+    const proj=soloLen(), slant=Math.hypot(soloH,proj);
+    box.innerHTML =
+      M(`\\tan\\alpha=\\frac{${soloH.toFixed(1)}}{${proj.toFixed(2)}}\\;\\Rightarrow\\;\\alpha=${soloAng().toFixed(1)}^\\circ`)
+      + '<br>' + M(`\\text{to the plane}=${soloH.toFixed(1)}\\qquad\\text{to the line}=${slant.toFixed(2)}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('sh').oninput=e=>{ soloH=+e.target.value/10; layoutSolo(); paint(); autoSpin=false; };
+}
+function ctrlDist(){
+  ctrl.innerHTML=`<div class="scrub"><label>raise A</label>
+    <input type="range" id="sh" min="10" max="90" step="1" value="${Math.round(soloH*10)}"></div>
+    <div class="mbox" id="db"></div>`;
+  const box=document.getElementById('db');
+  const paint=()=>{
+    box.innerHTML =
+      M(`\\text{to the plane}=AH=${soloH.toFixed(1)}`) + '<br>' +
+      M(`\\text{to the line }HM=AM=${Math.hypot(soloH,soloLen()).toFixed(2)}`) +
+      `<div class="mrow" style="color:var(--fg-dim)">both measured along a perpendicular \u2014 nothing else counts</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('sh').oninput=e=>{ soloH=+e.target.value/10; layoutSolo(); paint(); autoSpin=false; };
+}
+function ctrlSolo(){
+  ctrl.innerHTML=`<div class="scrub"><label>raise A</label>
+    <input type="range" id="sh" min="10" max="90" step="1" value="${Math.round(soloH*10)}"></div>
+    <div class="mbox" id="sb"></div>`;
+  const box=document.getElementById('sb');
+  const paint=()=>{
+    box.innerHTML =
+      M(`\\tan\\alpha=\\frac{AH}{HM}=\\frac{${soloH.toFixed(1)}}{${soloLen().toFixed(2)}}`) +
+      '<br>' + M(`\\alpha=\\textcolor{#E8B84B}{${soloAng().toFixed(1)}^\\circ}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('sh').oninput=e=>{
+    soloH=+e.target.value/10; layoutSolo(); paint(); autoSpin=false;
+  };
+}
+function ctrlPar(){
+  ctrl.innerHTML=`<div class="scrub"><label>home</label>
+    <input type="range" id="pt" min="0" max="100" value="${Math.round(parT*100)}">
+    <label>slid</label></div><div class="mbox" id="pb"></div>`;
+  const box=document.getElementById('pb');
+  const paint=()=>{
+    box.innerHTML = M(`\\text{length before}=${D.H}\\qquad\\text{length after}=${D.H}`);
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('pt').oninput=e=>{ parT=+e.target.value/100; layoutPar(); autoSpin=false; };
+}
+function ctrlCri(){
+  ctrl.innerHTML=`<div class="scrub"><label>turn the third line</label>
+    <input type="range" id="ct" min="0" max="179" value="${Math.round(criAng)}"></div>
+    <div class="mbox hi" id="cb"></div>`;
+  const box=document.getElementById('cb');
+  const paint=()=>{
+    box.innerHTML = M(`\\angle(\\text{standing line},\\ \\text{any line in the plane})=90^\\circ`)
+      + `<div class="mrow" style="color:var(--a)">still 90° — and it always will be</div>`;
+    box.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(box);
+  };
+  paint();
+  document.getElementById('ct').oninput=e=>{ criAng=+e.target.value; layoutCri(); autoSpin=false; };
+}
+function ctrlPrj(){
+  const {L,W,H}=D;
+  const St=L*Math.hypot(W,H), Sp=L*W;
+  ctrl.innerHTML=`
+    <div class="mbox"><div class="mrow"><span class="tag">the angle itself</span>
+      ${M(`\\tan\\varphi=\\frac{${H}}{${W}}\\;\\Rightarrow\\;\\varphi=${prjPhi().toFixed(1)}^\\circ`)}</div></div>
+    <div class="mbox"><div class="mrow"><span class="tag">tilted</span>
+      ${M(`S=${L}\\cdot\\sqrt{${W}^2+${H}^2}=${tex(St)}`)}</div></div>
+    <div class="mbox"><div class="mrow"><span class="tag">its shadow</span>
+      ${M(`S'=${L}\\cdot${W}=${Sp}`)}</div></div>
+    <div class="mbox hi">${M(`\\cos\\varphi=\\frac{S'}{S}=\\frac{${Sp}}{${tex(St)}}=${tex(Sp/St)}
+      \\;\\Rightarrow\\; \\varphi=${prjPhi().toFixed(1)}^\\circ`)}</div>`;
+  typeset(ctrl);
+}
+function ctrlDouble(){
+  const SW = solidSwitch('double');
+  const render=()=>{
+    const sa = SOLID==='pyr' ? D.L*D.W + D.L*apoLW() + D.W*apoWH() : SA();
+    const v  = SOLID==='pyr' ? D.L*D.W*D.H/3 : VOL();
+    ctrl.innerHTML=SW+`
+      <button class="tog ${doubled?'on':''}" id="dbtn">${doubled?'back to original':'double every edge'}</button>
+      <div class="mbox">${M(`S:\\ ${tex(sa)}\\ \\to\\ ${tex(sa*4)}\\quad(\\times 2^2)`)}</div>
+      <div class="mbox">${M(`V:\\ ${tex(v)}\\ \\to\\ ${tex(v*8)}\\quad(\\times 2^3)`)}</div>`
+      + (SOLID==='pyr' ? '<div class="mrow" style="color:var(--fg-dim)">the outline is the same pyramid with every edge doubled</div>' : '');
+    typeset(ctrl); wireSwitch();
+    document.getElementById('dbtn').onclick=()=>{
+      doubled=!doubled;
+      dbl.visible    = doubled && SOLID!=='pyr';
+      dblPyr.visible = doubled && SOLID==='pyr';
+      autoSpin=false; render();
+    };
+  };
+  render();
+}
+function ctrlDims(){
+  const row=(k,val)=>`<div class="scrub"><span class="key">${k}</span>
+    <input type="range" id="d${k}" min="1" max="${MAXD}" step="1" value="${val}">
+    <label id="v${k}" style="width:18px;color:var(--fg);font-family:Space Grotesk">${val}</label></div>`;
+  const keys = (FIGID==='sqpyr') ? [['a',D.L],['h',D.H]] : [['l',D.L],['w',D.W],['h',D.H]];
+  ctrl.innerHTML=`<div class="rows">${keys.map(k=>row(k[0],k[1])).join('')}</div>
+    <div class="mbox" id="oBox"></div>`;
+  const sync=()=>{
+    if(FIGID==='sqpyr') D.W=D.L;
+    setDims(); applyUnfold(unfold);
+    const b=document.getElementById('oBox');
+    b.innerHTML = SOLID==='pyr'
+      ? `<div class="mrow">${M(`S=${D.L}\\cdot${D.W}+${D.L}\\cdot${tex(apoLW())}+${D.W}\\cdot${tex(apoWH())}`)}${M(`V=\\tfrac13\\cdot${D.L*D.W}\\cdot${D.H}=${tex(D.L*D.W*D.H/3)}`)}</div>`
+      : `<div class="mrow">${M(`S=${SA()}`)}${M(`V=${VOL()}`)}</div>`;
+    typeset(b);
+    if(fill>VOL()){ fillT=fill=VOL(); }
+  };
+  ['a','l','w','h'].forEach(k=>{
+    const el=document.getElementById('d'+k); if(!el) return;
+    el.oninput=e=>{
+      const v=+e.target.value;
+      if(k==='a'){ D.L=v; D.W=v; } else D[k.toUpperCase()]=v;
+      document.getElementById('v'+k).textContent=e.target.value;
+      sync();
+    };
+  });
+  sync();
+}
+
+/* ============================================================
+   beats
+   ============================================================ */
+const TRIANGLES_PYR = { title:'The three hidden right triangles.',
+   body:'Every pyramid question comes down to one of these three. They share the height, and they differ only in what the second leg is. Tap each one.',
+   know:{t:'Use this in exercises',
+     p:'<b>h, a/2, apothem</b> gives you the apothem, which the surface area needs. <b>h, half-diagonal, lateral edge</b> gives you the lateral edge. <b>apothem, a/2, lateral edge</b> sits inside one face and ties the other two together \u2014 which is why the lateral edge comes out the same from both. Choosing the wrong second leg is the single most common mistake in this topic.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);criG.visible=false;thirdG.visible=false;ptriG.visible=false;angG2.visible=false;SOLID='pyr';showSolid();
+            showDims(true);showAreas(false);showDiag(false);ctrlPyrTri(); } };
+
+const SECTIONS_PYR = { title:'Sections problems ask about.',
+   body:'Cut the pyramid and you get a flat shape you can actually work with. Two cuts come up again and again.',
+   know:{t:'Use this in exercises',
+     p:'Through the <b>apex and a base diagonal</b>: an isosceles triangle whose base is the whole diagonal, height h. Through the <b>apex, perpendicular to a base side</b>: base a, height the apothem. Notice both contain h \u2014 that is why they are the useful ones.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);criG.visible=false;thirdG.visible=false;ptriG.visible=false;angG2.visible=false;SOLID='pyr';showSolid();
+            showDims(true);showAreas(false);showDiag(false);ctrlFaces(); } };
+
+const ANGLES_PYR = { title:'Angles problems ask about.',
+   body:'Two different angles, both measured off the base, both using the same height. Only the foot changes.',
+   know:{t:'Use this in exercises',
+     p:'A <b>lateral face</b> uses h and a/2. A <b>lateral edge</b> uses h and the half-diagonal R. Since a/2 &lt; R, the face angle is always the steeper of the two \u2014 a useful check on your answer. <i>Why an angle is measured against a projection is in the toolkit.</i>'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);criG.visible=false;thirdG.visible=false;ptriG.visible=false;angG2.visible=false;SOLID='pyr';showSolid(0.18);
+            showDims(false);showAreas(false);showDiag(false);ctrlAngles(); } };
+
+const ANGLES_BOX = { title:'Angles problems ask about.',
+   body:'The space diagonal leans on the base. Its shadow there is the face diagonal \u2014 and the angle between them is what gets asked for.',
+   know:{t:'Use this in exercises',
+     p:'Here the projection is the <b>face diagonal</b>, so <b>tan&#945; = h / d\u2081</b>. Every space diagonal makes this same angle, so finding one finds all four. <i>Why the projection and not an edge is in the toolkit.</i>'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);criG.visible=false;thirdG.visible=false;ptriG.visible=false;angG2.visible=false;SOLID='box';showSolid(0.18);
+            showDims(false);showAreas(false);showDiag(false);ctrlAngles(); } };
+
+const ALL=[
+ { title:'Your figure, your numbers.',
+   body:'Set the three sizes. Everything after this is computed from them, so the figure on screen is yours, not ours.',
+   know:{t:'Worth trying',
+     p:'Push the numbers to extremes and watch what survives. Make them all equal, flatten the height to 1, stretch one side to 9 \u2014 every rule on the following slides still holds. That is what makes them rules.'},
+   enter(){ unfoldT=0;glassT=0.4;fillT=0;doubled=false;dbl.visible=false;showSolid();diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlDims(); } },
+
+ { title:'Open it up.',
+   body:'Drag the slider. Nothing stretches: the same six faces lie flat, each one just a side times a side. Add them.',
+   know:{t:'Use this in exercises',
+     p:'Most 3D questions get finished in 2D — you pull out a flat piece, do the arithmetic there, then put the answer back. And count the faces the question actually has: <b>no lid means five</b>, painting a room leaves out the floor.'},
+   enter(){ glassT=0;fillT=0;showSolid();diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(false);showDiag(false);ctrlUnfoldSum(); } },
+
+ { title:'Fill it up.',
+   body:'Lay down the base, then again, then again — h copies in all.',
+   know:{t:'Use this in exercises',
+     p:'A cubic centimetre <b>is</b> one of these cubes. When a question gives you the volume and two edges, you are being asked to undo this counting.'},
+   enter(){ unfoldT=0;glassT=1;showSolid();diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(false);showAreas(false);showDiag(false);ctrlFill(); } },
+
+ { title:'Double every edge.',
+   body:'Twice as long each way. Eight of the old box fit inside the new one.',
+   know:{t:'Use this in exercises',
+     p:'Area has two directions, volume has three. Scale by <b>k</b> and they grow by <b>k²</b> and <b>k³</b>. Twice as big is four times the paper and eight times the contents.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;showSolid();doubled=false;dbl.visible=false;dblPyr.visible=false;
+            diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);criG.visible=false;
+            showDims(false);showAreas(false);showDiag(false);ctrlDouble(); } },
+
+ { title:'The hidden right triangles.',
+   body:'Questions ask for corner-to-opposite-corner. That line is not an edge and it is not drawn — you build it, from a right triangle that sits on no face. Green flat on the base, then gold standing up on green.',
+   know:{t:'Use this in exercises',
+     p:'This is the move nearly every hard 3D problem needs: <b>find the right triangle hiding inside the solid.</b> One step flat, one step standing up — two ordinary Pythagoras calculations, chained. Careful: green stays on a face, gold goes through the middle. If the two corners share a face, it is green.'},
+   enter(){ unfoldT=0;glassT=0.85;fillT=0;doubled=false;dbl.visible=false;showSolid();diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            SOLID='box';showSolid();
+            diagG.visible=true;triG.visible=true;segVert.visible=true;arc.visible=false;
+            markBase.visible=false;markVert.visible=true;
+            showDims(true);showAreas(false);showDiagPart(['face','space','vert']);ctrlDiag(); } },
+
+ { title:'Sections problems ask about.',
+   body:'Tap each one to see which part of the box it means, and how its area is worked out.',
+   know:{t:'Use this in exercises',
+     p:'Read the wording carefully. <b>Lateral</b> means walls only. <b>Total</b> means everything. A <b>section</b> is a cut through the inside, not a face — and its sides are usually diagonals, so find those first.'},
+   enter(){ unfoldT=0;glassT=0.8;fillT=0;doubled=false;dbl.visible=false;showSolid();diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlFaces(); } },
+
+ { title:'Two lines are enough.',
+   body:'A plane holds infinitely many lines, so proving a line is perpendicular to all of them sounds hopeless. It is not. Get it square to just two that cross, and every other line in the plane follows. Turn the gold one and watch the right angle survive.',
+   know:{t:'Use this in exercises',
+     p:'<b>Perpendicular to two intersecting lines of a plane means perpendicular to the plane.</b> Two checks, not infinitely many — that is why this is the workhorse for proving heights are really heights. Everything else on this page about perpendicularity rests on it.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;FACES.forEach(f=>f.g.visible=false);pyrG.visible=false;thirdG.visible=false;cubes.count=0;fillT=0;diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;soloG.visible=false;showSolo(false);parG.visible=false;criG.visible=false;
+            criG.visible=true;criAng=25;layoutCri();
+            showDims(false);showAreas(false);showDiag(false);ctrlCri(); } },
+
+ { title:'Angles and distances, on one picture.',
+   body:'A is above the plane; H is straight below it; M is any point in the plane. AM slants, HM is its shadow. Every angle and every distance you will be asked for lives in this one triangle. Raise A and watch them move together.',
+   know:{t:'Use this in exercises',
+     p:'The <b>angle</b> a line makes with a plane is the angle with its shadow \u2014 never with a convenient edge, so <b>tan&#945; = AH / HM</b>. The <b>distance</b> to a plane is the perpendicular AH; the <b>distance</b> to a line is the perpendicular onto that line. When a question says \u201cdistance\u201d it is asking you to find, or prove, a right angle.'},
+   enter(){ unfoldT=0;glassT=0;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;
+            FACES.forEach(f=>f.g.visible=false);pyrG.visible=false;thirdG.visible=false;cubes.count=0;fillT=0;
+            diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);prjG.visible=false;criG.visible=false;
+            soloG.visible=true;showSolo(true);layoutSolo();
+            showDims(false);showAreas(false);showDiag(false);ctrlAngDist(); } },
+
+ { title:'One plane, and its shadow on another.',
+   body:'The tilted cut and the base below it are the same shape seen at an angle. Shrink the tilted one onto the base and you get the shadow \u2014 smaller by exactly the cosine of the angle between the two planes.',
+   know:{t:'Use this in exercises',
+     p:'To <b>build</b> the angle: pick any point on the shared edge and go perpendicular to the edge inside each plane — that pair is the angle, and picking directions that are not perpendicular to the edge is the classic way to get it wrong. To <b>skip building it</b>: <b>S&prime; = S·cos&#966;</b>, where S&prime; is the shadow. Know any two of the three and the third is free.'},
+   enter(){ unfoldT=0;glassT=1;fillT=0;doubled=false;dbl.visible=false;dblPyr.visible=false;
+            FACES.forEach(f=>f.g.visible=false); pyrG.visible=false; thirdG.visible=false;
+            try{ resetStage(); }catch(e){}
+            diagG.visible=false;triG.visible=false;hlG.visible=false;tppG.visible=false;showTpp(false);
+            soloG.visible=false;showSolo(false);criG.visible=false;cubes.count=0;
+            prjG.visible=true;layoutPrj();prjArc.visible=false;
+            showDims(true);showAreas(false);showDiag(false);ctrlPrj(); } }
+];
+
+/* ============================================================
+   one spine, repeated for every figure
+   ============================================================ */
+
+/* ============================================================
+   what each figure teaches, slide by slide
+   ============================================================ */
+
+/* ============================================================
+   drawing any figure, and the five controls the spine calls
+   ============================================================ */
+const figG=new THREE.Group(), netG2=new THREE.Group(), volG=new THREE.Group(),
+      triG2=new THREE.Group(), secG2=new THREE.Group(), angG3=new THREE.Group();
+world.add(figG, netG2, volG, triG2, secG2, angG3);
+function wipe(g){ while(g.children.length) g.remove(g.children[0]); }
+let myLabels=[];
+function clearMyLabels(){ myLabels.forEach(l=>l.el.remove()); myLabels=[]; }
+function addLab(text,posFn,colour,size){
+  const el=document.createElement('div');
+  el.className='lab area';
+  el.style.color=colour||'#2A3038';
+  el.style.fontSize=(size||13)+'px'; el.style.fontWeight='600';
+  el.innerHTML=text;
+  document.getElementById('labels').appendChild(el);
+  myLabels.push({el,posFn}); return el;
+}
+const _mv=new THREE.Vector3();
+function updateMyLabels(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  myLabels.forEach(l=>{
+    const p=l.posFn();
+    _mv.set(p[0],p[1],p[2]).project(camera);
+    l.el.style.left=((_mv.x*0.5+0.5)*w)+'px';
+    l.el.style.top =((-_mv.y*0.5+0.5)*h)+'px';
+    l.el.style.opacity=_mv.z>1?0:1;
+  });
+}
+function centroid(pts){
+  let x=0,y=0,z=0; pts.forEach(p=>{x+=p[0];y+=p[1];z+=p[2];});
+  return [x/pts.length,y/pts.length,z/pts.length];
+}
+function resetStage(){
+  [figG,netG2,volG,triG2,secG2,angG3].forEach(wipe);
+  clearMyLabels();
+  try{
+    FACES.forEach(f=>f.g.visible=false); pyrG.visible=false; thirdG.visible=false;
+    dbl.visible=false; dblPyr.visible=false; cubes.count=0;
+    diagG.visible=false; triG.visible=false; hlG.visible=false;
+    tppG.visible=false; showTpp(false); prjG.visible=false;
+    soloG.visible=false; showSolo(false); criG.visible=false;
+    ptriG.visible=false; angG2.visible=false;
+    showAreas(false); showDiag(false); showDims(false);
+  }catch(e){}
+  unfoldT=0; unfold=0; glassT=0; glass=0; fillT=0; fill=0;
+}
+function unit(){ return Math.max(D.L,D.W,D.H,1)/10; }
+function bar(g,a,b,col,rad,op,onTop){
+  const mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op===undefined?1:op});
+  if(onTop) mat.depthTest=false;
+  const t=new THREE.Mesh(
+    new THREE.CylinderGeometry((rad||0.05)*unit(),(rad||0.05)*unit(),1,10), mat);
+  if(onTop) t.renderOrder=10;
+  putEdge(t,a,b); g.add(t); return t;
+}
+function fan(g,pts,col,op,onTop){
+  const arr=[];
+  for(let i=1;i<pts.length-1;i++) arr.push.apply(arr,[].concat(pts[0],pts[i],pts[i+1]));
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+  geo.computeVertexNormals();
+  const mat=new THREE.MeshLambertMaterial(
+    {color:col,transparent:true,opacity:op,side:THREE.DoubleSide});
+  if(onTop) mat.depthTest=false;
+  const m=new THREE.Mesh(geo,mat);
+  if(onTop) m.renderOrder=9;
+  g.add(m); return m;
+}
+/* name the sizes on the figure itself, from the live numbers */
+function labelDims(){
+  const b=baseRing(), pyr=isPyr(), k=SPEC[FIGID].base;
+  const out=v=>{                       // nudge a label away from the solid
+    const L=Math.hypot(v[0],v[1])||1;
+    return [v[0]+v[0]/L*unit()*1.6, v[1]+v[1]/L*unit()*1.6, v[2]];
+  };
+  if(k==='rect'){
+    addLab(nice(D.L), ()=>out(midOf(b[0],b[1])), '#14181A', 15);
+    addLab(nice(D.W), ()=>out(midOf(b[1],b[2])), '#14181A', 15);
+    addLab(nice(D.H), ()=>{
+      const e=[b[1][0],b[1][1],D.H/2];
+      return out(e);
+    }, '#14181A', 15);
+  } else {
+    addLab('a = '+nice(sideLen()), ()=>out(midOf(b[0],b[1])), '#14181A', 15);
+    addLab('h = '+nice(D.H), ()=>{
+      const q=b[0];
+      return out(pyr ? [q[0]*0.06,q[1]*0.06,D.H/2] : [q[0],q[1],D.H/2]);
+    }, '#14181A', 15);
+  }
+}
+function drawFigure(op){
+  wipe(figG);
+  const o = op===undefined ? OP.solid : op;
+  const lift = isPyr() ? 0.04 : 0;      // pyramids read a touch stronger
+  const b=baseRing(), pyr=isPyr();
+  fan(figG,b,FACE6[1],o);
+  if(pyr){
+    const S=apexPt();
+    b.forEach((q,i)=>{
+      fan(figG,[q,b[(i+1)%b.length],S], FACE6[(i+2)%6], Math.min(1,o+lift));
+      bar(figG,q,b[(i+1)%b.length],FACE.edge,0.055);
+      bar(figG,q,S,FACE.edge,0.055);
+    });
+  } else {
+    const t=topRing();
+    fan(figG,t,FACE6[0],o);
+    b.forEach((q,i)=>{
+      const q2=b[(i+1)%b.length];
+      fan(figG,[q,q2,t[(i+1)%b.length],t[i]], FACE6[(i+2)%6], o);
+      bar(figG,q,q2,FACE.edge,0.055);
+      bar(figG,t[i],t[(i+1)%b.length],FACE.edge,0.055);
+      bar(figG,q,t[i],FACE.edge,0.055);
+    });
+  }
+  frame2();
+}
+/* the radius of the biggest figure this solid can be.
+   the camera sits at that distance always, so changing the sliders
+   genuinely changes how big the figure looks. */
+function refRadius(){
+  const keep={L:D.L,W:D.W,H:D.H};
+  D.L=MAXD; D.W=MAXD; D.H=MAXD;
+  const b=baseRing(), pts=b.concat(isPyr()?[apexPt()]:topRing());
+  let cx=0,cy=0,cz=0;
+  pts.forEach(q=>{cx+=q[0];cy+=q[1];cz+=q[2];});
+  cx/=pts.length; cy/=pts.length; cz/=pts.length;
+  let r=0; pts.forEach(q=>{ r=Math.max(r,Math.hypot(q[0]-cx,q[1]-cy,q[2]-cz)); });
+  D.L=keep.L; D.W=keep.W; D.H=keep.H;
+  return r;
+}
+function frame2(extra){
+  const b=baseRing(), pts=b.concat(isPyr()?[apexPt()]:topRing());
+  let cx=0,cy=0,cz=0;
+  pts.forEach(q=>{cx+=q[0];cy+=q[1];cz+=q[2];});
+  cx/=pts.length; cy/=pts.length; cz/=pts.length;
+  want.target.set(cx,cy,cz);
+  want.dist=fitDist(refRadius()*1.06*(extra||1))*zoomMul;
+}
+function ctrlSizes(){
+  const keys=SPEC[FIGID].keys;
+  const row=(k,v)=>'<div class="scrub"><span class="key">'+k+'</span>'
+    +'<input type="range" id="d'+k+'" min="1" max="'+MAXD+'" step="1" value="'+v+'">'
+    +'<label id="v'+k+'" style="width:18px;color:var(--fg)">'+v+'</label></div>';
+  const val=k=> k==='w' ? D.W : (k==='h' ? D.H : D.L);
+  ctrl.innerHTML='<div class="rows">'+keys.map(k=>row(k,val(k))).join('')+'</div>'
+    +'<div class="mbox" id="oBox"></div>';
+  const sync=()=>{
+    drawFigure();
+    clearMyLabels(); labelDims();
+    const b=document.getElementById('oBox');
+    b.innerHTML='<div class="mrow"><span class="tag">surface</span>'+M(FIGDATA[FIGID].netTex())+'</div>'
+      +'<div class="mrow" style="margin-top:4px"><span class="tag">volume</span>'+M(FIGDATA[FIGID].volTex())+'</div>';
+    b.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(b);
+  };
+  keys.forEach(k=>{
+    const el=document.getElementById('d'+k); if(!el) return;
+    el.oninput=e=>{
+      const v=+e.target.value;
+      if(k==='w') D.W=v; else if(k==='h') D.H=v; else { D.L=v; if(k==='a') D.W=v; }
+      document.getElementById('v'+k).textContent=v; sync(); autoSpin=false;
+    };
+  });
+  sync();
+}
+function drawNet(t){
+  wipe(netG2); wipe(figG); clearMyLabels();
+  const e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+  const b=baseRing(), pyr=isPyr();
+  fan(figG,b,FACE6[1],OP.net);
+  if(e>0.5) addLab(SPEC[FIGID].base==='rect'
+      ? nice(D.L)+'\u00d7'+nice(D.W)+'='+nice(D.L*D.W) : 'B='+nice(baseArea()),
+      ()=>centroid(b), '#2A3038', 13);
+  b.forEach((q,i)=> bar(figG,q,b[(i+1)%b.length],FACE.edge,0.055));
+  b.forEach((q,i)=>{
+    const q2=b[(i+1)%b.length], m=midOf(q,q2);
+    const L=Math.hypot(m[0],m[1])||1, ux=m[0]/L, uy=m[1]/L;
+    if(pyr){
+      const ap=Math.hypot(inR(),D.H), flat=Math.PI, fold=Math.atan2(D.H,inR());
+      const phi=fold+(flat-fold)*e;          // 0 = closed, 1 = flat
+      const S=[m[0]-ap*Math.cos(phi)*ux, m[1]-ap*Math.cos(phi)*uy, ap*Math.sin(phi)];
+      fan(netG2,[q,q2,S], FACE6[(i+2)%6], OP.net);
+      if(e>0.5){ const w0=dist3(q,q2);
+        addLab('\u00bd\u00b7'+nice(w0)+'\u00b7'+nice(apoLen())+'='+nice(w0*apoLen()/2),
+          ()=>centroid([q,q2,S]), '#2A3038', 12); }
+      bar(netG2,q,S,FACE.edge,0.045); bar(netG2,q2,S,FACE.edge,0.045);
+    } else {
+      const flat=Math.PI, fold=Math.PI/2, phi=fold+(flat-fold)*e;   // 0 = closed, 1 = flat
+      const dx=-Math.cos(phi)*ux, dy=-Math.cos(phi)*uy, dz=Math.sin(phi);
+      const p1=[q[0]+D.H*dx,  q[1]+D.H*dy,  D.H*dz];
+      const p2=[q2[0]+D.H*dx, q2[1]+D.H*dy, D.H*dz];
+      fan(netG2,[q,q2,p2,p1], FACE6[(i+2)%6], OP.net);
+      if(e>0.5){ const w0=dist3(q,q2);
+        addLab(nice(w0)+'\u00d7'+nice(D.H)+'='+nice(w0*D.H),
+          ()=>centroid([q,q2,p2,p1]), '#2A3038', 12.5); }
+      bar(netG2,q,p1,FACE.edge,0.045); bar(netG2,q2,p2,FACE.edge,0.045);
+      bar(netG2,p1,p2,FACE.edge,0.045);
+      if(i===0){
+        // the top swings about the far edge of this side face \u2014 a real hinge, not a morph
+        const A=[q[0]+D.H*dx, q[1]+D.H*dy, D.H*dz];
+        let dd=[q2[0]-q[0], q2[1]-q[1]];
+        const dl=Math.hypot(dd[0],dd[1])||1; dd=[dd[0]/dl, dd[1]/dl];
+        const th=Math.PI*(1-e);
+        const mm=[Math.cos(th)*ux, Math.cos(th)*uy, Math.sin(th)];
+        const lift=baseRing().map(v=>{
+          const wx=v[0]-q[0], wy=v[1]-q[1];
+          const along=wx*dd[0]+wy*dd[1];
+          const across=-(wx*ux+wy*uy);
+          return [A[0]+dd[0]*along+mm[0]*across,
+                  A[1]+dd[1]*along+mm[1]*across,
+                  A[2]+mm[2]*across];
+        });
+        fan(netG2, lift, FACE6[0], OP.net);
+        if(e>0.5) addLab(SPEC[FIGID].base==='rect'
+          ? nice(D.L)+'\u00d7'+nice(D.W)+'='+nice(D.L*D.W) : 'B='+nice(baseArea()),
+          ()=>centroid(lift), '#2A3038', 13);
+        lift.forEach((v,j)=>bar(netG2,v,lift[(j+1)%lift.length],FACE.edge,0.045));
+      }
+    }
+  });
+  frame2(1 + 1.15*e);        // opening the net needs more room, from the same reference
+}
+function ctrlNet(){
+  const f=FIGDATA[FIGID];
+  unfoldT=unfold=0;                       // always starts wrapped up
+  ctrl.innerHTML='<div class="scrub"><label>folded</label>'
+    +'<input type="range" id="nf" min="0" max="100" value="'+Math.round(unfold*100)+'">'
+    +'<label>flat</label></div><div class="mbox hi" id="nb"></div>';
+  const nb=document.getElementById('nb');
+  const paint=()=>{
+    nb.innerHTML = unfold>0.4
+      ? M(f.netTex())
+        +'<div class="mrow" style="margin-top:6px"><span class="tag">in letters</span>'
+        +M(f.netRule)+'</div>'
+      : '<div class="mrow" style="color:var(--fg-dim)">drag it flat to see every piece at once</div>';
+    nb.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(nb);
+  };
+  paint(); drawNet(unfold);
+  document.getElementById('nf').oninput=e=>{
+    unfoldT=unfold=+e.target.value/100; drawNet(unfold); paint(); autoSpin=false;
+  };
+}
+function ctrlVol(){
+  const pyr=isPyr(), rect=SPEC[FIGID].base==='rect';
+  const H=Math.round(D.H);
+  const B=baseArea();
+
+  /* ================= pyramid: it is a third of its prism ================= */
+  if(pyr){
+    let showPrism=true;
+    ctrl.innerHTML='<button class="tog on" id="pz">show the prism around it</button>'
+      +'<div class="mbox hi" id="vb" style="margin-top:9px"></div>';
+    const vb=document.getElementById('vb');
+    const draw=()=>{
+      wipe(volG); clearMyLabels();
+      if(!showPrism) return;
+      const b=baseRing(), top=b.map(q=>[q[0],q[1],D.H]);
+      // a cage, not a box — nothing translucent sits in front of the pyramid
+      const lid=fan(volG,top,0x8A3FD4,0.10);
+      lid.material.depthWrite=false; lid.renderOrder=1;
+      b.forEach((q,i)=>{
+        bar(volG,q,b[(i+1)%b.length],0x8A3FD4,0.032,1,true);
+        bar(volG,top[i],top[(i+1)%b.length],0x8A3FD4,0.032,1,true);
+        bar(volG,q,top[i],0x8A3FD4,0.032,1,true);
+      });
+      addLab('the prism: same base, same height', ()=>[0,0,D.H*1.16], '#6B2FB0', 12.5);
+    };
+    const paint=()=>{
+      const prism=B*D.H;
+      vb.innerHTML =
+        '<div class="mrow"><span class="tag">the prism</span>'
+          +M(tex(B)+'\\times'+D.H+'='+tex(prism))+'</div>'
+        +'<div class="mrow" style="margin-top:4px"><span class="tag">the pyramid</span>'
+          +M(tex(figVOL()))+'</div>'
+        +'<div class="mrow" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">'
+          +'<span class="tag">prism \u00f7 pyramid</span>'
+          +'<b style="font-family:IBM Plex Mono,monospace;font-size:17px;color:var(--a)">'
+          +(prism/figVOL()).toFixed(0)+'</b>'
+          +'<span style="font-size:13px;color:var(--fg-dim)">\u2014 go back and change the sizes: it never moves</span></div>'
+        +'<div class="mrow" style="margin-top:6px;color:var(--fg-dim);font-size:13.5px">'
+          +'<b>Three of this pyramid fill that prism.</b> True for any base, any height.</div>';
+      vb.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+      typeset(vb);
+    };
+    document.getElementById('pz').onclick=e=>{
+      showPrism=!showPrism; e.target.classList.toggle('on',showPrism);
+      e.target.textContent = showPrism?'show the prism around it':'prism hidden';
+      draw(); autoSpin=false;
+    };
+    draw(); paint(); return;
+  }
+
+  /* ================= cuboid: count the unit cubes ================= */
+  if(rect){
+    let filled=Math.round(D.L)*Math.round(D.W)*Math.round(D.H);
+    const total=filled;
+    ctrl.innerHTML='<div class="scrub"><label>empty</label>'
+      +'<input type="range" id="vf" min="0" max="'+total+'" step="1" value="'+total+'">'
+      +'<label>full</label></div>'
+      +'<div class="mbox hi" id="vb"></div>'
+      +'<button class="tog" id="dbl2" style="margin-top:8px">double every length</button>';
+    const vb=document.getElementById('vb');
+    let big=false;
+    const cubeMat=new THREE.MeshLambertMaterial({color:0x4C6EF0});
+    const cubeGeo=new THREE.BoxGeometry(0.94,0.94,0.94);
+    const edgeMat=new THREE.LineBasicMaterial({color:0x1E2A5E,transparent:true,opacity:.5});
+    const edgeGeo=new THREE.EdgesGeometry(cubeGeo);
+    const paint=()=>{
+      const layer=Math.round(D.L)*Math.round(D.W);
+      vb.innerHTML =
+        M(D.L+'\\times'+D.W+'\\times'+D.H+'='+tex(total))
+        +'<div class="mrow" style="margin-top:4px"><span class="tag">that is</span>'
+          +'<span style="font-size:13.5px;color:var(--fg-dim)">'+layer
+          +' cubes in a layer, '+H+' layers</span></div>'
+        +'<div class="mrow" style="margin-top:5px"><span class="tag">cubes placed</span>'
+          +'<b style="font-family:IBM Plex Mono,monospace;color:var(--a)">'+filled+' / '+total+'</b></div>';
+      if(big) vb.innerHTML += '<div class="mrow" style="margin-top:6px">'
+        +M('S:\\ '+tex(figSA())+'\\to '+tex(figSA()*4)+'\\ (\\times 2^2)')
+        +M('V:\\ '+tex(figVOL())+'\\to '+tex(figVOL()*8)+'\\ (\\times 2^3)')+'</div>';
+      vb.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+      typeset(vb);
+    };
+    const fill=n=>{
+      wipe(volG); clearMyLabels(); filled=n;
+      const nx=Math.round(D.L), ny=Math.round(D.W), nz=Math.round(D.H);
+      let k=0, done=false;
+      for(let z=0;z<nz && !done;z++)
+        for(let y=0;y<ny && !done;y++)
+          for(let x=0;x<nx;x++){
+            if(k++>=n){ done=true; break; }
+            const m=new THREE.Mesh(cubeGeo,cubeMat);
+            m.position.set(-D.L/2+x+0.5,-D.W/2+y+0.5,z+0.5);
+            volG.add(m);
+            const o=new THREE.LineSegments(edgeGeo,edgeMat);
+            o.position.copy(m.position); volG.add(o);
+          }
+      paint();
+    };
+    fill(total);
+    document.getElementById('vf').oninput=e=>{ fill(+e.target.value); autoSpin=false; };
+    document.getElementById('dbl2').onclick=e=>{
+      big=!big; e.target.classList.toggle('on',big); wipe(secG2); clearMyLabels();
+      if(big){
+        const b2=baseRing();
+        const mnx=Math.min.apply(null,b2.map(q=>q[0])), mny=Math.min.apply(null,b2.map(q=>q[1]));
+        const B2=b2.map(q=>[mnx+(q[0]-mnx)*2, mny+(q[1]-mny)*2, 0]);
+        const T2=B2.map(q=>[q[0],q[1],D.H*2]);
+        B2.forEach((q,i)=>{
+          bar(secG2,q,B2[(i+1)%B2.length],0x7B5CD6,0.05,1,true);
+          bar(secG2,T2[i],T2[(i+1)%B2.length],0x7B5CD6,0.05,1,true);
+          bar(secG2,q,T2[i],0x7B5CD6,0.05,1,true);
+        });
+        addLab('the original sits in the corner',
+          ()=>[centroid(B2)[0],centroid(B2)[1],D.H*2.2],'#5B4BB8',12);
+        frame2(2.1);
+      } else frame2();
+      paint();
+    };
+    return;
+  }
+
+  /* ========== triangular and hexagonal prism: sweep the base up ========== */
+  let t=1;                                    // how far up the base has swept
+  ctrl.innerHTML='<div class="scrub"><label>sweep</label>'
+    +'<input type="range" id="vs" min="0" max="1000" value="1000"></div>'
+    +'<div class="mbox hi" id="vb"></div>'
+    +(FIGID!=='triprism'?'<button class="tog" id="dbl2" style="margin-top:8px">double every length</button>':'');
+  const vb=document.getElementById('vb');
+  let big=false;
+
+  const paint=()=>{
+    const z=D.H*t;
+    let head='';
+    if(SPEC[FIGID].base==='hex'){
+      head = '<div class="mrow"><span class="tag">the base</span>'
+        + M('6\\times\\tfrac{\\sqrt3}{4}\\times'+D.L+'^2='+tex(B)) + '</div>'
+        + '<div class="mrow" style="margin-bottom:6px;color:var(--fg-dim);font-size:13px">'
+        + 'a regular hexagon is <b>six equilateral triangles</b> \u2014 that is the whole trick</div>';
+    } else {
+      head = '<div class="mrow" style="margin-bottom:6px"><span class="tag">the base</span>'
+        + M('\\tfrac{\\sqrt3}{4}\\times'+D.L+'^2='+tex(B)) + '</div>';
+    }
+    vb.innerHTML = head
+      + M('\\underbrace{'+tex(B)+'}_{\\text{base}}\\times\\underbrace{'
+        + (Math.abs(z-D.H)<1e-9?tex(D.H):z.toFixed(2))
+        + '}_{\\text{swept so far}}='+ (Math.abs(z-D.H)<1e-9?tex(B*D.H):(B*z).toFixed(2)))
+      + '<div class="mrow" style="margin-top:5px;color:var(--fg-dim);font-size:13.5px">'
+      + (t<0.999 ? 'keep going \u2014 the base is sweeping out the solid'
+                 : 'at the top: the base has swept the whole height. <b>V = B\u00b7h</b>.')
+      + '</div>';
+    if(big) vb.innerHTML += '<div class="mrow" style="margin-top:6px">'
+      +M('S:\\ '+tex(figSA())+'\\to '+tex(figSA()*4)+'\\ (\\times 2^2)')
+      +M('V:\\ '+tex(figVOL())+'\\to '+tex(figVOL()*8)+'\\ (\\times 2^3)')+'</div>';
+    vb.querySelectorAll('[data-tex]').forEach(e=>delete e.dataset.done);
+    typeset(vb);
+  };
+
+  const sweep=()=>{
+    wipe(volG); clearMyLabels();
+    const b=baseRing(), z=D.H*t;
+    // everything the base has passed through, filled in
+    if(t>0.001){
+      const lo=b, hi=b.map(q=>[q[0],q[1],z]);
+      fan(volG,hi,0x4C6EF0,0.5);
+      lo.forEach((q,j)=>{
+        const q2=lo[(j+1)%lo.length];
+        fan(volG,[q,q2,hi[(j+1)%lo.length],hi[j]],0x4C6EF0,0.34);
+      });
+    }
+    // the base itself, sitting at the level it has reached
+    const face=b.map(q=>[q[0],q[1],z]);
+    fan(volG,face,0x2472D6,0.95);
+    face.forEach((q,j)=>bar(volG,q,face[(j+1)%face.length],0x14306B,0.028,1,true));
+    addLab(t<0.999?('height '+(D.H*t).toFixed(2)):('height '+nice(D.H)),
+      ()=>[centroid(face)[0],centroid(face)[1],z+D.H*0.07], '#14306B', 13);
+    paint();
+  };
+  sweep();
+  document.getElementById('vs').oninput=e=>{ t=+e.target.value/1000; sweep(); autoSpin=false; };
+  const db=document.getElementById('dbl2');
+  if(db) db.onclick=e=>{
+    big=!big; e.target.classList.toggle('on',big); wipe(secG2); clearMyLabels();
+    if(big){
+      const b2=baseRing();
+      const mnx=Math.min.apply(null,b2.map(q=>q[0])), mny=Math.min.apply(null,b2.map(q=>q[1]));
+      const B2=b2.map(q=>[mnx+(q[0]-mnx)*2, mny+(q[1]-mny)*2, 0]);
+      const T2=B2.map(q=>[q[0],q[1],D.H*2]);
+      B2.forEach((q,i)=>{
+        bar(secG2,q,B2[(i+1)%B2.length],0x7B5CD6,0.05,1,true);
+        bar(secG2,T2[i],T2[(i+1)%B2.length],0x7B5CD6,0.05,1,true);
+        bar(secG2,q,T2[i],0x7B5CD6,0.05,1,true);
+      });
+      frame2(2.1);
+    } else frame2();
+    paint();
+  };
+}
+
+/* write the length of every side of whatever is drawn */
+/* the face colour is chosen to look good filled; as small bold text it needs
+   darkening to stay readable. amber needs more than the rest. */
+function inkOf(col){
+  const r=(col>>16)&255, g=(col>>8)&255, b=col&255;
+  const warm = (r>180 && g>120 && b<90);       // amber and friends read lightest
+  const k = warm ? 0.42 : 0.28;
+  const d=v=>Math.round(v*(1-k)).toString(16).padStart(2,'0');
+  return '#'+d(r)+d(g)+d(b);
+}
+function labelSides(pts,col){
+  const c=inkOf(col);
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i], b=pts[(i+1)%pts.length];
+    const L=dist3(a,b); if(L<1e-6) continue;
+    addLab(nice(L), ()=>midOf(a,b), c, 13);
+  }
+}
+/* a small square in the corner that is right */
+function rightAngleAt(pts,i,col){
+  const O=pts[i], A=pts[(i+1)%pts.length], B=pts[(i+2)%pts.length];
+  const s=0.5*unit()*3;
+  const u=[A[0]-O[0],A[1]-O[1],A[2]-O[2]], v=[B[0]-O[0],B[1]-O[1],B[2]-O[2]];
+  const lu=Math.hypot(u[0],u[1],u[2])||1, lv=Math.hypot(v[0],v[1],v[2])||1;
+  const U=[u[0]/lu*s,u[1]/lu*s,u[2]/lu*s], V=[v[0]/lv*s,v[1]/lv*s,v[2]/lv*s];
+  const p1=[O[0]+U[0],O[1]+U[1],O[2]+U[2]];
+  const p2=[O[0]+U[0]+V[0],O[1]+U[1]+V[1],O[2]+U[2]+V[2]];
+  const p3=[O[0]+V[0],O[1]+V[1],O[2]+V[2]];
+  bar(triG2,p1,p2,col,0.03,0.9,true);
+  bar(triG2,p2,p3,col,0.03,0.9,true);
+}
+function chipRow(items,cur){
+  return '<div class="chips">'+items.map((t,i)=>
+    '<button class="fchip '+(i===cur?'on':'')+'" data-i="'+i+'" style="'+(i===cur
+      ? 'background:#'+t.col.toString(16).padStart(6,'0')+';border-color:#'+t.col.toString(16).padStart(6,'0')
+      : '')+'">'+t.label+'</button>').join('')+'</div>';
+}
+function ctrlTris(){
+  const T=FIGDATA[FIGID].tris; let cur=0;
+  const draw=()=>{
+    ctrl.innerHTML=chipRow(T,cur)+'<div class="mbox hi">'+M(T[cur].tex())
+      +'<div class="mrow" style="color:var(--fg-dim);font-size:14px;margin-top:6px">'+withTerms(T[cur].note)+'</div></div>';
+    typeset(ctrl);
+    wipe(triG2); clearMyLabels();
+    const p=T[cur].pts();
+    fan(triG2,p,T[cur].col,0.30,true);
+    for(let i=0;i<3;i++) bar(triG2,p[i],p[(i+1)%3],T[cur].col,0.06,1,true);
+    labelSides(p, T[cur].col);
+    if(T[cur].right) rightAngleAt(p, T[cur].right, T[cur].col);
+    ctrl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{cur=+b.dataset.i;draw();autoSpin=false;});
+  };
+  draw();
+}
+function ctrlSecs(){
+  const T=FIGDATA[FIGID].secs; let cur=0;
+  const draw=()=>{
+    ctrl.innerHTML=chipRow(T,cur)+'<div class="mbox hi">'+M(T[cur].tex())
+      +'<div class="mrow" style="color:var(--fg-dim);font-size:14px;margin-top:6px">'+withTerms(T[cur].note)+'</div></div>';
+    typeset(ctrl);
+    wipe(secG2); clearMyLabels();
+    const q=T[cur].quad();
+    fan(secG2,q,T[cur].col,0.34,true);
+    for(let i=0;i<q.length;i++) bar(secG2,q[i],q[(i+1)%q.length],T[cur].col,0.055,1,true);
+    labelSides(q, T[cur].col);
+    ctrl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{cur=+b.dataset.i;draw();autoSpin=false;});
+  };
+  draw();
+}
+function ctrlAng(){
+  const f=FIGDATA[FIGID];
+  ctrl.innerHTML='<div class="mbox hi">'+M(f.angTex())+'</div>'
+    +'<div class="mrow" style="color:var(--fg-dim);font-size:14px">'+f.angNote+'</div>';
+  typeset(ctrl);
+  wipe(angG3); clearMyLabels();
+  const A=FIGDATA[FIGID].angs;
+  if(A && A.length){
+    let cur=0;
+    const draw=()=>{
+      ctrl.innerHTML=chipRow(A,cur)+'<div class="mbox hi">'+M(A[cur].tex())+'</div>'
+        +'<div class="mrow" style="color:var(--fg-dim);font-size:14px">'+withTerms(A[cur].note)+'</div>';
+      typeset(ctrl);
+      wipe(angG3); clearMyLabels();
+      A[cur].lines().forEach(L=>{
+        bar(angG3,L[0],L[1],L[2],L[3]||0.06,1,true);
+        addLab(nice(dist3(L[0],L[1])), ()=>midOf(L[0],L[1]), inkOf(L[2]), 13);
+      });
+      if(A[cur].mark){ const m=A[cur].mark(); addLab(m[0],()=>m[1],'#C4331C',15); }
+      ctrl.querySelectorAll('.fchip').forEach(b2=>b2.onclick=()=>{cur=+b2.dataset.i;draw();autoSpin=false;});
+    };
+    draw(); return;
+  }
+  const b=baseRing();
+  if(isPyr()){
+    const S=apexPt(), m=midOf(b[0],b[1]);
+    bar(angG3,S,m,0x2B4FE8,0.06,1,true); bar(angG3,[0,0,0],m,0x6E7A75,0.045,1,true);
+    bar(angG3,S,b[0],0xE8442A,0.06,1,true); bar(angG3,[0,0,0],b[0],0x6E7A75,0.045,1,true);
+    bar(angG3,S,[0,0,0],0xE39A22,0.045,1,true);
+  } else {
+    let far=b[0], best=0;
+    b.forEach(q=>{ const d0=dist3(b[0],q); if(d0>best){best=d0;far=q;} });
+    const up=[far[0],far[1],D.H];
+    bar(angG3,b[0],up,0xE8442A,0.07,1,true);
+    bar(angG3,b[0],far,0x2B4FE8,0.055,1,true);
+    bar(angG3,far,up,0xE39A22,0.045,1,true);
+  }
+}
+
+const FIGDATA = {
+ cuboid:{
+   sizes:'This is a cuboid \u2014 a solid that looks like a box. It has three dimensions: length, width and height. Try changing them and watch everything follow.',
+   volTex:()=>`${D.L}\\times${D.W}\\times${D.H}=${tex(figVOL())}`,
+   net:'A cuboid is made of six flat rectangles. Unfold it and they all lie side by side — then the surface area is just their areas added up.',
+   netTex:()=>`2(${D.L}\\times${D.W})+2(${D.L}\\times${D.H})+2(${D.W}\\times${D.H})=\\textbf{${tex(figSA())}}`,
+   netWhy:'Opposite faces are identical, so there are really only three different rectangles to find, and each one appears twice.',
+   volBody:'Volume asks how much space is inside. So fill the box with cubes of side 1 and count them.',
+   volWhy:'One layer holds l × w cubes, and there are h layers. Double every length and the surface grows four times, the volume eight.',
+   triBody:'A cuboid has no triangles drawn on it. But join two corners and one appears — and a right triangle is something you already know how to handle.',
+   triWhy:'Every one of these has the same shape: two sides you know, one you want. What changes is which two you start from.',
+   angBody:'A line inside the box leans. To say how much, compare it with its own shadow on the floor.',
+   netRule:'S = 2(lw + lh + wh)',
+   volRule:'V = lwh',
+   tris:[
+     {label:'base diagonal', col:0x2B4FE8, right:0,
+      tex:()=>`d_1=\\sqrt{${D.L}^2+${D.W}^2}=${tex(Math.hypot(D.L,D.W))}`,
+      note:'This one lies flat on the bottom face, so it is ordinary flat geometry. Nothing new here.',
+      pts:()=>{const p=baseRing();return [p[1],p[2],p[0]];}},
+     {label:'long-face diagonal', col:0x17A2A0, right:0,
+      tex:()=>`\\sqrt{${D.L}^2+${D.H}^2}=${tex(Math.hypot(D.L,D.H))}`,
+      note:'Now stand a face upright. Its two sides are one edge and the height.',
+      pts:()=>{const p=baseRing();return [p[1],[p[1][0],p[1][1],D.H],p[0]];}},
+     {label:'short-face diagonal', col:0x9B4FE0, right:0,
+      tex:()=>`\\sqrt{${D.W}^2+${D.H}^2}=${tex(Math.hypot(D.W,D.H))}`,
+      note:'The other upright face gives a different pair of sides, so a different length.',
+      pts:()=>{const p=baseRing();return [p[2],[p[2][0],p[2][1],D.H],p[1]];}},
+     {label:'space diagonal', col:0xE8442A, right:1,
+      tex:()=>`\\sqrt{${D.L}^2+${D.W}^2+${D.H}^2}=${tex(Math.hypot(D.L,D.W,D.H))}`,
+      note:'This one goes right through the middle, corner to opposite corner. You cannot reach it in one step — first cross the base, then rise.',
+      pts:()=>{const p=baseRing();return [p[0],p[2],[p[2][0],p[2][1],D.H]];}},
+     {label:'space diagonal, other way', col:0xD93B85, right:1,
+      tex:()=>`\\sqrt{${D.W}^2+(${D.L}^2+${D.H}^2)}=${tex(Math.hypot(D.L,D.W,D.H))}`,
+      note:'Start from a different face and you still arrive. Same length, because the route does not matter.',
+      pts:()=>{const p=baseRing();return [p[0],[p[1][0],p[1][1],D.H],[p[2][0],p[2][1],D.H]];}},
+     {label:'half the base', col:0xF5901E, right:2,
+      tex:()=>`\\sqrt{${tex(D.L/2)}^2+${D.W}^2}=${tex(Math.hypot(D.L/2,D.W))}`,
+      note:'From the middle of an edge to the far corner. This one hides inside a lot of cuts.',
+      pts:()=>{const p=baseRing(); const m=midOf(p[0],p[1]);return [m,p[2],[p[2][0],p[1][1],0]];}}],
+   secs:[
+     {label:'diagonal section', col:0xE39A22,
+      tex:()=>`${tex(Math.hypot(D.L,D.W))}\\times${D.H}=${tex(Math.hypot(D.L,D.W)*D.H)}`,
+      note:'Cut along the bottom diagonal and stand it up. Still a rectangle, just wider than any face.',
+      quad:()=>{const p=baseRing();return [p[0],p[2],[p[2][0],p[2][1],D.H],[p[0][0],p[0][1],D.H]];}},
+     {label:'parallel to a face', col:0x2B4FE8,
+      tex:()=>`${D.W}\\times${D.H}=${tex(D.W*D.H)}`,
+      note:'Cut parallel to a side and you get that side back, wherever you cut.',
+      quad:()=>{const p=baseRing(); const x=(p[0][0]+p[1][0])/2;
+        return [[x,p[1][1],0],[x,p[2][1],0],[x,p[2][1],D.H],[x,p[1][1],D.H]];}},
+     {label:'parallel to the base', col:0x2FA84F,
+      tex:()=>`${D.L}\\times${D.W}=${tex(D.L*D.W)}`,
+      note:'Every level cut gives the base again. That is what makes this a prism.',
+      quad:()=>{const p=baseRing(), z=D.H/2;
+        return p.map(q=>[q[0],q[1],z]);}},
+     {label:'midpoint to corner', col:0x8B5CF6,
+      tex:()=>`${tex(Math.hypot(D.L/2,D.W))}\\times${D.H}=${tex(Math.hypot(D.L/2,D.W)*D.H)}`,
+      note:'Start from the middle of an edge. Its width is not a diagonal, so work that out first.',
+      quad:()=>{const p=baseRing(); const m=midOf(p[0],p[1]);
+        return [m,p[2],[p[2][0],p[2][1],D.H],[m[0],m[1],D.H]];}},
+     {label:'corner cut', col:0xD93B85,
+      tex:()=>`\\text{sides }${tex(Math.hypot(D.L,D.W))},\\;${tex(Math.hypot(D.W,D.H))},\\;${tex(Math.hypot(D.L,D.H))}`,
+      note:'Slice one corner off. The three edges of the cut are three face diagonals.',
+      quad:()=>{const p=baseRing();
+        // the three vertices next to one corner
+        return [p[1], p[3], [p[0][0],p[0][1],D.H]];}}],
+   angs:[
+     {label:'space diagonal \u2220 base', col:0xE8442A,
+      tex:()=>`\\tan\\alpha=\\frac{${D.H}}{${tex(Math.hypot(D.L,D.W))}}\\;\\Rightarrow\\;${(Math.atan2(D.H,Math.hypot(D.L,D.W))*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'The shadow of the space diagonal is the base diagonal.',
+      lines:()=>{const p=baseRing();return [
+        [p[0],[p[2][0],p[2][1],D.H],0xE8442A,0.07],
+        [p[0],p[2],0x2B4FE8,0.055],
+        [p[2],[p[2][0],p[2][1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing();return [(Math.atan2(D.H,Math.hypot(D.L,D.W))*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[0][0]+(p[2][0]-p[0][0])*0.3, p[0][1]+(p[2][1]-p[0][1])*0.3, D.H*0.1]];}},
+     {label:'long-face diagonal \u2220 base', col:0x17A2A0,
+      tex:()=>`\\tan\\beta=\\frac{${D.H}}{${D.L}}\\;\\Rightarrow\\;${(Math.atan2(D.H,D.L)*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'This one\u2019s shadow is an edge, not a diagonal.',
+      lines:()=>{const p=baseRing();return [
+        [p[0],[p[1][0],p[1][1],D.H],0x17A2A0,0.07],
+        [p[0],p[1],0x2B4FE8,0.055],
+        [p[1],[p[1][0],p[1][1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing();return [(Math.atan2(D.H,D.L)*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[0][0]+(p[1][0]-p[0][0])*0.32, p[0][1], D.H*0.1]];}},
+     {label:'short-face diagonal \u2220 base', col:0x9B4FE0,
+      tex:()=>`\\tan\\gamma=\\frac{${D.H}}{${D.W}}\\;\\Rightarrow\\;${(Math.atan2(D.H,D.W)*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'Shorter shadow, same height, so it leans more steeply.',
+      lines:()=>{const p=baseRing();return [
+        [p[1],[p[2][0],p[2][1],D.H],0x9B4FE0,0.07],
+        [p[1],p[2],0x2B4FE8,0.055],
+        [p[2],[p[2][0],p[2][1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing();return [(Math.atan2(D.H,D.W)*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[1][0], p[1][1]+(p[2][1]-p[1][1])*0.32, D.H*0.1]];}},
+     {label:'space diagonal \u2220 a face', col:0xD93B85,
+      tex:()=>`\\tan\\delta=\\frac{${D.W}}{${tex(Math.hypot(D.L,D.H))}}\\;\\Rightarrow\\;${(Math.atan2(D.W,Math.hypot(D.L,D.H))*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'You can lean against an upright face too. Then the shadow is that face\u2019s diagonal.',
+      lines:()=>{const p=baseRing();return [
+        [p[0],[p[2][0],p[2][1],D.H],0xD93B85,0.07],
+        [p[0],[p[1][0],p[1][1],D.H],0x2B4FE8,0.055],
+        [[p[1][0],p[1][1],D.H],[p[2][0],p[2][1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing();return [(Math.atan2(D.W,Math.hypot(D.L,D.H))*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[0][0]+(p[1][0]-p[0][0])*0.34, p[0][1], D.H*0.34]];}}],
+   angTex:()=>`\\tan\\alpha=\\frac{h}{d_1}=${(Math.atan2(D.H,Math.hypot(D.L,D.W))*180/Math.PI).toFixed(1)}^\\circ`,
+   angNote:'Every angle here is measured against a shadow on the base.'
+ },
+
+ triprism:{
+   sizes:'A triangular prism \u2014 the same triangle top and bottom, joined straight up. Two numbers describe it: the base side and the height.',
+   volTex:()=>`\\underbrace{${tex(baseArea())}}_{\\text{triangle}}\\times${D.H}=${tex(figVOL())}`,
+   net:'Two triangles and three rectangles, and that is the whole surface. Unfold it and you can see every piece at once.',
+   netTex:()=>`\\underbrace{2\\times${tex(baseArea())}}_{\\text{two triangles}}+\\underbrace{3\\times${D.L}\\times${D.H}}_{\\text{three rectangles}}=\\textbf{${tex(figSA())}}`,
+   netWhy:'The three rectangles are identical, because all three base edges are the same length.',
+   volBody:'Take the triangle at the bottom and sweep it straight up. Everything it passes through is the volume.',
+   volWhy:'The base sweeps through the whole height without changing shape, so the volume is just the base area times the height.',
+   triBody:'The triangles here come in two kinds: ones lying flat in the base, and ones standing up inside the solid.',
+   triWhy:'An equilateral base is worth knowing well. Its height, its centre and its corners give you almost every length you will need.',
+   angBody:'A diagonal drawn on a side face leans away from the base. Compare it with its shadow to say how much.',
+   netRule:'S = 2B + Ph,\\quad B = \\tfrac{\\sqrt3}{4}a^2',
+   volRule:'V = Bh',
+   tris:[
+     {label:'height of the base', col:0x2B4FE8, right:2,
+      tex:()=>`h_\\triangle=\\tfrac{\\sqrt3}{2}\\times${D.L}=${tex(S3/2*D.L)}`,
+      note:'The base\u2019s own height. Everything about an equilateral triangle starts here.',
+      pts:()=>{const p=baseRing();return [p[2],p[0],midOf(p[0],p[1])];}},
+     {label:'centre: R and r', col:0xE39A22, right:2,
+      tex:()=>`R=\\tfrac{${D.L}}{\\sqrt3}=${tex(circumR())},\\quad r=\\tfrac{R}{2}=${tex(inR())}`,
+      note:'For an equilateral base <b>R = 2r</b>. Half of every prism and pyramid problem starts here.',
+      pts:()=>{const p=baseRing();return [p[0],[0,0,0],midOf(p[0],p[1])];}},
+     {label:'lateral face diagonal', col:0xE8442A, right:1,
+      tex:()=>`\\sqrt{${D.L}^2+${D.H}^2}=${tex(Math.hypot(D.L,D.H))}`,
+      note:'A lateral face is a <b>rectangle</b>, so its diagonal is one Pythagoras away.',
+      pts:()=>{const p=baseRing();return [p[0],p[1],[p[1][0],p[1][1],D.H]];}},
+     {label:'vertex to far top edge', col:0x9B4FE0, right:1,
+      tex:()=>`\\sqrt{${tex(S3/2*D.L)}^2+${D.H}^2}=${tex(Math.hypot(S3/2*D.L,D.H))}`,
+      note:'Across the inside: the base height, then straight up. The longest reach in the solid.',
+      pts:()=>{const p=baseRing(), m=midOf(p[1],p[2]);
+        return [p[0],m,[m[0],m[1],D.H]];}},
+     {label:'top vertex to base vertex', col:0x2FA84F, right:1,
+      tex:()=>`\\sqrt{${D.L}^2+${D.H}^2}=${tex(Math.hypot(D.L,D.H))}`,
+      note:'Another lateral-face diagonal \u2014 every one of them is the same length.',
+      pts:()=>{const p=baseRing();return [p[1],p[2],[p[2][0],p[2][1],D.H]];}}],
+   secs:[
+     {label:'through a lateral edge', col:0xE39A22,
+      tex:()=>`${tex(S3/2*D.L)}\\times${D.H}=${tex(S3/2*D.L*D.H)}`,
+      note:'Through one edge and the middle of the opposite face: <b>base height by h</b>.',
+      quad:()=>{const p=baseRing(),m=midOf(p[1],p[2]);
+        return [p[0],m,[m[0],m[1],D.H],[p[0][0],p[0][1],D.H]];}},
+     {label:'parallel to the base', col:0x2FA84F,
+      tex:()=>`${tex(baseArea())}`,
+      note:'Every horizontal cut is the base triangle again \u2014 that is what a prism is.',
+      quad:()=>baseRing().map(q=>[q[0],q[1],D.H/2])},
+     {label:'parallel to a face', col:0x2B4FE8,
+      tex:()=>`\\tfrac12\\times${D.L}\\times${D.H}=${tex(D.L*D.H/2)}`,
+      note:'Slice parallel to a lateral face: the same rectangle shape, narrower.',
+      quad:()=>{const p=baseRing(),m1=midOf(p[0],p[2]),m2=midOf(p[1],p[2]);
+        return [m1,m2,[m2[0],m2[1],D.H],[m1[0],m1[1],D.H]];}},
+     {label:'corner cut', col:0xD93B85,
+      tex:()=>`\\text{sides }${tex(D.L)},\\;${tex(Math.hypot(D.L,D.H))},\\;${tex(Math.hypot(D.L,D.H))}`,
+      note:'Two base vertices and one top vertex \u2014 an isosceles triangle.',
+      quad:()=>{const p=baseRing();return [p[0],p[1],[p[2][0],p[2][1],D.H]];}}],
+   angs:[
+     {label:'face diagonal \u2220 base', col:0xE8442A,
+      tex:()=>`\\tan\\alpha=\\frac{${D.H}}{${D.L}}\\;\\Rightarrow\\;${(Math.atan2(D.H,D.L)*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'It leans on the base edge it started from.',
+      lines:()=>{const p=baseRing();return [
+        [p[0],[p[1][0],p[1][1],D.H],0xE8442A,0.07],
+        [p[0],p[1],0x2B4FE8,0.055],
+        [p[1],[p[1][0],p[1][1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing();return [(Math.atan2(D.H,D.L)*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[0][0]+(p[1][0]-p[0][0])*0.3, p[0][1]+(p[1][1]-p[0][1])*0.3, D.H*0.12]];}},
+     {label:'long diagonal \u2220 base', col:0x9B4FE0,
+      tex:()=>`\\tan\\beta=\\frac{${D.H}}{${tex(S3/2*D.L)}}\\;\\Rightarrow\\;${(Math.atan2(D.H,S3/2*D.L)*180/Math.PI).toFixed(1)}^\\circ`,
+      note:'This one leans on the <b>base height</b>, not an edge \u2014 so it is shallower.',
+      lines:()=>{const p=baseRing(), m=midOf(p[1],p[2]);return [
+        [p[0],[m[0],m[1],D.H],0x9B4FE0,0.07],
+        [p[0],m,0x2B4FE8,0.055],
+        [m,[m[0],m[1],D.H],0xE39A22,0.045]];},
+      mark:()=>{const p=baseRing(), m=midOf(p[1],p[2]);
+        return [(Math.atan2(D.H,S3/2*D.L)*180/Math.PI).toFixed(1)+'\u00b0',
+        [p[0][0]+(m[0]-p[0][0])*0.3, p[0][1]+(m[1]-p[0][1])*0.3, D.H*0.12]];}}],
+   angTex:()=>`\\tan\\alpha=\\frac{${D.H}}{${D.L}}=${(Math.atan2(D.H,D.L)*180/Math.PI).toFixed(1)}^\\circ`,
+   angNote:'A face diagonal leans on the base edge it started from.'
+ },
+ hexprism:{
+   sizes:'A hexagonal prism \u2014 a six-sided base raised straight up. Its side and its longest radius are the same length, which makes everything easier.',
+   volTex:()=>`\\underbrace{${tex(baseArea())}}_{\\text{hexagon}}\\times${D.H}=${tex(figVOL())}`,
+   net:'Two hexagons and six rectangles. Unfold it and the six rectangles line up in a row.',
+   netTex:()=>`\\underbrace{2\\times${tex(baseArea())}}_{\\text{two hexagons}}+\\underbrace{6\\times${D.L}\\times${D.H}}_{\\text{six rectangles}}=\\textbf{${tex(figSA())}}`,
+   netWhy:'A regular hexagon is six equilateral triangles meeting at the centre, so its area is six times one of them.',
+   volBody:'Take the hexagon at the bottom and sweep it straight up. Everything it passes through is the volume.',
+   volWhy:'The base never changes shape as it rises, so the volume is the base area times the height.',
+   triBody:'A hexagon has two different diagonals, so it hides more triangles than you might expect.',
+   triWhy:'Watch which diagonal you are standing on. The long one passes through the centre; the short one does not.',
+   angBody:'A diagonal running through the solid leans away from the base. Compare it with its shadow down there.',
+   netRule:'S = 2B + Ph,\\quad B = \\tfrac{3\\sqrt3}{2}a^2',
+   volRule:'V = Bh',
+   tris:[
+     {label:'the two base diagonals', col:0x2B4FE8,
+      tex:()=>`d_{\\text{short}}=a\\sqrt3=${tex(shortDiag())},\\quad d_{\\text{long}}=2a=${tex(widestDiag())}`,
+      note:'A hexagon has <b>two</b> diagonals. Reaching for the wrong one is the usual slip.',
+      pts:()=>{const p=baseRing();return [p[0],p[2],p[3]];}},
+     {label:'the long space diagonal', col:0xE8442A,
+      tex:()=>`d=\\sqrt{(2a)^2+h^2}=\\sqrt{${tex(widestDiag())}^2+${D.H}^2}=${tex(Math.hypot(widestDiag(),D.H))}`,
+      note:'Stands on the long diagonal, which passes through the centre.',
+      pts:()=>{const p=baseRing();return [p[0],p[3],[p[3][0],p[3][1],D.H]];}},
+     {label:'the short space diagonal', col:0xE39A22,
+      tex:()=>`d=\\sqrt{(a\\sqrt3)^2+h^2}=${tex(Math.hypot(shortDiag(),D.H))}`,
+      note:'Stands on the short diagonal instead \u2014 a different length entirely.',
+      pts:()=>{const p=baseRing();return [p[0],p[2],[p[2][0],p[2][1],D.H]];}}],
+   secs:[
+     {label:'through the long diagonal', col:0xE39A22,
+      tex:()=>`S=2a\\cdot h=${tex(widestDiag())}\\cdot${D.H}=${tex(widestDiag()*D.H)}`,
+      note:'The widest cut you can take: a rectangle <b>2a by h</b>.',
+      quad:()=>{const p=baseRing();return [p[0],p[3],[p[3][0],p[3][1],D.H],[p[0][0],p[0][1],D.H]];}},
+     {label:'through the short diagonal', col:0x2B4FE8,
+      tex:()=>`S=a\\sqrt3\\cdot h=${tex(shortDiag())}\\cdot${D.H}=${tex(shortDiag()*D.H)}`,
+      note:'A narrower rectangle, <b>a\u221A3 by h</b>. Same shape, different width.',
+      quad:()=>{const p=baseRing();return [p[0],p[2],[p[2][0],p[2][1],D.H],[p[0][0],p[0][1],D.H]];}}],
+   angTex:()=>`\\tan\\alpha=\\frac{h}{2a}=\\frac{${D.H}}{${tex(widestDiag())}}\\;\\Rightarrow\\;${(Math.atan2(D.H,widestDiag())*180/Math.PI).toFixed(1)}^\\circ`,
+   angNote:'The long space diagonal leans on the long base diagonal.'
+ },
+ sqpyr:{
+   sizes:'A square pyramid \u2014 a square base with the apex directly above its centre. The base side and the height are all you need.',
+   volTex:()=>`\\tfrac13\\times\\underbrace{${tex(baseArea())}}_{\\text{square}}\\times${D.H}=${tex(figVOL())}`,
+   net:'A square and four identical triangles. Unfold it and the four triangles fold out like petals.',
+   netTex:()=>`\\underbrace{${D.L}\\times${D.L}}_{\\text{square}}+\\underbrace{4\\times\\tfrac12\\times${D.L}\\times${tex(apoLen())}}_{\\text{four triangles}}=\\textbf{${tex(figSA())}}`,
+   netWhy:'Each triangle has the base edge for its base and the apothem for its height, and all four are the same.',
+   volBody:'Put the prism with the same base and the same height around it, and compare the two.',
+   volWhy:'A pyramid holds exactly a third of that prism. This is true for any base and any height — change the sizes and the ratio does not move.',
+   triBody:'This is the heart of the whole figure. Three right triangles live inside it, and almost every question is one of them.',
+   triWhy:'All three share the height. What changes is the second side — and picking the wrong one is the most common mistake in this topic.',
+   angBody:'A face leans on the base, and so does an edge. They are different angles, and the difference is where each one touches down.',
+   netRule:'S = B + \\tfrac{Pm}{2},\\quad m = \\text{apothem}',
+   volRule:'V = \\tfrac{Bh}{3}',
+   tris:[
+     {label:'h, a/2, apothem', col:0x2B4FE8,
+      tex:()=>`m=\\sqrt{${D.H}^2+${tex(inR())}^2}=${tex(apoLen())}`,
+      note:'The <b>apothem</b>, height of a lateral face. Surface area needs it.',
+      pts:()=>{const p=baseRing();return [apexPt(),[0,0,0],midOf(p[0],p[1])];}},
+     {label:'h, R, lateral edge', col:0xE8442A,
+      tex:()=>`SA=\\sqrt{${D.H}^2+${tex(circumR())}^2}=${tex(edgeLen())}`,
+      note:'The <b>lateral edge</b>. Its foot is a corner, so the leg is R \u2014 not a/2.',
+      pts:()=>{const p=baseRing();return [apexPt(),[0,0,0],p[0]];}},
+     {label:'apothem, a/2, edge', col:0xE39A22,
+      tex:()=>`SA=\\sqrt{${tex(apoLen())}^2+${tex(sideLen()/2)}^2}=${tex(edgeLen())}`,
+      note:'Inside one face. It ties the other two together \u2014 the same edge comes out.',
+      pts:()=>{const p=baseRing();return [apexPt(),midOf(p[0],p[1]),p[0]];}}],
+   secs:[
+     {label:'through the apothem', col:0x2B4FE8,
+      tex:()=>`S=\\tfrac12\\cdot${tex(sideLen())}\\cdot${D.H}=${tex(sideLen()*D.H/2)}`,
+      note:'Straight down the middle, hitting two opposite sides. Contains <b>h</b>.',
+      quad:()=>{const p=baseRing();return [midOf(p[0],p[1]),midOf(p[2],p[3]),apexPt()];}},
+     {label:'through the diagonal', col:0xE39A22,
+      tex:()=>`S=\\tfrac12\\cdot${tex(widestDiag())}\\cdot${D.H}=${tex(widestDiag()*D.H/2)}`,
+      note:'Through two opposite corners. Its base is the <b>whole diagonal</b>.',
+      quad:()=>{const p=baseRing();return [p[0],p[2],apexPt()];}}],
+   angTex:()=>`\\text{face}:\\tan=\\tfrac{h}{r}=${(Math.atan2(D.H,inR())*180/Math.PI).toFixed(1)}^\\circ\\quad\\text{edge}:\\tan=\\tfrac{h}{R}=${(Math.atan2(D.H,circumR())*180/Math.PI).toFixed(1)}^\\circ`,
+   angNote:'Same height, different foot. Since r &lt; R the face angle is always the steeper.'
+ },
+ tripyr:{
+   sizes:'A triangular pyramid \u2014 an equilateral base with the apex above its centre. Two numbers again: the base side and the height.',
+   volTex:()=>`\\tfrac13\\times\\underbrace{${tex(baseArea())}}_{\\text{triangle}}\\times${D.H}=${tex(figVOL())}`,
+   net:'A triangle for the base and three identical triangles around it. Unfold it and they fold out like petals.',
+   netTex:()=>`\\underbrace{${tex(baseArea())}}_{\\text{base}}+\\underbrace{3\\times\\tfrac12\\times${D.L}\\times${tex(apoLen())}}_{\\text{three triangles}}=\\textbf{${tex(figSA())}}`,
+   netWhy:'Each side triangle has a base edge for its base and the apothem for its height, and all three are the same.',
+   volBody:'Put the prism with the same base and the same height around it, and compare the two.',
+   volWhy:'A pyramid holds exactly a third of that prism, whatever the base is. Change the sizes and the ratio does not move.',
+   triBody:'Start with the base. Once you know how far the centre is from a corner and from a side, everything else follows.',
+   triWhy:'All of them share the height. What changes is the second side, and that is where the mistakes happen.',
+   angBody:'A face leans on the base, and so does an edge. They touch down in different places, so they are different angles.',
+   netRule:'S = B + \\tfrac{Pm}{2},\\quad B = \\tfrac{\\sqrt3}{4}a^2',
+   volRule:'V = \\tfrac{Bh}{3}',
+   tris:[
+     {label:'the base first', col:0x2B4FE8,
+      tex:()=>`R=\\frac{a}{\\sqrt3}=${tex(circumR())},\\quad r=\\frac{a}{2\\sqrt3}=${tex(inR())}`,
+      note:'Nothing works until you have these two. For an equilateral base, <b>R = 2r</b>.',
+      pts:()=>{const p=baseRing();return [[0,0,0],p[0],midOf(p[0],p[1])];}},
+     {label:'h, r, apothem', col:0xE39A22,
+      tex:()=>`m=\\sqrt{${D.H}^2+${tex(inR())}^2}=${tex(apoLen())}`,
+      note:'The <b>apothem</b>. Its foot is the middle of a base side, so the leg is r.',
+      pts:()=>{const p=baseRing();return [apexPt(),[0,0,0],midOf(p[0],p[1])];}},
+     {label:'h, R, lateral edge', col:0xE8442A,
+      tex:()=>`SA=\\sqrt{${D.H}^2+${tex(circumR())}^2}=${tex(edgeLen())}`,
+      note:'The <b>lateral edge</b>. Its foot is a vertex, so the leg is R.',
+      pts:()=>{const p=baseRing();return [apexPt(),[0,0,0],p[0]];}}],
+   secs:[
+     {label:'through an edge and the apothem', col:0xE39A22,
+      tex:()=>`S=\\tfrac12\\cdot${tex(S3/2*D.L)}\\cdot${D.H}=${tex(S3/2*D.L*D.H/2)}`,
+      note:'Through one lateral edge and the middle of the opposite side. Contains <b>h</b>.',
+      quad:()=>{const p=baseRing();return [p[0],midOf(p[1],p[2]),apexPt()];}}],
+   angTex:()=>`\\text{face}:\\tan=\\tfrac{h}{r}=${(Math.atan2(D.H,inR())*180/Math.PI).toFixed(1)}^\\circ\\quad\\text{edge}:\\tan=\\tfrac{h}{R}=${(Math.atan2(D.H,circumR())*180/Math.PI).toFixed(1)}^\\circ`,
+   angNote:'With R = 2r the two angles are always far apart \u2014 easy to tell which is which.'
+ }
+};
+
+function isPyrOf(id){ return SPEC[id].kind==='pyr'; }
+function spineFor(id){
+  const f=FIGDATA[id], pyr=SPEC[id].kind==='pyr';
+  const clear = ()=>{ resetStage(); };
+  return [
+   { title:'Your figure, your numbers.',
+     body:f.sizes,
+     know:{t:'Worth trying',
+       p:'Push the numbers to extremes and watch what survives \u2014 flatten the height to 1, stretch a side to 8. Every rule on the slides that follow still holds. That is what makes them rules.'},
+     enter(){ clear(); drawFigure(); ctrlSizes(); } },
+
+   { title:'Open it up.',
+     body:f.net,
+     know:{t:'Worth knowing',
+       p:'<b>'+plainRule(f.netRule)+'</b>. '+f.netWhy},
+     enter(){ clear(); drawFigure(); ctrlNet(); } },
+
+   { title:'Fill it up.',
+     body:f.volBody,
+     know:{t:'Worth knowing',
+       p:'<b>'+plainRule(f.volRule)+'</b>. '+f.volWhy},
+     enter(){ clear(); drawFigure(OP.shell); ctrlVol(); } },
+
+   { title:'Where are the triangles?',
+     body:f.triBody,
+     know:{t:'Worth knowing', p:f.triWhy},
+     enter(){ clear(); drawFigure(OP.focus); ctrlTris(); } },
+
+   { title:'Cutting it open.',
+     body:'Slice straight through the solid and the cut is a flat shape. Flat shapes you can measure.',
+     know:{t:'Worth knowing',
+       p:'The useful cuts are the ones that contain the <b>height</b>, because they turn a question about space into a question about a rectangle.'},
+     enter(){ clear(); drawFigure(OP.focus); ctrlSecs(); } },
+
+   { title:'How steep is it?',
+     body:f.angBody,
+     know:{t:'Worth knowing',
+       p:'<b>tan = height \u00f7 shadow.</b> Always the shadow, never an edge. Why the shadow is the right thing to measure against is in the toolkit.'},
+     enter(){ clear(); drawFigure(OP.focus); ctrlAng(); } }
+  ];
+}
+const TRACKS = {
+  cuboid  : spineFor('cuboid'),
+  triprism: spineFor('triprism'),
+  hexprism: spineFor('hexprism'),
+  sqpyr   : spineFor('sqpyr'),
+  tripyr  : spineFor('tripyr'),
+  toolkit : [ALL[6], ALL[7], ALL[8]]
+};
+let BEATS = TRACKS.cuboid;
+let FIGID = 'cuboid';
+let FIGNAME = '';
+
+
+/* ============================================================
+   the chooser
+   ============================================================ */
+const IC = {
+  cuboid:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M7 13 L20 7 L33 13 L33 27 L20 33 L7 27 Z" fill="#E9EDFD" stroke="#2340C4" stroke-width="1.7"/>'
+    +'<path d="M7 13 L20 19 L33 13" stroke="#2340C4" stroke-width="1.5"/>'
+    +'<path d="M20 19 L20 33" stroke="#2340C4" stroke-width="1.5"/>'
+    +'<path d="M7 13 L20 19 L20 33 L7 27 Z" fill="#2B4FE8" fill-opacity=".16" stroke="none"/></svg>',
+
+  triprism:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M8 28 L17 10 L26 28 Z" fill="#E9EDFD" stroke="#2340C4" stroke-width="1.7"/>'
+    +'<path d="M14 32 L23 14 L32 32 Z" fill="#DCE6FB" stroke="#2340C4" stroke-width="1.7"/>'
+    +'<path d="M8 28 L14 32 M17 10 L23 14 M26 28 L32 32" stroke="#2340C4" stroke-width="1.5"/></svg>',
+
+  hexprism:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M9 12 L17 8 L27 11 L30 19 L22 23 L12 20 Z" fill="#E9EDFD" stroke="#2340C4" stroke-width="1.6"/>'
+    +'<path d="M9 12 L9 22 L12 30 L22 33 L30 29 L30 19" stroke="#2340C4" stroke-width="1.6"/>'
+    +'<path d="M12 20 L12 30 M22 23 L22 33" stroke="#2340C4" stroke-width="1.4"/>'
+    +'<path d="M9 12 L12 20 L12 30 L9 22 Z" fill="#2B4FE8" fill-opacity=".16" stroke="none"/></svg>',
+
+  sqpyr:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M20 6 L34 28 L20 34 L6 28 Z" fill="#FDF4E4" stroke="#8A5B10" stroke-width="1.7"/>'
+    +'<path d="M6 28 L20 23 L34 28" stroke="#8A5B10" stroke-width="1.5"/>'
+    +'<path d="M20 6 L20 23" stroke="#8A5B10" stroke-width="1.5"/>'
+    +'<path d="M20 6 L20 23 L6 28 Z" fill="#E39A22" fill-opacity=".24" stroke="none"/></svg>',
+
+  tripyr:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M20 6 L33 30 L7 30 Z" fill="#FDF4E4" stroke="#8A5B10" stroke-width="1.7"/>'
+    +'<path d="M7 30 L23 25 L33 30" stroke="#8A5B10" stroke-width="1.5"/>'
+    +'<path d="M20 6 L23 25" stroke="#8A5B10" stroke-width="1.5"/>'
+    +'<path d="M20 6 L23 25 L7 30 Z" fill="#E39A22" fill-opacity=".24" stroke="none"/></svg>',
+
+  toolkit:'<svg viewBox="0 0 40 40" fill="none" stroke-linejoin="round" stroke-linecap="round">'
+    +'<path d="M6 30 L34 30" stroke="#C4331C" stroke-width="1.8"/>'
+    +'<path d="M14 30 L25 10 L25 30 Z" fill="#FDECE8" stroke="#C4331C" stroke-width="1.7"/>'
+    +'<path d="M21 26 L21 30 L25 30" stroke="#C4331C" stroke-width="1.3"/>'
+    +'<circle cx="25" cy="10" r="2.4" fill="#E8442A"/></svg>'
+};
+function openTrack(id,name){
+  FIGID=id; FIGNAME=name;
+  BEATS = TRACKS[id] || TRACKS.cuboid;
+  SOLID = (id==='sqpyr') ? 'pyr' : 'box';
+  const sz=SIZES[id];
+  if(sz){ D.L=sz.L; D.W=sz.W; D.H=sz.H; }     // each figure starts at its own proportions
+  document.getElementById('dots').innerHTML = BEATS.map(()=>'<i></i>').join('');
+  try{ resetStage(); clearLabels && clearLabels(); }catch(e){}
+  beat=-1; window._tkSlideAt=undefined; window._tkSlideStart=0;
+  unfoldT=0; unfold=0; glassT=0; glass=0; fillT=0; fill=0;
+  doubled=false; zoomMul=1; autoSpin=true;
+  goto(0);
+  setTimeout(resize,30);
+  if(window.Track) Track.event('figure_open',{figure:id});
+}
+
+let beat=-1;
+function goto(i){
+  beat=Math.max(0,Math.min(BEATS.length-1,i));
+  const b=BEATS[beat];
+  document.getElementById('title').textContent=b.title;
+
+  document.getElementById('body').innerHTML=withTerms(b.body);
+  knowBox.innerHTML=b.know
+    ? `<details class="know"><summary>${b.know.t}</summary><p>${withTerms(b.know.p)}</p></details>` : '';
+  typeset(knowBox);
+  var det=knowBox.querySelector('details');
+  if(det && window.Track) det.addEventListener('toggle',function(){
+    if(det.open) Track.event('panel_open',{slide:beat,title:b.know.t});
+  });
+  b.enter();
+  [...document.getElementById('dots').children].forEach((d,k)=>d.classList.toggle('on',k<=beat));
+  if(window.Track){
+    var prev = BEATS[window._tkSlideAt];
+    if(prev && window._tkSlideStart){
+      Track.event('slide_view',{figure:FIGID,index:window._tkSlideAt,title:prev.title,
+        seconds:Math.round((Date.now()-window._tkSlideStart)/1000)});
+    }
+    window._tkSlideAt=beat; window._tkSlideStart=Date.now();
+    if(beat===BEATS.length-1) Track.complete({slides:BEATS.length});
+  }
+  document.getElementById('back').disabled=beat===0;
+  document.getElementById('next').disabled=beat===BEATS.length-1;
+}
+document.getElementById('dots').innerHTML=BEATS.map(()=>'<i></i>').join('');
+document.getElementById('next').onclick=()=>goto(beat+1);
+document.getElementById('back').onclick=()=>goto(beat-1);
+
+/* ============================================================
+   loop
+   ============================================================ */
+(function(){
+  var last=0;
+  stage.addEventListener('pointerup',function(){
+    if(window.Track && Date.now()-last>1500){ last=Date.now();
+      Track.event('slide_interact',{slide:beat,type:'rotate'}); }
+  });
+  document.addEventListener('input',function(e){
+    if(e.target.type==='range' && window.Track && Date.now()-last>1500){ last=Date.now();
+      Track.event('slide_interact',{slide:beat,type:'slider'}); }
+  });
+})();
+function tick(){
+  requestAnimationFrame(tick);
+  if(autoSpin) orbit.theta-=0.11;
+  unfold+=(unfoldT-unfold)*0.09;
+  glass +=(glassT -glass )*0.11;
+  fill  +=(fillT  -fill  )*0.10;
+  applyUnfold(unfold); applyGlass(glass);
+  cubes.count=Math.round(fill);
+  orbit.dist+=(want.dist-orbit.dist)*0.09;
+  orbit.target.lerp(want.target,0.09);
+  applyOrbit();
+  renderer.render(scene,camera);
+  updateLabels(); updateDiagLabels(); updateTppLabels(); updateSoloLabels(); updateMyLabels();
+}
+
+setDims(); resize(); openTrack('cuboid','Cuboid'); applyOrbit(); tick();
+setTimeout(()=>{document.getElementById('hint').style.opacity=0;},5000);
+if(window.Track){
+  Track.event('arm',{figure:'cuboid'}); Track.part('explainer');
+  document.getElementById('next').addEventListener('click',function(){
+    if(beat===BEATS.length-1 && !window._tkFB){
+      window._tkFB=1;
+
+    }
+  });
+}
+</script>
+<script>window.__PART__="explainer";
+/* ---- shared progress rail ---- */
+(function(){
+  var ORDER=['explainer','problem','game'];
+  var HREF={explainer:'topic.html',problem:'problems.html',game:'game.html'};
+  var LABEL={explainer:'The cuboid',problem:'Problems',game:'The puzzle'};
+  var here=window.__PART__||null;
+  var done=(window.Track&&Track.memory().parts)||{};
+  var el=document.createElement('div'); el.id='rail';
+  var html='<a class="home" href="index.html">&#8592; Sightlines</a><span class="track">';
+  ORDER.forEach(function(k,i){
+    var isDone=done[k]&&done[k].completed, isHere=(k===here);
+    if(i) html+='<span class="seg'+((done[ORDER[i-1]]&&done[ORDER[i-1]].completed)?' done':'')+'"></span>';
+    html+='<a class="node'+(isHere?' on':'')+(isDone&&!isHere?' done':'')+'" href="'+HREF[k]+'" title="'+LABEL[k]+'"></a>';
+  });
+  html+='</span>'+(here?'<span class="now">'+LABEL[here]+'</span>':'');
+  el.innerHTML=html;
+  document.body.appendChild(el);
+})();
+</script>
+</body>
+</html>
