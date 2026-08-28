@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Axioms — Sightlines</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F2F4F3%22/%3E%3Cpath d=%22M6 22 L16 6 L26 22 Z%22 fill=%22none%22 stroke=%22%232B4FE8%22 stroke-width=%222%22 stroke-linejoin=%22round%22/%3E%3Cline x1=%2216%22 y1=%226%22 x2=%2216%22 y2=%2222%22 stroke=%22%23E8442A%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<meta name="theme-color" content="#F2F4F3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Indie+Flower&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4F3; --card:#FFFFFF; --hair:#DCE3E0;
+  --ink:#14181A; --ink-2:#5A6560; --ink-3:#8B958F;
+  --blue:#2B4FE8; --blue-d:#2340C4; --blue-l:#E9EDFD;
+  --amber:#E39A22; --amber-d:#8A5B10; --amber-l:#FDF4E4;
+  --red:#E8442A; --red-d:#C4331C; --red-l:#FDECE8;
+  --green:#1E9E5A; --green-d:#157A45; --green-l:#E7F6ED;
+  /* whichever axiom you are on paints the screen */
+  --ax:#E8442A; --ax-d:#C4331C; --ax-l:#FDECE8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:var(--paper);
+  overscroll-behavior:none;overflow:hidden}
+body{color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+
+#app{display:flex;flex-direction:column;height:100dvh}
+@media(min-width:900px){#app{flex-direction:row}}
+body.page #stage{display:none}
+body.page #panel{flex:1;max-width:none;border-left:none;border-top:none;
+  background:transparent;backdrop-filter:none;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  padding:clamp(22px,5vh,54px) 24px}
+body.page .wrap{max-width:640px}
+body.page h1{font-size:clamp(26px,5.4vmin,44px);margin-bottom:clamp(10px,2vh,20px)}
+/* on a reading page the words are the whole thing, so they are written by hand */
+body.page p.say{font-family:'Indie Flower',cursive;
+  font-size:clamp(17px,2.85vmin,25px);line-height:1.55;letter-spacing:.2px;
+  color:#3C4642;margin-bottom:clamp(8px,1.5vh,16px)}
+body.page p.say b{font-weight:400;color:var(--blue-d)}
+body.page .formal .txt{font-family:'Indie Flower',cursive;font-size:clamp(18px,2.9vmin,25px);line-height:1.45}
+body.page .formal .sym{font-family:'Indie Flower',cursive;font-size:clamp(16px,2.5vmin,22px);color:var(--ink-2)}
+body.page .simple{font-family:'Indie Flower',cursive;font-size:clamp(18px,3vmin,26px);
+  font-weight:400;line-height:1.4;padding:clamp(10px,1.8vh,15px) 16px;margin-bottom:clamp(8px,1.6vh,16px)}
+body.page .card .t{font-family:'Indie Flower',cursive;font-size:clamp(15px,2.3vmin,19px);line-height:1.35}
+body.page .note{font-family:'Indie Flower',cursive;font-size:clamp(15px,2.4vmin,20px);
+  padding:clamp(9px,1.6vh,13px) 15px;margin-bottom:clamp(8px,1.4vh,14px)}
+body.page p.say.hot{color:var(--red-d);font-weight:400}
+body.page .aside{font-size:clamp(16px,2.6vmin,23px);color:var(--ax-d);margin-bottom:clamp(8px,1.5vh,16px)}
+#drift{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0}
+body.page #drift{opacity:1;transition:opacity .8s}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-22px) rotate(4deg)}}
+.formal{position:relative}
+.formal{transition:opacity .8s ease,filter .8s ease}
+.formal.faded{opacity:.28;filter:blur(.4px)}
+.lineWrap{position:relative;display:block}
+.lineWrap + .lineWrap{margin-top:7px}
+/* a copy of the same text, invisible, wearing a strike-through.
+   revealing it left to right crosses out every wrapped line exactly. */
+.strike, body.page .formal .strike{position:absolute;inset:0;pointer-events:none;
+  color:transparent !important;-webkit-text-fill-color:transparent;
+  text-decoration:line-through;text-decoration-color:var(--red);
+  text-decoration-thickness:2px;
+  -webkit-clip-path:inset(0 100% 0 0);clip-path:inset(0 100% 0 0);
+  transition:-webkit-clip-path .6s cubic-bezier(.5,0,.4,1),clip-path .6s cubic-bezier(.5,0,.4,1)}
+.strike.go{-webkit-clip-path:inset(0 0 0 0);clip-path:inset(0 0 0 0)}
+/* a word you can hover for its plain meaning */
+.term{position:relative;border-bottom:1.5px dotted var(--ax);cursor:help;color:var(--ax-d)}
+.term .tip{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translate(-50%,4px);
+  background:var(--ink);color:#fff;font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;
+  line-height:1.4;padding:8px 12px;border-radius:9px;white-space:nowrap;
+  box-shadow:0 10px 24px -12px rgba(20,24,26,.6);
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .22s cubic-bezier(.2,.9,.3,1.4)}
+.term .tip::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:var(--ink)}
+.term:hover .tip,.term:focus .tip{opacity:1;transform:translate(-50%,0)}
+@media(max-width:560px){.term .tip{white-space:normal;width:200px}}
+.aside{font-family:'Indie Flower',cursive;font-size:21px;line-height:1.45;color:var(--ax-d);
+  margin:0 0 16px;transform:rotate(-1.1deg);opacity:0;transition:opacity .6s}
+.aside.in{opacity:1}
+
+#stage{position:relative;flex:1;min-height:0;touch-action:none;overflow:hidden;cursor:crosshair;
+  background-color:#F2F4F3;
+  background-image:
+    repeating-linear-gradient(60deg,  rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg,   rgba(20,24,26,.035) 0 1px, transparent 1px 36.4px)}
+#stage.idle{cursor:grab}
+#stage canvas{display:block;width:100%;height:100%}
+#tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,-50%);
+  font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:15px;
+  text-shadow:0 0 3px #F2F4F3,0 0 3px #F2F4F3,0 0 7px #F2F4F3,0 0 10px #F2F4F3;
+  transition:opacity .2s}
+#hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-3);pointer-events:none;transition:opacity .4s}
+
+#panel{flex:0 0 auto;background:rgba(255,255,255,.96);border-top:1px solid var(--hair);
+  backdrop-filter:blur(10px);overflow:hidden;
+  padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
+@media(min-width:900px){
+  #panel{flex:0 0 42%;max-width:480px;border-top:none;border-left:1px solid var(--hair);
+    display:flex;align-items:center;padding:30px;overflow:hidden}
+  #stage{flex:1 1 58%}
+}
+.wrap{max-width:600px;margin:0 auto;width:100%}
+#dots{display:flex;gap:5px;margin-bottom:16px}
+#dots i{flex:1;height:2px;background:var(--hair);border-radius:2px;transition:background .35s}
+#dots i.on{background:var(--ax)}
+body.ax1{--ax:#2B4FE8;--ax-d:#2340C4;--ax-l:#E9EDFD}
+body.ax2{--ax:#1E9E5A;--ax-d:#157A45;--ax-l:#E7F6ED}
+body.ax3{--ax:#E8442A;--ax-d:#C4331C;--ax-l:#FDECE8}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ax-d);margin:0 0 10px;font-weight:600}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;
+  font-size:clamp(24px,5vw,34px);line-height:1.06;margin:0 0 12px;letter-spacing:-.026em}
+p.say{margin:0 0 14px;font-size:17px;color:var(--ink-2)}
+p.say b{color:var(--ink);font-weight:600}
+p.say.big{font-size:19px;color:var(--ink)}
+
+/* the formal statement, and its fade */
+.formal{border-left:2px solid var(--ink);padding:4px 0 4px 18px;margin:0 0 14px;
+  transition:opacity .7s ease, filter .7s ease}
+.formal.gone{opacity:0;filter:blur(3px)}
+.formal .txt{font-size:18px;line-height:1.4}
+.formal .sym{font-family:"IBM Plex Mono",monospace;font-size:15px;color:var(--ink-2);margin-top:7px}
+.countdown{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 16px;transition:opacity .4s}
+.countdown.gone{opacity:0}
+.simple{border-left:2px solid var(--ax);background:var(--ax-l);border-radius:0 12px 12px 0;
+  padding:14px 16px;margin:0 0 16px;font-size:18px;font-weight:600;line-height:1.35;
+  opacity:0;transform:translateY(6px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.9,.3,1.3)}
+.simple.in{opacity:1;transform:none}
+
+.note{background:var(--ax-l);border-radius:12px;padding:13px 15px;margin:0 0 14px;
+  font-size:15.5px;color:var(--ax-d);
+  opacity:0;transform:translateY(6px);transition:opacity .4s,transform .45s cubic-bezier(.2,.9,.3,1.3)}
+.note.in{opacity:1;transform:none}
+.warn{background:var(--amber-l);color:var(--amber-d)}
+
+.legs{display:flex;gap:clamp(8px,2vw,18px);margin:0 0 clamp(10px,2vh,18px);align-items:flex-end}
+.leg{flex:1;text-align:center}
+.leg svg{width:100%;height:clamp(74px,13vh,104px);display:block}
+.leg span{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);display:block;margin-top:6px}
+.leg.ok span{color:var(--ax-d);font-weight:600}
+
+.cards{display:flex;flex-direction:column;gap:clamp(6px,1.2vh,9px);margin:0 0 clamp(8px,1.6vh,16px)}
+.card{border:1px solid var(--hair);background:var(--card);border-radius:13px;
+  padding:clamp(9px,1.6vh,13px) 15px;
+  display:flex;gap:12px;align-items:flex-start}
+.card .n{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:15px}
+.card .t{font-size:15.5px;line-height:1.35}
+.card .t b{font-weight:600}
+
+.row{display:flex;gap:9px;margin-top:clamp(10px,2vh,16px)}
+button{font-family:inherit;cursor:pointer;border-radius:10px;font-size:15px}
+.btn{flex:1;background:var(--ax);color:#fff;border:none;padding:13px 18px;font-weight:600;
+  transition:filter .15s,transform .1s}
+.btn:hover{filter:brightness(1.06)} .btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.35;cursor:default}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--hair);padding:13px 18px}
+.ghost:hover{border-color:var(--ink-3)}
+.scrub{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
+.scrub label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:32px;background:transparent;cursor:grab}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--hair);border-radius:3px}
+input[type=range]::-moz-range-track{height:3px;background:var(--hair);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--ax);margin-top:-10px;border:none}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--ax);border:none}
+
+#rail{position:fixed;left:0;right:0;top:0;z-index:50;display:flex;align-items:center;gap:14px;
+  padding:11px 16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;background:linear-gradient(180deg,#F2F4F3 55%,rgba(242,244,243,0));
+  pointer-events:none}
+#rail a{pointer-events:auto;color:#8B958F;text-decoration:none}
+#rail a:hover{color:#14181A}
+#rail .now{color:var(--ax-d);margin-left:auto}
+:focus-visible{outline:2px solid var(--ax);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ============================================================
+   the reading page is a notebook page
+   rule spacing == line-height, and the ruling is offset by the
+   baseline distance, so handwriting sits ON the line
+   ============================================================ */
+body.page #panel{position:relative}
+body.page .wrap{
+  --fs: clamp(17px, 2.85vmin, 25px);
+  --lh: 1.62;
+  --rule: calc(var(--fs) * var(--lh));
+  --base: calc((var(--rule) - var(--fs)) / 2 + 0.8 * var(--fs));
+  position:relative; z-index:1;
+}
+/* the ruled area — the heading sits above it, in the top margin */
+body.page .ruled{
+  position:relative;
+  padding-left:clamp(16px,3.5vmin,30px);
+  background-image:
+    repeating-linear-gradient(to bottom,
+      rgba(43,79,232,.14) 0, rgba(43,79,232,.14) 1px,
+      transparent 1px, transparent var(--rule));
+  background-position:0 calc(var(--base) - 1px);
+  background-repeat:repeat;
+}
+/* the margin rule down the left, in red pencil */
+body.page .ruled::before{
+  content:''; position:absolute; left:clamp(6px,1.4vmin,12px); top:calc(var(--rule) * -1);
+  bottom:calc(var(--rule) * -0.4); width:1.5px;
+  background:rgba(232,68,42,.34);
+}
+/* every line box is exactly one rule tall, so the rhythm never drifts */
+body.page .ruled p.say,
+body.page .ruled .aside,
+body.page .ruled .simple,
+body.page .ruled .formal .txt,
+body.page .ruled .formal .sym{
+  font-size:var(--fs); line-height:var(--rule); margin:0 0 var(--rule);
+}
+body.page .ruled .simple{
+  font-size:var(--fs); padding:0 0 0 14px; background:none;
+  border-left:2px solid var(--ax); border-radius:0;
+  font-weight:400; margin:0 0 var(--rule);
+}
+body.page .ruled .formal{margin:0 0 var(--rule);padding:0 0 0 14px}
+body.page .ruled .note{
+  font-size:calc(var(--fs) * .82); line-height:var(--rule);
+  padding:0 0 0 14px; background:none; border-left:2px solid var(--ax);
+  border-radius:0; margin:0 0 var(--rule);
+}
+body.page .ruled .cards{gap:0;margin:0}
+body.page .ruled .card{
+  background:none!important; border:none!important; border-left:2px solid currentColor!important;
+  border-radius:0; padding:0 0 0 14px; margin:0 0 var(--rule);
+  align-items:baseline;
+}
+body.page .ruled .card .t{font-size:var(--fs);line-height:var(--rule)}
+body.page .ruled .legs{margin:0 0 var(--rule)}
+
+/* the title, written above the ruling */
+body.page h1{
+  font-size:clamp(27px,5.6vmin,46px); line-height:1.08;
+  margin:0 0 clamp(12px,2.4vh,22px); letter-spacing:-.028em;
+}
+
+/* ---- the ghost numeral ---- */
+#ghost{position:absolute;right:-2%;top:50%;transform:translateY(-50%);
+  font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+  font-size:min(46vh,340px);line-height:1;color:var(--ax);opacity:0;
+  pointer-events:none;user-select:none;transition:opacity .7s ease}
+body.page #ghost.on{opacity:.045}
+
+/* ---- the collection strip ---- */
+#strip{display:flex;gap:7px;margin-bottom:14px;align-items:center}
+#strip .slot{width:26px;height:26px;border-radius:8px;border:1.5px dashed var(--hair);
+  display:flex;align-items:center;justify-content:center;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3);
+  transition:all .45s cubic-bezier(.2,.9,.3,1.5)}
+#strip .slot.got{border-style:solid;color:#fff;transform:scale(1)}
+#strip .slot.got.a1{background:#2B4FE8;border-color:#2B4FE8}
+#strip .slot.got.a2{background:#1E9E5A;border-color:#1E9E5A}
+#strip .slot.got.a3{background:#E8442A;border-color:#E8442A}
+#strip .slot.pop{animation:pop .55s cubic-bezier(.2,.9,.3,1.6)}
+@keyframes pop{0%{transform:scale(.5);opacity:.4}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+#strip .lbl{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin-left:4px}
+
+/* ---- the underline that draws itself ---- */
+.penline{display:block;width:100%;height:12px;margin:-6px 0 0;overflow:visible}
+.penline path{fill:none;stroke:var(--ax);stroke-width:2.4;stroke-linecap:round;
+  stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
+  transition:stroke-dashoffset .85s cubic-bezier(.45,0,.3,1)}
+.penline.drawn path{stroke-dashoffset:0}
+</style>
+</head>
+<body>
+
+<div id="rail">
+  <a href="index.html">&#8592; Sightlines</a>
+  <span class="now">Axioms</span>
+</div>
+
+<div id="drift"></div>
+<div id="app">
+  <div id="stage"><div id="tags"></div><div id="hint"></div></div>
+  <div id="panel"><div id="ghost"></div><div class="wrap">
+    <div id="strip"></div>
+    <div id="dots"></div>
+    <div id="screen"></div>
+    <div class="row" id="nav"></div>
+  </div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   vectors
+   ============================================================ */
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const len=a=>Math.hypot(a[0],a[1],a[2]);
+const norm=a=>{const l=len(a)||1;return [a[0]/l,a[1]/l,a[2]/l];};
+
+/* the plane through three points — and whether they are too close to a line */
+function planeOf(A,B,C){
+  const n=cross(sub(B,A),sub(C,A));
+  const area=len(n)/2;
+  const scale=Math.max(len(sub(B,A)),len(sub(C,A)),len(sub(C,B)));
+  const h = scale>0 ? (2*area)/scale : 0;      // the triangle's shortest height
+  return {n:norm(n), p:A, h, collinear:h<0.85};
+}
+/* the common line of two planes, or null if they are parallel */
+function meetLine(n1,d1,n2,d2){
+  const dir=cross(n1,n2);
+  if(len(dir)<1e-9) return null;
+  const D=len(dir)**2;
+  const p=add(mul(cross(n2,dir), d1), mul(cross(dir,n1), d2));
+  return {p:mul(p,1/D), dir:norm(dir)};
+}
+/* clip a line to a rectangle given as centre + two in-plane axes + half sizes */
+function clipToRect(line, C, u, v, a, b){
+  let t0=-1e9, t1=1e9;
+  [[u,a],[v,b]].forEach(([ax,half])=>{
+    const den=dot(line.dir,ax), s=dot(sub(line.p,C),ax);
+    if(Math.abs(den)<1e-9){ if(Math.abs(s)>half){ t0=1; t1=-1; } return; }
+    let lo=(-half-s)/den, hi=(half-s)/den;
+    if(lo>hi){ const t=lo; lo=hi; hi=t; }
+    t0=Math.max(t0,lo); t1=Math.min(t1,hi);
+  });
+  if(t1<=t0) return null;
+  return [add(line.p,mul(line.dir,t0)), add(line.p,mul(line.dir,t1))];
+}
+
+/* ============================================================
+   scene
+   ============================================================ */
+const stage=document.getElementById('stage'), tags=document.getElementById('tags');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setClearColor(0x000000,0);
+stage.insertBefore(renderer.domElement,tags);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42,1,0.1,400); camera.up.set(0,0,1);
+scene.add(new THREE.AmbientLight(0xffffff,0.62));
+const kl=new THREE.DirectionalLight(0xffffff,0.55); kl.position.set(6,-9,12); scene.add(kl);
+const world=new THREE.Group(); scene.add(world);
+const G={pts:new THREE.Group(), planes:new THREE.Group(), lines:new THREE.Group(), extra:new THREE.Group()};
+Object.values(G).forEach(g=>world.add(g));
+function wipe(g){ while(g.children.length){ const c=g.children[0]; g.remove(c); } }
+function wipeAll(){ Object.values(G).forEach(wipe); clearTags(); }
+
+const C={blue:0x2B4FE8, red:0xE8442A, amber:0xE39A22, ink:0x2A3038, grey:0x8B958F,
+         planeA:0x2B4FE8, planeB:0xE8442A};
+
+function dotAt(p,colour,r){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(r||0.22,18,14),
+    new THREE.MeshBasicMaterial({color:colour}));
+  m.position.set(p[0],p[1],p[2]); m.renderOrder=12;
+  m.material.depthTest=false;
+  G.pts.add(m); return m;
+}
+function segment(g,a,b,colour,rad,onTop){
+  const A=new THREE.Vector3(a[0],a[1],a[2]), B=new THREE.Vector3(b[0],b[1],b[2]);
+  const L=A.distanceTo(B); if(L<1e-6) return null;
+  const mat=new THREE.MeshBasicMaterial({color:colour});
+  if(onTop){ mat.depthTest=false; }
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(rad||0.055,rad||0.055,L,12), mat);
+  if(onTop) m.renderOrder=11;
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+  g.add(m); return m;
+}
+function quad(g,pts,colour,op){
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(
+    [].concat(pts[0],pts[1],pts[2],pts[0],pts[2],pts[3]),3));
+  geo.computeVertexNormals();
+  const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial(
+    {color:colour,transparent:true,opacity:op,side:THREE.DoubleSide}));
+  g.add(m);
+  for(let i=0;i<4;i++) segment(g,pts[i],pts[(i+1)%4],colour,0.035);
+  return m;
+}
+/* a plane drawn as a square patch, given a point and a normal */
+function planePatch(g,point,normal,size,colour,op){
+  const n=norm(normal);
+  let u=Math.abs(n[2])<0.9 ? cross(n,[0,0,1]) : cross(n,[1,0,0]);
+  u=norm(u); const v=norm(cross(n,u));
+  const c=point, s=size;
+  const P=[ add(add(c,mul(u,-s)),mul(v,-s)), add(add(c,mul(u,s)),mul(v,-s)),
+            add(add(c,mul(u,s)),mul(v,s)),   add(add(c,mul(u,-s)),mul(v,s)) ];
+  quad(g,P,colour,op);
+  return {u,v,c,s,n};
+}
+
+/* ---- floating labels ---- */
+let tagList=[];
+function clearTags(){ tagList.forEach(t=>t.el.remove()); tagList=[]; }
+function tag(text,posFn,colour){
+  const el=document.createElement('div');
+  el.className='tag'; el.textContent=text; el.style.color=colour||'#14181A';
+  tags.appendChild(el); tagList.push({el,posFn}); return el;
+}
+const _v=new THREE.Vector3();
+function updateTags(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  tagList.forEach(t=>{
+    const p=t.posFn();
+    _v.set(p[0],p[1],p[2]).project(camera);
+    t.el.style.left=((_v.x*.5+.5)*w)+'px';
+    t.el.style.top =((-_v.y*.5+.5)*h)+'px';
+    t.el.style.opacity=_v.z>1?0:1;
+  });
+}
+
+/* ---- camera ---- */
+const orbit={theta:-58,phi:22,dist:26,target:new THREE.Vector3(0,0,0)};
+let spin=true, zoomMul=1, dragged=false;
+function applyOrbit(){
+  const t=orbit.theta*Math.PI/180,p=orbit.phi*Math.PI/180,d=orbit.dist*zoomMul;
+  camera.position.set(d*Math.cos(p)*Math.cos(t),d*Math.cos(p)*Math.sin(t),d*Math.sin(p)).add(orbit.target);
+  camera.lookAt(orbit.target);
+}
+(function(){
+  const pts=new Map(); let lx=0,ly=0,pd=0,downAt=0;
+  function d2(){const a=[...pts.values()];return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1;}
+  stage.addEventListener('pointerdown',e=>{
+    stage.setPointerCapture(e.pointerId); pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){lx=e.clientX;ly=e.clientY;downAt=Date.now();dragged=false;}
+    else if(pts.size===2) pd=d2();
+    spin=false;
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===1){
+      const dx=e.clientX-lx, dy=e.clientY-ly;
+      if(Math.abs(dx)+Math.abs(dy)>4) dragged=true;
+      orbit.theta-=dx*.4; orbit.phi=Math.max(-84,Math.min(84,orbit.phi+dy*.34));
+      lx=e.clientX; ly=e.clientY;
+    } else if(pts.size===2){ const d=d2(); if(pd) zoomMul=Math.max(.6,Math.min(2.2,zoomMul*pd/d)); pd=d; }
+  });
+  function up(e){
+    if(!pts.has(e.pointerId)) return;
+    const single = pts.size===1;
+    pts.delete(e.pointerId);
+    if(single && !dragged && Date.now()-downAt<500 && SCREEN.onClick){
+      SCREEN.onClick(e);
+    }
+  }
+  stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+  stage.addEventListener('wheel',e=>{e.preventDefault();
+    zoomMul=Math.max(.6,Math.min(2.2,zoomMul*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
+})();
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
+  renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);
+
+/* where a screen click lands in the world */
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function rayFrom(e){
+  const r=stage.getBoundingClientRect();
+  ndc.x=((e.clientX-r.left)/r.width)*2-1;
+  ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  return {o:[ray.ray.origin.x,ray.ray.origin.y,ray.ray.origin.z],
+          d:[ray.ray.direction.x,ray.ray.direction.y,ray.ray.direction.z]};
+}
+function hitPlane(e, point, normal){
+  const R=rayFrom(e), den=dot(R.d,normal);
+  if(Math.abs(den)<1e-6) return null;
+  const t=dot(sub(point,R.o),normal)/den;
+  if(t<0) return null;
+  return add(R.o,mul(R.d,t));
+}
+
+/* ============================================================
+   panel
+   ============================================================ */
+const screenEl=document.getElementById('screen'), navEl=document.getElementById('nav'),
+      dotsEl=document.getElementById('dots'), hintEl=document.getElementById('hint');
+let SCREEN={}, idx=0;
+
+function setHint(t){ hintEl.textContent=t||''; hintEl.style.opacity=t?1:0; }
+function nav(items){
+  navEl.innerHTML='';
+  items.forEach(it=>{
+    const b=document.createElement('button');
+    b.className=it.ghost?'ghost':'btn'; b.textContent=it.label; b.onclick=it.go;
+    if(it.id) b.id=it.id;
+    navEl.appendChild(b);
+  });
+}
+function dots(){
+  dotsEl.innerHTML=SCREENS.map((_,i)=>'<i class="'+(i<=idx?'on':'')+'"></i>').join('');
+}
+function go(i){
+  idx=Math.max(0,Math.min(SCREENS.length-1,i));
+  wipeAll(); SCREEN={}; setHint(''); pageMode(false);
+  spin=true; zoomMul=1;
+  paintAxiom();
+  SCREENS[idx]();
+  ruleTheSheet(); paintStrip(); paintGhost();
+  dots(); resize();
+}
+
+let TYPESKIP=false;
+function typeLine(el, text, opts){
+  opts=opts||{};
+  return new Promise(done=>{
+    let i=0; el.textContent='';
+    const speed=opts.speed||26, slip=opts.slip;
+    (function step(){
+      if(TYPESKIP){ el.textContent=text; done(); return; }
+      if(i>=text.length){ setTimeout(done, opts.after||380); return; }
+      if(slip && i===slip.at){
+        el.textContent+=slip.wrong;
+        setTimeout(()=>{
+          if(TYPESKIP){ el.textContent=text; done(); return; }
+          el.textContent=el.textContent.slice(0,-1);
+          setTimeout(()=>{ el.textContent+=text[i]; i++; setTimeout(step,speed+60); },150);
+        },340);
+        return;
+      }
+      el.textContent+=text[i]; i++;
+      const last=text[i-1];
+      setTimeout(step, (last==='.'||last==='?') ? speed*8 : speed);
+    })();
+  });
+}
+async function typeAll(list, whenDone){
+  TYPESKIP=false;
+  for(const it of list){
+    const el=document.getElementById(it.id);
+    if(!el) continue;
+    await typeLine(el, it.text, it);
+    if(TYPESKIP) break;
+  }
+  if(TYPESKIP) list.forEach(x=>{ const e=document.getElementById(x.id); if(e) e.textContent=x.text; });
+  if(whenDone) whenDone();
+}
+function skipTyping(list){
+  TYPESKIP=true;
+  list.forEach(x=>{ const e=document.getElementById(x.id); if(e) e.textContent=x.text; });
+}
+function pageMode(on){ document.body.classList.toggle('page',!!on); }
+
+/* everything below the heading goes onto the ruled part of the sheet */
+function ruleTheSheet(){
+  if(!document.body.classList.contains('page')) return;
+  if(screenEl.querySelector('.ruled')) return;
+  const kids=[...screenEl.children];
+  const head=kids.find(k=>k.tagName==='H1' || k.classList.contains('eyebrow'));
+  const box=document.createElement('div'); box.className='ruled';
+  kids.forEach(k=>{
+    if(k.tagName==='H1' || k.classList.contains('eyebrow')) return;
+    box.appendChild(k);
+  });
+  screenEl.appendChild(box);
+}
+
+/* the pen underline, drawn by hand under the plain statement */
+function penUnder(el){
+  if(!el) return;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','penline');
+  svg.setAttribute('viewBox','0 0 300 12');
+  svg.setAttribute('preserveAspectRatio','none');
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  // a line a hand would draw: starts late, wobbles, overshoots
+  path.setAttribute('d','M4 8 C 60 4, 118 10, 176 6 S 262 9, 296 5');
+  svg.appendChild(path);
+  el.after(svg);
+  const len=path.getTotalLength ? path.getTotalLength() : 300;
+  svg.style.setProperty('--len', len);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>svg.classList.add('drawn')));
+}
+
+/* three slots that fill as each axiom is pocketed */
+const POCKET=[0,0,0,1,0,0,2,0,0,3,3];     // screen -> axiom just collected
+function paintStrip(){
+  const strip=document.getElementById('strip');
+  const got=[0,1,2].map(i=>POCKET.slice(0,idx+1).some(v=>v===i+1));
+  if(!strip.children.length){
+    strip.innerHTML='<span class="slot" data-i="0">1</span>'
+      +'<span class="slot" data-i="1">2</span>'
+      +'<span class="slot" data-i="2">3</span>'
+      +'<span class="lbl">axioms collected</span>';
+  }
+  [...strip.querySelectorAll('.slot')].forEach((el,i)=>{
+    const was=el.classList.contains('got');
+    el.className='slot'+(got[i]?' got a'+(i+1):'');
+    if(got[i]&&!was){ el.classList.add('pop'); setTimeout(()=>el.classList.remove('pop'),600); }
+  });
+}
+const AXOF=[0,1,1,1,2,2,2,3,3,3,0];      // screen -> axiom
+function paintAxiom(){
+  document.body.classList.remove('ax1','ax2','ax3');
+  const a=AXOF[idx]; if(a) document.body.classList.add('ax'+a);
+}
+function paintGhost(){
+  const g=document.getElementById('ghost');
+  const a=AXOF[idx];
+  g.textContent = a ? '\u2460\u2461\u2462'[a-1] : '';
+  g.classList.toggle('on', !!a && document.body.classList.contains('page'));
+}
+
+function formalThen(formalText, symbol, simple, after){
+  screenEl.insertAdjacentHTML('beforeend',
+    '<div class="formal" id="fm"><div class="txt" id="fmtxt"></div>'
+    +(symbol?'<div class="sym" id="fmsym"></div>':'')+'</div>'
+    +'<p class="aside" id="aside">you do not have to keep that sentence \u2014 keep the idea</p>'
+    +'<div class="simple" id="sp">'+simple+'</div>');
+  const seq=[{id:'fmtxt',text:formalText,speed:22}];
+  if(symbol) seq.push({id:'fmsym',text:symbol,speed:45});
+  typeAll(seq, ()=>setTimeout(()=>{
+    const fm0=document.getElementById('fm'); if(fm0) fm0.classList.add('faded');
+    const asd=document.getElementById('aside'); if(asd) asd.classList.add('in');
+    setTimeout(()=>{
+      const sp=document.getElementById('sp');
+      if(sp){
+        // the plain version is where a word is worth explaining
+        sp.innerHTML = sp.textContent.replace('non-collinear',
+          '<span class="term" tabindex="0">non-collinear<span class="tip">not all on one straight line</span></span>');
+        sp.classList.add('in');
+        setTimeout(()=>penUnder(sp), 260);
+      }
+      if(after) after();
+    },520);
+  },420));
+  return seq;
+}
+function note(html,cls){
+  const d=document.createElement('div');
+  d.className='note '+(cls||''); d.innerHTML=html;
+  screenEl.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('in'));
+  return d;
+}
+
+/* ============================================================
+   the screens
+   ============================================================ */
+const SCREENS=[
+
+/* ---------- 0 · why axioms ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML=
+    '<h1>Before we start...</h1>'
+    +'<p class="say" id="l1"></p>'
+    +'<p class="say hot" id="l2"></p>'
+    +'<p class="say" id="l3"></p>'
+    +'<p class="aside" id="l4"></p>'
+    +'<p class="say" id="l5"></p>';
+  const seq=[
+    {id:'l1', text:'Mathematics is a precise game. We don\u2019t just say something is true \u2014 we need a reason.'},
+    {id:'l2', text:'But if we had to prove EVERYTHING... where would we start?', speed:29,
+     slip:{at:22, wrong:'e'}},
+    {id:'l3', text:'We need a few starting truths that we accept without proving them first. These are called axioms.'},
+    {id:'l4', text:'Think of them as the foundation of mathematics. We build everything else on top of them.', speed:31},
+    {id:'l5', text:'Stereometry has 3 fundamental axioms about points, lines and planes. Let\u2019s discover them.'}
+  ];
+  document.getElementById('l4').classList.add('in');
+  typeAll(seq);
+  nav([{label:'Skip', ghost:true, go:()=>skipTyping(seq)},
+       {label:'Let\u2019s go \u2192', go:()=>go(1)}]);
+},
+
+/* ---------- 1 · axiom 1, statement ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML='<p class="eyebrow">Axiom 1</p>';
+  formalThen('Through any three non-collinear points, there is exactly one plane.',
+             '', '3 non-collinear points lock exactly one plane.');
+  nav([{label:'Try it yourself \u2192', go:()=>go(2)}]);
+  const A=[-4,-2,0], B=[3,-3,1.5], Cp=[0,4,-1];
+  const pl=planeOf(A,B,Cp);
+  planePatch(G.planes, mul(add(add(A,B),Cp),1/3), pl.n, 6.5, C.blue, 0.20);
+  [[A,'A'],[B,'B'],[Cp,'C']].forEach(([p,nm])=>{
+    dotAt(p,C.red,0.24); tag(nm,()=>add(p,[0,0,0.9]),'#C4331C');
+  });
+  orbit.dist=24;
+},
+
+/* ---------- 2 · axiom 1, experiment ---------- */
+function(){
+  let P=[], plane=null;
+  const draw=()=>{
+    wipeAll();
+    P.forEach((p,i)=>{
+      dotAt(p,C.red,0.24);
+      tag('ABC'[i],()=>add(p,[0,0,0.9]),'#C4331C');
+    });
+    if(P.length===3){
+      const pl=planeOf(P[0],P[1],P[2]);
+      if(pl.collinear){
+        P.forEach((p,i)=>{ if(i<2) segment(G.lines,P[i],P[i+1],C.amber,0.05,true); });
+        body('');
+        note('Keep the 3 points off one straight line.','warn');
+        again();
+        return;
+      }
+      planePatch(G.planes, mul(add(add(P[0],P[1]),P[2]),1/3), pl.n, 7, C.blue, 0.22);
+      for(let i=0;i<3;i++) segment(G.lines,P[i],P[(i+1)%3],C.red,0.045,true);
+      body('<p class="say big">Three points \u2192 one plane.</p>');
+      again();
+    }
+  };
+  const body=html=>{
+    screenEl.innerHTML='<p class="eyebrow">Axiom 1</p>'
+      +'<h1>Try it yourself</h1>'+html;
+  };
+  const again=()=>nav([
+    {label:'Try again', ghost:true, go:()=>{ P=[]; start(); }},
+    {label:'Next \u2192', go:()=>go(3)}
+  ]);
+  const start=()=>{
+    wipeAll();
+    body('<p class="say">Click anywhere in space to place 3 points.</p>');
+    nav([{label:'Next \u2192', go:()=>go(3)}]);
+    setHint('click to place a point');
+  };
+  SCREEN.onClick=e=>{
+    if(P.length>=3) return;
+    const R=rayFrom(e);
+    const t=10+Math.random()*14;                     // a random depth along the ray
+    P.push(add(R.o,mul(R.d,t)));
+    draw();
+    if(P.length<3){
+      body('<p class="say">Click anywhere in space to place 3 points.</p>');
+      nav([{label:'Next \u2192', go:()=>go(3)}]);
+      setHint('click to place a point');
+    } else setHint('drag to turn it around');
+  };
+  start(); orbit.dist=30;
+},
+
+/* ---------- 3 · axiom 1, memory ---------- */
+function(){
+  pageMode(true);
+  const legSVG=(n,ok)=>{
+    const ink = ok ? '#2340C4' : '#9AA5A0';
+    const fill= ok ? '#E9EDFD' : '#EDEFEC';
+    const tilt= ok ? 0 : (n===1 ? -7 : -4);
+    // legs splay out from under the seat
+    const feet = n===1 ? [[46,84]] : n===2 ? [[28,86],[64,86]] : [[24,88],[46,90],[68,88]];
+    const tops = n===1 ? [[46,40]] : n===2 ? [[36,42],[56,42]] : [[32,43],[46,44],[60,43]];
+    let legs='';
+    feet.forEach((f,i)=>{
+      legs+='<path d="M'+tops[i][0]+' '+tops[i][1]+' L'+f[0]+' '+f[1]+'" '
+        +'stroke="'+ink+'" stroke-width="3.4" stroke-linecap="round" fill="none"/>';
+    });
+    // a cross-brace on the steady one
+    if(n===3) legs+='<path d="M30 70 L46 74 L62 70" stroke="'+ink
+      +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".55"/>';
+    return '<svg viewBox="0 0 92 100">'
+      +'<g transform="rotate('+tilt+' 46 60)">'
+      +'<ellipse cx="46" cy="34" rx="27" ry="9" fill="'+fill+'" stroke="'+ink+'" stroke-width="2.6"/>'
+      +'<path d="M19 34 v5 a27 9 0 0 0 54 0 v-5" fill="'+fill+'" stroke="'+ink+'" stroke-width="2.6"'
+      +' stroke-linejoin="round"/>'
+      +legs
+      +'</g>'
+      +(ok?'':'<path d="M'+(n===1?'70 24 q8 -6 4 -14':'74 30 q9 -4 7 -13')
+        +'" stroke="#C4331C" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/>'
+        +'<path d="M'+(n===1?'12 24 q-8 -6 -4 -14':'8 30 q-9 -4 -7 -13')
+        +'" stroke="#C4331C" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/>')
+      +'</svg>';
+  };
+  screenEl.innerHTML=
+    '<p class="eyebrow">Axiom 1</p>'
+    +'<h1>Why three?</h1>'
+    +'<div class="legs">'
+      +'<div class="leg">'+legSVG(1,false)+'<span>one \u2014 spins</span></div>'
+      +'<div class="leg">'+legSVG(2,false)+'<span>two \u2014 rocks</span></div>'
+      +'<div class="leg ok">'+legSVG(3,true)+'<span>three \u2014 steady</span></div>'
+    +'</div>'
+    +'<p class="say">Three non-collinear points are the minimum needed to lock a plane in space.</p>';
+  note('First axiom: in the pocket.');
+  nav([{label:'Next axiom \u2192', go:()=>go(4)}]);
+  const A=[-3.5,-2,0], B=[3,-2.5,0], Cp=[0.5,3.5,0];
+  planePatch(G.planes,[0,0,0],[0,0,1],6,C.blue,0.18);
+  [A,B,Cp].forEach(p=>dotAt(p,C.red,0.22));
+  orbit.dist=22; orbit.phi=26;
+},
+
+/* ---------- 4 · axiom 2, statement ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML='<p class="eyebrow">Axiom 2</p>';
+  formalThen('A line containing two points of a plane lies entirely in that plane.',
+             'A, B \u2208 \u03b1  \u21d2  AB \u2282 \u03b1',
+             'Two points of a line on a plane \u2192 the whole line is on that plane.');
+  nav([{label:'Try it \u2192', go:()=>go(5)}]);
+  const pl=planePatch(G.planes,[0,0,0],[0,0,1],7,C.blue,0.20);
+  const A=[-3,-1.4,0], B=[2.6,1.8,0];
+  const d=norm(sub(B,A));
+  segment(G.lines,add(A,mul(d,-4)),add(B,mul(d,4)),C.red,0.055,true);
+  [[A,'A'],[B,'B']].forEach(([p,nm])=>{ dotAt(p,C.red,0.24); tag(nm,()=>add(p,[0,0,0.8]),'#C4331C'); });
+  tag('\u03b1',()=>[5.4,-5.4,0],'#2340C4');
+  orbit.dist=24;
+},
+
+/* ---------- 5 · axiom 2, experiment ---------- */
+function(){
+  const N=[0.18,-0.10,1], P0=[0,0,0], S=7;
+  let P=[];
+  const head=html=>{
+    screenEl.innerHTML='<p class="eyebrow">Axiom 2</p>'
+      +'<h1>Try it</h1>'+html;
+  };
+  const paint=()=>{
+    wipeAll();
+    const pl=planePatch(G.planes,P0,N,S,C.blue,0.20);
+    tag('\u03b1',()=>add(add(P0,mul(pl.u,S*0.78)),mul(pl.v,-S*0.78)),'#2340C4');
+    P.forEach((p,i)=>{ dotAt(p,C.red,0.24); tag('AB'[i],()=>add(p,[0,0,0.8]),'#C4331C'); });
+    if(P.length===2){
+      const d=norm(sub(P[1],P[0]));
+      const line={p:P[0],dir:d};
+      const seg=clipToRect(line,P0,pl.u,pl.v,S,S);
+      if(seg) segment(G.lines,seg[0],seg[1],C.red,0.055,true);
+      head('<p class="say big">A and B are on the plane. So the whole line AB is on the plane.</p>');
+      nav([{label:'Try again', ghost:true, go:()=>{P=[];paint();nav0();setHint('click a spot on the plane');}},
+           {label:'Next \u2192', go:()=>go(6)}]);
+      setHint('drag to turn it around');
+    }
+  };
+  const nav0=()=>nav([{label:'Next \u2192', go:()=>go(6)}]);
+  SCREEN.onClick=e=>{
+    if(P.length>=2) return;
+    const hit=hitPlane(e,P0,norm(N));
+    if(!hit) return;
+    // only count clicks that land on the patch itself
+    const n=norm(N);
+    let u=Math.abs(n[2])<0.9?cross(n,[0,0,1]):cross(n,[1,0,0]); u=norm(u);
+    const v=norm(cross(n,u));
+    if(Math.abs(dot(sub(hit,P0),u))>S || Math.abs(dot(sub(hit,P0),v))>S) return;
+    P.push(hit); paint();
+    if(P.length<2){ head('<p class="say">Choose 2 points on the plane.</p>'); nav0(); setHint('click a second spot'); }
+  };
+  head('<p class="say">Choose 2 points on the plane.</p>');
+  nav0(); paint(); setHint('click a spot on the plane');
+  orbit.dist=26;
+},
+
+/* ---------- 6 · axiom 2, memory ---------- */
+function(){
+  pageMode(true);
+  /* a straight ruler laid on a surface: the axiom is a property of FLATNESS */
+  const rulerSVG=(kind)=>{
+    const ok = kind==='flat';
+    const ink = ok ? '#157A45' : '#9AA5A0';
+    const fill= ok ? '#E7F6ED' : '#EDEFEC';
+    let surface, ruler, touch;
+    if(kind==='one'){
+      surface='<path d="M6 74 L106 74" stroke="'+ink+'" stroke-width="2.6" stroke-linecap="round"/>';
+      ruler  ='<g transform="rotate(-15 56 60)"><rect x="16" y="52" width="80" height="11" rx="2.5" '
+             +'fill="'+fill+'" stroke="'+ink+'" stroke-width="2.4"/></g>';
+      touch  ='<circle cx="24" cy="74" r="3.6" fill="'+ink+'"/>';
+    } else if(kind==='curved'){
+      surface='<path d="M6 78 Q56 56 106 78" fill="none" stroke="'+ink+'" stroke-width="2.6" stroke-linecap="round"/>';
+      ruler  ='<rect x="16" y="60" width="80" height="11" rx="2.5" fill="'+fill+'" stroke="'+ink+'" stroke-width="2.4"/>';
+      touch  ='<circle cx="19" cy="72.5" r="3.6" fill="'+ink+'"/><circle cx="93" cy="72.5" r="3.6" fill="'+ink+'"/>'
+             +'<path d="M46 71 L46 64 M66 71 L66 64" stroke="#C4331C" stroke-width="2" stroke-linecap="round" opacity=".7"/>';
+    } else {
+      surface='<path d="M6 74 L106 74" stroke="'+ink+'" stroke-width="2.6" stroke-linecap="round"/>';
+      ruler  ='<rect x="16" y="62" width="80" height="11" rx="2.5" fill="'+fill+'" stroke="'+ink+'" stroke-width="2.4"/>';
+      touch  ='<circle cx="22" cy="73" r="3.6" fill="'+ink+'"/><circle cx="90" cy="73" r="3.6" fill="'+ink+'"/>';
+    }
+    return '<svg viewBox="0 0 112 92">'+surface+ruler+touch+'</svg>';
+  };
+  screenEl.innerHTML=
+    '<p class="eyebrow">Axiom 2</p>'
+    +'<h1>A ruler on a table.</h1>'
+    +'<div class="legs">'
+      +'<div class="leg">'+rulerSVG('one')+'<span>one point \u2014 it pivots</span></div>'
+      +'<div class="leg">'+rulerSVG('curved')+'<span>curved \u2014 it lifts</span></div>'
+      +'<div class="leg ok">'+rulerSVG('flat')+'<span>flat \u2014 it lies</span></div>'
+    +'</div>'
+    +'<p class="say">2 points of a line are enough to know that the entire line belongs to the plane.</p>';
+  note('Second axiom: in the pocket.');
+  nav([{label:'Next axiom \u2192', go:()=>go(7)}]);
+},
+
+/* ---------- 7 · axiom 3, statement ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML='<p class="eyebrow">Axiom 3</p>';
+  formalThen('If two planes have a common point, then they have a common line through that point.',
+             '\u03b1 \u2229 \u03b2 = l',
+             'Two intersecting planes share a line.');
+  nav([{label:'Try it \u2192', go:()=>go(8)}]);
+  const nA=[0,0,1], nB=norm([0.75,0,0.66]);
+  planePatch(G.planes,[0,0,0],nA,6,C.planeA,0.18);
+  planePatch(G.planes,[0,0,0],nB,6,C.planeB,0.16);
+  const L=meetLine(nA,0,nB,0);
+  segment(G.lines,add(L.p,mul(L.dir,-6)),add(L.p,mul(L.dir,6)),C.ink,0.06,true);
+  tag('l',()=>add(L.p,mul(L.dir,6.6)),'#14181A');
+  orbit.dist=24;
+},
+
+/* ---------- 8 · axiom 3, experiment ---------- */
+function(){
+  const nA=[0,0,1], S=6.5;
+  const tilt=52*Math.PI/180;
+  const nB=norm([Math.sin(tilt),0,Math.cos(tilt)]);
+  const HI=9;
+  let height=HI, meeting=null;
+
+  /* built once — the slider only moves things, never rebuilds them */
+  const pa=planePatch(G.planes,[0,0,0],nA,S,C.planeA,0.17);
+  const betaG=new THREE.Group(); G.planes.add(betaG);
+  const pb=planePatch(betaG,[0,0,0],nB,S,C.planeB,0.15);
+  const lineMesh=(()=>{
+    const mat=new THREE.MeshBasicMaterial({color:C.ink}); mat.depthTest=false;
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1,12),mat);
+    m.renderOrder=11; m.visible=false; G.lines.add(m); return m;
+  })();
+  tag('\u03b1',()=>add(mul(pa.u,S*0.8),mul(pa.v,-S*0.8)),'#2340C4');
+  tag('\u03b2',()=>add([0,0,height],add(mul(pb.u,S*0.8),mul(pb.v,S*0.8))),'#C4331C');
+  const lTag=tag('l',()=>meeting?add(mul(add(meeting[0],meeting[1]),0.5),[0,0,0.8]):[0,0,-999],'#14181A');
+
+  const bodyMeet='<p class="say" style="font-family:IBM Plex Mono,monospace;font-size:17px">\u03b1 \u2229 \u03b2 = l</p>'
+    +'<p class="say">The two planes don\u2019t meet at just one point. Their common part is a line.</p>';
+  const bodyApart='<p class="say">Drag plane \u03b2 toward plane \u03b1.</p>';
+  let saidMeet=null;
+
+  screenEl.innerHTML='<p class="eyebrow">Axiom 3</p>'
+    +'<h1>Move plane \u03b2</h1>'
+    +'<div id="a3body">'+bodyApart+'</div>'
+    +'<div class="scrub"><label>apart</label>'
+    +'<input type="range" id="mv" min="0" max="1000" value="0"><label>through</label></div>';
+  nav([{label:'Reset', ghost:true, go:()=>{
+        height=HI; document.getElementById('mv').value=0; move(); }},
+       {label:'Finish \u2192', go:()=>go(9)}]);
+
+  function move(){
+    betaG.position.set(0,0,height);
+    const dB=dot(nB,[0,0,height]);
+    const L=meetLine(nA,0,nB,dB);
+    meeting=null;
+    if(L){
+      const s1=clipToRect(L,[0,0,0],pa.u,pa.v,S,S);
+      const cB=[0,0,height];
+      const s2=clipToRect(L,cB,pb.u,pb.v,S,S);
+      if(s1&&s2){
+        const t=q=>dot(sub(q,L.p),L.dir);
+        const lo=Math.max(Math.min(t(s1[0]),t(s1[1])), Math.min(t(s2[0]),t(s2[1])));
+        const hi=Math.min(Math.max(t(s1[0]),t(s1[1])), Math.max(t(s2[0]),t(s2[1])));
+        if(hi>lo+1e-6) meeting=[add(L.p,mul(L.dir,lo)), add(L.p,mul(L.dir,hi))];
+      }
+    }
+    if(meeting){
+      const A=new THREE.Vector3(...meeting[0]), B=new THREE.Vector3(...meeting[1]);
+      const len2=A.distanceTo(B);
+      lineMesh.visible=true;
+      lineMesh.scale.set(1,len2,1);
+      lineMesh.position.copy(A).add(B).multiplyScalar(0.5);
+      lineMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
+      lTag.style.opacity=1;
+    } else { lineMesh.visible=false; lTag.style.opacity=0; }
+    const want2 = meeting? 'meet' : 'apart';
+    if(saidMeet!==want2){
+      saidMeet=want2;
+      document.getElementById('a3body').innerHTML = meeting? bodyMeet : bodyApart;
+      setHint(meeting? 'drag to inspect the line' : 'drag the slider');
+    }
+  }
+  document.getElementById('mv').oninput=ev=>{
+    height=HI-(+ev.target.value/1000)*HI; move(); spin=false;
+  };
+  move(); orbit.dist=27; orbit.phi=16;
+},
+
+/* ---------- 9 · axiom 3, memory ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML=
+    '<p class="eyebrow">Axiom 3</p>'
+    +'<p class="say">Think of two walls meeting in a room. Their common edge is a line.</p>';
+  note('Third axiom: in the pocket.');
+  nav([{label:'Finish \u2192', go:()=>go(10)}]);
+  const nA=norm([1,0,0]), nB=norm([0,1,0]);
+  planePatch(G.planes,[0,0,0],nA,5,C.planeA,0.17);
+  planePatch(G.planes,[0,0,0],nB,5,C.planeB,0.15);
+  segment(G.lines,[0,0,-5],[0,0,5],C.ink,0.07,true);
+  tag('l',()=>[0,0,5.6],'#14181A');
+  orbit.dist=22; orbit.phi=8;
+},
+
+/* ---------- 10 · the toolkit ---------- */
+function(){
+  pageMode(true);
+  screenEl.innerHTML=
+    '<h1>Your stereometry toolkit</h1>'
+    +'<div class="cards">'
+      +'<div class="card" style="border-color:#B9C7F7;background:#F7F9FF">'
+        +'<span class="n" style="color:#2340C4">\u2460</span><span class="t">'
+        +'3 non-collinear points<br><b>\u2192 exactly 1 plane</b></span></div>'
+      +'<div class="card" style="border-color:#B6E0C6;background:#F5FCF8">'
+        +'<span class="n" style="color:#157A45">\u2461</span><span class="t">'
+        +'2 points of a line on a plane<br><b>\u2192 the whole line is on the plane</b></span></div>'
+      +'<div class="card" style="border-color:#F3C3B8;background:#FFF8F6">'
+        +'<span class="n" style="color:#C4331C">\u2462</span><span class="t">'
+        +'2 intersecting planes<br><b>\u2192 their common part is a line</b></span></div>'
+    +'</div>'
+    +'<p class="say">These are our starting truths. We will use them to build the rest of stereometry.</p>'
+    +'<p class="say" style="color:var(--ink-3)">Now let\u2019s see what we can deduce from them.</p>';
+  nav([{label:'Start again', ghost:true, go:()=>go(0)},
+       {label:'See what follows \u2192', go:()=>{ location.href='index.html'; }}]);
+  const nA=[0,0,1], nB=norm([0.6,0.2,0.8]);
+  planePatch(G.planes,[0,0,0],nA,5.5,C.planeA,0.15);
+  planePatch(G.planes,[0,0,0],nB,5.5,C.planeB,0.13);
+  const L=meetLine(nA,0,nB,0);
+  segment(G.lines,add(L.p,mul(L.dir,-5.5)),add(L.p,mul(L.dir,5.5)),C.ink,0.055,true);
+  [[-3,-2,0],[2.6,-2.4,0],[0.4,3.2,0]].forEach(p=>dotAt(p,C.red,0.2));
+  orbit.dist=24;
+}
+];
+
+/* ============================================================
+   go
+   ============================================================ */
+(function(){
+  const d=document.getElementById('drift');
+  const solids=[
+    '<path d="M14 34 L34 22 L58 32 L58 58 L38 70 L14 60 Z"/><path d="M14 34 L38 44 L58 32"/><path d="M38 44 L38 70"/>',
+    '<path d="M36 10 L64 56 L36 68 L8 56 Z"/><path d="M8 56 L36 46 L64 56"/><path d="M36 10 L36 46"/>',
+    '<path d="M10 22 L40 10 L62 22 L40 34 Z"/><path d="M10 22 L10 50 L40 62 L62 50 L62 22"/><path d="M40 34 L40 62"/>'
+  ];
+  const cols=['#2340C4','#C4331C','#8A5B10'];
+  [[6,14,158,0],[80,62,124,1.6],[68,12,104,3.0],[13,72,132,4.4]].forEach((sp,i)=>{
+    const w=document.createElement('div');
+    w.style.cssText='position:absolute;left:'+sp[0]+'%;top:'+sp[1]+'%;opacity:.055;'
+      +'animation:bob '+(10+i*1.9)+'s ease-in-out infinite;animation-delay:'+sp[3]+'s';
+    w.innerHTML='<svg width="'+sp[2]+'" height="'+sp[2]+'" viewBox="0 0 72 78" fill="none" stroke="'
+      +cols[i%3]+'" stroke-width="2.4" stroke-linejoin="round">'+solids[i%3]+'</svg>';
+    d.appendChild(w);
+  });
+})();
+
+go(0); resize(); applyOrbit();
+(function tick(){
+  requestAnimationFrame(tick);
+  if(spin) orbit.theta-=0.08;
+  applyOrbit(); renderer.render(scene,camera); updateTags();
+})();
+</script>
+</body>
+</html>

@@ -325,6 +325,50 @@ export const getTopicStages = cache(async (topicId: string): Promise<TopicStage[
 });
 
 /**
+ * Stages for several topics at once, keyed by topic id.
+ *
+ * getTopicStages asks about one topic, which is what a stage route needs. A
+ * topic list needs the same answer for every card, and asking one at a time
+ * would be a round trip per row.
+ *
+ * Deliberately not cache()d, unlike the reads above: the argument is an array,
+ * so referential identity would almost never match and the wrapper would
+ * promise a deduplication it could not deliver.
+ */
+export async function listStagesFor(
+  topicIds: readonly string[],
+): Promise<Map<string, TopicStage[]>> {
+  const byTopic = new Map<string, TopicStage[]>();
+  if (topicIds.length === 0) return byTopic;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("topic_stages")
+    .select("id, topic_id, stage_type, order_index, title")
+    .in("topic_id", [...topicIds])
+    .order("order_index");
+
+  if (error) throw new Error(`listStagesFor: ${error.message}`);
+
+  for (const r of data ?? []) {
+    // Same rule as getTopicStages: a stage_type the app doesn't recognise is
+    // treated as missing rather than trusted.
+    if (!isStageType(r.stage_type)) continue;
+    const list = byTopic.get(r.topic_id) ?? [];
+    list.push({
+      id: r.id,
+      topicId: r.topic_id,
+      stageType: r.stage_type,
+      orderIndex: r.order_index,
+      title: r.title,
+    });
+    byTopic.set(r.topic_id, list);
+  }
+
+  return byTopic;
+}
+
+/**
  * Progress for one topic, keyed by stage. RLS already limits the rows to the
  * caller, so this never leaks another user's progress even if the filter were
  * dropped.

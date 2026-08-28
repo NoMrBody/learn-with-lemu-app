@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { TopicList } from "@/components/topic-list";
-import { getSubject, listChildSubjects, listTopics } from "@/lib/topics";
+import { getSubject, listChildSubjects, listStagesFor, listTopics } from "@/lib/topics";
 
 export async function generateMetadata(props: PageProps<"/[subject]">) {
   const { subject: slug } = await props.params;
@@ -26,6 +26,13 @@ export default async function SubjectPage(props: PageProps<"/[subject]">) {
   const childTopics = await Promise.all(
     children.map(async (c) => ({ child: c, topics: await listTopics(c.slug) })),
   );
+
+  // One query for every card on the page. The cards describe themselves from
+  // their real stages, so a topic with only an explainer says so.
+  const stagesByTopic = await listStagesFor([
+    ...topics.map((t) => t.id),
+    ...childTopics.flatMap(({ topics: kids }) => kids.map((t) => t.id)),
+  ]);
 
   return (
     <>
@@ -63,12 +70,12 @@ export default async function SubjectPage(props: PageProps<"/[subject]">) {
                     {child.title}
                   </Link>
                 </h2>
-                <TopicList topics={kids} />
+                <TopicList topics={kids} stagesByTopic={stagesByTopic} />
               </section>
             ))}
           </div>
         ) : (
-          <TopicList topics={topics} />
+          <TopicList topics={topics} stagesByTopic={stagesByTopic} />
         )}
       </main>
     </>

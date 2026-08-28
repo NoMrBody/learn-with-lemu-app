@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { TopicList } from "@/components/topic-list";
-import { getLearnTree } from "@/lib/topics";
+import { getLearnTree, listStagesFor } from "@/lib/topics";
 
 export const metadata = { title: "Subjects" };
 
@@ -11,6 +11,12 @@ export const metadata = { title: "Subjects" };
  */
 export default async function LearnPage() {
   const areas = await getLearnTree();
+  // One query for every card in the tree, so each says what it actually holds.
+  const stagesByTopic = await listStagesFor(
+    areas
+      .flatMap((a) => [...a.topics, ...a.children.flatMap((c) => c.topics)])
+      .map((t) => t.id),
+  );
 
   return (
     <>
@@ -61,12 +67,20 @@ export default async function LearnPage() {
                           child.title
                         )}
                       </h3>
-                      <TopicList topics={child.topics} pendingLabel="In development" />
+                      <TopicList
+                        topics={child.topics}
+                        stagesByTopic={stagesByTopic}
+                        pendingLabel="In development"
+                      />
                     </div>
                   ))}
                 </div>
               ) : (
-                <TopicList topics={area.topics} pendingLabel={pendingLabel} />
+                <TopicList
+                  topics={area.topics}
+                  stagesByTopic={stagesByTopic}
+                  pendingLabel={pendingLabel}
+                />
               )}
             </section>
           );

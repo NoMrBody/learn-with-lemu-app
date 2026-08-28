@@ -45,14 +45,17 @@ on conflict (slug) do update set
   parent_slug = excluded.parent_slug;
 
 insert into public.topics (subject, slug, title, order_index, status) values
+  -- Axioms comes first: the box explainer already talks about planes and
+  -- perpendicularity as settled, and this is where they get settled.
+  ('stereometry', 'axioms',   'Axioms',      1, 'available'),
   -- The box and the pyramid are separate topics: each has its own explainer
   -- and its own problem set. They share the puzzle stage — see the note on
   -- topic_stages below.
-  ('stereometry', 'box',      'The Box',     1, 'available'),
-  ('stereometry', 'pyramid',  'The Pyramid', 2, 'available'),
+  ('stereometry', 'box',      'The Box',     2, 'available'),
+  ('stereometry', 'pyramid',  'The Pyramid', 3, 'available'),
   -- Placeholders so the "in development" state on the index has something
   -- to render against.
-  ('stereometry', 'sphere',   'The Sphere',  3, 'in_development'),
+  ('stereometry', 'sphere',   'The Sphere',  4, 'in_development'),
   ('planimetry',  'triangle', 'The Triangle', 1, 'in_development'),
   -- Algebra has nothing built yet; these render as "Coming Soon".
   ('algebra', 'functions',             'Functions',             1, 'in_development'),
@@ -66,15 +69,20 @@ on conflict (subject, slug) do update set
 -- Stages exist only for topics that have content. An in_development topic is
 -- not navigable, so it has no stages to navigate to.
 --
--- Both stereometry topics carry all three stages, so both rails show three
+-- The box and the pyramid carry all three stages, so both rails show three
 -- nodes. The puzzle is shared: pyramid's game node links to the box's game
 -- route and progress records against the box. That delegation lives in the
 -- TypeScript (DELEGATED_STAGES in lib/stages.ts), not here — there is exactly
 -- one of them, and a column would mean regenerating the generated DB types.
+--
+-- Axioms carries one stage. It is a guided walkthrough with no exercises and
+-- no puzzle, and empty problem / game rows would put two dead nodes on its
+-- rail promising content nobody has written.
 insert into public.topic_stages (topic_id, stage_type, order_index, title)
 select t.id, s.stage_type, s.order_index, s.title
 from public.topics t
 join (values
+  ('axioms',  'explainer', 1, 'The axioms'),
   ('box',     'explainer', 1, 'The box'),
   ('box',     'problem',   2, 'The problem'),
   ('box',     'game',      3, 'The puzzle'),
