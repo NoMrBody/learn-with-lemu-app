@@ -7,9 +7,11 @@ import {
   pyrVolume, soloAngle, soloLen, spaceDiag, surfaceArea, tppOblAngle, volume,
   type Dims, type FaceKind, type PyrFaceKind, type Solid,
 } from "@/lib/explainer/scene";
+import { texNum } from "@/lib/explainer/cuboid-figures";
 import {
-  CUBOID_ANGS, CUBOID_SECS, CUBOID_TRIS,
-} from "@/lib/explainer/cuboid-figures";
+  PRISM_ANGS, PRISM_COPY, PRISM_KEYS, PRISM_SECS, PRISM_TRIS, baseArea,
+  prismSurface, type DimKey, type PrismId,
+} from "@/lib/explainer/prisms";
 import type { ControlKind, SolidMode, UserState } from "@/lib/explainer/beats";
 
 /* ---------- small pieces, matching the original panel's vocabulary ---------- */
@@ -167,6 +169,38 @@ function SolidToggle({
   );
 }
 
+/**
+ * Which prism the box topic is showing. The same six questions follow whichever
+ * is picked — only the answers change — so this rides the first slide rather
+ * than being a mode of its own.
+ */
+function FigSwitch({
+  fig, setFig,
+}: {
+  fig: PrismId;
+  setFig: (f: PrismId) => void;
+}) {
+  return (
+    <div className="mb-2.5 flex gap-1.5" role="group" aria-label="Choose a figure">
+      {(Object.keys(PRISM_COPY) as PrismId[]).map((k) => (
+        <button
+          key={k}
+          type="button"
+          aria-pressed={fig === k}
+          onClick={() => fig !== k && setFig(k)}
+          className={`press flex-1 rounded-lg border px-2 py-2 text-body-sm ${
+            fig === k
+              ? "border-brand bg-brand font-semibold text-brand-on"
+              : "border-line text-muted hover:text-fg"
+          }`}
+        >
+          {PRISM_COPY[k].name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- face kinds, from FACE_KINDS in the original ---------- */
 
 const FACE_KINDS: Record<
@@ -241,11 +275,19 @@ export type ControlProps = {
   set: (patch: Partial<UserState>) => void;
   /** Separate from `set` because switching solids also re-applies the beat's entry state. */
   setSolid: (s: Solid) => void;
+  /** Likewise: a new figure brings its own proportions and its own catalogues. */
+  setFig: (f: PrismId) => void;
 };
 
-export default function Controls({ kind, solids, user, set, setSolid }: ControlProps) {
+export default function Controls({
+  kind, solids, user, set, setSolid, setFig,
+}: ControlProps) {
   const D = user.dims;
   const pyr = user.solid === "pyr";
+  const fig = user.fig;
+  /** A prism drawn from its base ring: one side length, not a length and a width. */
+  const ring = !pyr && fig !== "cuboid";
+  const copy = PRISM_COPY[fig];
   // Only the beats that work for either solid offer the switch. Held as an
   // element rather than a component so it is not redeclared each render.
   const toggle =
@@ -255,27 +297,40 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
     case "none":
       return null;
 
-    case "dims":
+    case "dims": {
+      // A regular base is one number, so `a` writes the length and the width
+      // together and the panel never shows a width the figure does not have.
+      const keys: readonly DimKey[] = pyr ? ["l", "w", "h"] : PRISM_KEYS[fig];
+      const valueOf = (k: DimKey) => (k === "w" ? D.W : k === "h" ? D.H : D.L);
+      const write = (k: DimKey, v: number) =>
+        set({
+          dims:
+            k === "w" ? { ...D, W: v }
+            : k === "h" ? { ...D, H: v }
+            : k === "a" ? { ...D, L: v, W: v }
+            : { ...D, L: v },
+        });
       return (
         <div>
           {toggle}
+          {!pyr && <FigSwitch fig={fig} setFig={setFig} />}
           <div className="flex flex-col gap-0.5">
-            {(["L", "W", "H"] as const).map((k) => (
+            {keys.map((k) => (
               <div key={k} className="flex items-center gap-3">
-                <span className="w-4 font-mono text-num text-muted">{k.toLowerCase()}</span>
+                <span className="w-4 font-mono text-num text-muted">{k}</span>
                 <input
                   type="range"
-                  aria-label={`${k.toLowerCase()} — ${D[k]}`}
+                  aria-label={`${k} — ${valueOf(k)}`}
                   min={1}
                   max={MAXD}
                   step={1}
-                  value={D[k]}
-                  onChange={(e) =>
-                    set({ dims: { ...D, [k]: Number(e.target.value) } })
-                  }
+                  value={valueOf(k)}
+                  onChange={(e) => write(k, Number(e.target.value))}
                   className="h-8 min-w-0 flex-1 accent-(--lm-brand)"
                 />
-                <span className="w-5 font-mono text-num tabular-nums text-fg">{D[k]}</span>
+                <span className="w-5 font-mono text-num tabular-nums text-fg">
+                  {valueOf(k)}
+                </span>
               </div>
             ))}
           </div>
@@ -285,6 +340,11 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
                 <>
                   <M tex={`S=${D.L}\\cdot${D.W}+${D.L}\\cdot${nice(apoLW(D))}+${D.W}\\cdot${nice(apoWH(D))}=${nice(pyrSurfaceArea(D))}`} />
                   <M tex={`V=\\tfrac13\\cdot${D.L * D.W}\\cdot${D.H}=${nice(pyrVolume(D))}`} />
+                </>
+              ) : ring ? (
+                <>
+                  <M tex={`S=${texNum(prismSurface(fig, D))}`} />
+                  <M tex={`V=${texNum(baseArea(fig, D) * D.H)}`} />
                 </>
               ) : (
                 <>
@@ -296,6 +356,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
           </MBox>
         </div>
       );
+    }
 
     case "unfoldSum": {
       const flat = user.unfold > 0.45;
@@ -305,7 +366,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
         <div>
           {toggle}
           <Scrub
-            label={pyr ? "Unfold the pyramid" : "Unfold the box"}
+            label={pyr ? "Unfold the pyramid" : `Unfold the ${copy.name.toLowerCase()}`}
             left="folded" right="flat"
             min={0} max={100} value={Math.round(user.unfold * 100)}
             onChange={(v) => set({ unfold: v / 100 })}
@@ -326,14 +387,16 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
               )
             ) : flat ? (
               <>
-                <M tex={`2(${D.L}\\cdot${D.W})+2(${D.L}\\cdot${D.H})+2(${D.W}\\cdot${D.H})=\\textbf{${surfaceArea(D)}}`} />
+                <M tex={copy.netTex(D)} />
                 <MRow tag="in general">
-                  <M tex="S=2(lw+lh+wh)" />
+                  <M tex={copy.netRule} />
                 </MRow>
               </>
             ) : (
               <span className="text-muted">
-                drag it flat to see all six faces at once
+                {ring
+                  ? "drag it flat to see every piece at once"
+                  : "drag it flat to see all six faces at once"}
               </span>
             )}
           </MBox>
@@ -419,6 +482,38 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
       // The cuboid's volume slide argues both counting and scaling, where the
       // pyramid still splits them over 'fill' and 'double'.
       const V = volume(D), per = D.L * D.W, n = Math.round(user.fill);
+      // A prism has no unit cubes to count, so the same slider sweeps its base
+      // up instead — `fill` is read as the fraction of the solid it has passed
+      // through. Doubling is a cuboid argument and is not offered here.
+      if (ring) {
+        const t = V ? n / V : 0;
+        const B = baseArea(fig, D), z = D.H * t;
+        const full = Math.abs(z - D.H) < 1e-9;
+        return (
+          <div>
+            <Scrub
+              label={`Sweep the base of the ${copy.name.toLowerCase()} up`}
+              left="flat" right="full height"
+              min={0} max={V} value={n} onChange={(v) => set({ fill: v })}
+            />
+            <MBox hi>
+              <M
+                tex={`\\underbrace{${texNum(B)}}_{\\text{base}}\\times\\underbrace{${
+                  full ? texNum(D.H) : z.toFixed(2)
+                }}_{\\text{swept so far}}=${full ? texNum(B * D.H) : (B * z).toFixed(2)}`}
+              />
+            </MBox>
+            <MRow tag="in general">
+              <M tex={copy.volRule} />
+            </MRow>
+            <p className="mt-2 text-body-sm text-muted">
+              {full
+                ? "at the top: the base has swept the whole height."
+                : "keep going — the base is sweeping out the solid."}
+            </p>
+          </div>
+        );
+      }
       const layers = Math.floor(n / per), rem = n % per;
       const sa = surfaceArea(D);
       return (
@@ -464,7 +559,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
     case "tris":
       return (
         <Catalogue
-          items={CUBOID_TRIS} at={user.triIdx} dims={D}
+          items={PRISM_TRIS[fig]} at={user.triIdx} dims={D}
           onPick={(i) => set({ triIdx: i })}
           label="Choose a right triangle"
         />
@@ -473,7 +568,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
     case "secs":
       return (
         <Catalogue
-          items={CUBOID_SECS} at={user.secIdx} dims={D}
+          items={PRISM_SECS[fig]} at={user.secIdx} dims={D}
           onPick={(i) => set({ secIdx: i })}
           label="Choose a section"
         />
@@ -482,7 +577,7 @@ export default function Controls({ kind, solids, user, set, setSolid }: ControlP
     case "ang":
       return (
         <Catalogue
-          items={CUBOID_ANGS} at={user.angIdx} dims={D}
+          items={PRISM_ANGS[fig]} at={user.angIdx} dims={D}
           onPick={(i) => set({ angIdx: i })}
           label="Choose an angle"
         />

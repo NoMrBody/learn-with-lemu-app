@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import type {
   Dims, FaceKind, PyrFaceKind, SceneGroups, SceneLabels, Solid,
 } from "./scene";
-import { CUBOID_NET_RULE, CUBOID_VOL_RULE, plainRule } from "./cuboid-figures";
+import { plainRule } from "./cuboid-figures";
+import { PRISM_COPY, type PrismCopy, type PrismId } from "./prisms";
 
 /**
  * The beats of the stereometry explainers.
@@ -52,6 +53,8 @@ export type SolidMode = "both" | "box" | "pyr" | "none";
 /** Everything the learner can change that outlives a single beat. */
 export type UserState = {
   solid: Solid;
+  /** Which prism the box topic is showing. The pyramid ignores it. */
+  fig: PrismId;
   dims: Dims;
   unfold: number;
   fill: number;
@@ -70,6 +73,7 @@ export type UserState = {
 
 export const INITIAL_USER_STATE: UserState = {
   solid: "box",
+  fig: "cuboid",
   dims: { L: 6, W: 4, H: 3 },
   unfold: 0,
   fill: 0,
@@ -101,6 +105,14 @@ export type Beat = {
   showPrjArc?: boolean;
   /** Applied on entry, mirroring the original's per-beat resets. */
   onEnter?: Partial<UserState>;
+  /**
+   * Wording for the figure on screen, read from PRISM_COPY. A spine slide asks
+   * the same question of all three prisms and only the answer changes, so the
+   * answer lives with the geometry rather than being restated per figure here.
+   */
+  byFig?: (c: PrismCopy) => { body: string; know?: { t: string; p: ReactNode } };
+  /** A title only some figures take — the prisms sweep where the cuboid fills. */
+  titleByFig?: Partial<Record<PrismId, string>>;
   titleBySolid?: Partial<Record<Solid, string>>;
   bodyBySolid?: Partial<Record<Solid, string>>;
   knowBySolid?: Partial<Record<Solid, { t: string; p: ReactNode }>>;
@@ -116,12 +128,13 @@ export const BEAT_LABELS: SceneLabels = {
   dims: false, areas: false, diag: [], tpp: false, solo: false,
 };
 
-/** Resolves a beat's wording for the solid currently on screen. */
-export function beatText(b: Beat, solid: Solid) {
+/** Resolves a beat's wording for the solid and figure currently on screen. */
+export function beatText(b: Beat, solid: Solid, fig: PrismId = "cuboid") {
+  const byFig = b.byFig?.(PRISM_COPY[fig]);
   return {
-    title: b.titleBySolid?.[solid] ?? b.title,
-    body: b.bodyBySolid?.[solid] ?? b.body,
-    know: b.knowBySolid?.[solid] ?? b.know,
+    title: b.titleByFig?.[fig] ?? b.titleBySolid?.[solid] ?? b.title,
+    body: byFig?.body ?? b.bodyBySolid?.[solid] ?? b.body,
+    know: byFig?.know ?? b.knowBySolid?.[solid] ?? b.know,
   };
 }
 
@@ -371,27 +384,37 @@ const TOOLKIT_BEATS: Beat[] = [
     groups: { prj: true },
     labels: { dims: true },
     showPrjArc: false,
-    onEnter: { unfold: 0, fill: 0, doubled: false, solid: "box" },
+    // The tilted cut and its shadow are drawn on the box, so this slide pins
+    // the figure as well as the solid — the same reason `solid` is pinned here.
+    onEnter: { unfold: 0, fill: 0, doubled: false, solid: "box", fig: "cuboid" },
   },
 ];
 
 /**
- * The cuboid's spine, ported from spineFor('cuboid') × FIGDATA.cuboid in
+ * The prism spine, ported from spineFor() × FIGDATA in
  * legacy/topic-cuboid.html.
  *
  * Six slides that each answer one question about the solid, where the older
  * script moved through techniques. The last three beats — the triangles, the
  * cuts and the angles — are catalogues rather than single figures: each offers
- * a chip row, and the entries themselves live in ./cuboid-figures.
+ * a chip row, and the entries themselves live in ./cuboid-figures (the cuboid)
+ * and ./prisms (the other two).
+ *
+ * One array serves all three prisms: the questions never change, so each slide
+ * carries a `byFig` that reads its answer out of PRISM_COPY, and the figure
+ * switcher on the first slide is what moves between them. The literal `body`
+ * strings are the cuboid's, kept as the fallback for any caller that resolves
+ * a beat without a figure.
  *
  * Every beat here is `solids: 'box'`. Nothing filters them, because getBeats
- * hands this array to the cuboid and only to the cuboid; the mode is set so a
- * beat still reads correctly on its own.
+ * hands this array to the box topic and only to it; the mode is set so a beat
+ * still reads correctly on its own.
  */
-const CUBOID_SPINE: Beat[] = [
+const PRISM_SPINE: Beat[] = [
   {
     title: "Your figure, your numbers.",
-    body: "This is a cuboid — a solid that looks like a box. It has three dimensions: length, width and height. Try changing them and watch everything follow.",
+    body: PRISM_COPY.cuboid.sizes,
+    byFig: (c) => ({ body: c.sizes }),
     know: {
       t: "Worth trying",
       p: (
@@ -410,16 +433,18 @@ const CUBOID_SPINE: Beat[] = [
   },
   {
     title: "Open it up.",
-    body: "A cuboid is made of six flat rectangles. Unfold it and they all lie side by side — then the surface area is just their areas added up.",
-    know: {
-      t: "Worth knowing",
-      p: (
-        <>
-          <b>{plainRule(CUBOID_NET_RULE)}</b>. Opposite faces are identical, so there are
-          really only three different rectangles to find, and each one appears twice.
-        </>
-      ),
-    },
+    body: PRISM_COPY.cuboid.net,
+    byFig: (c) => ({
+      body: c.net,
+      know: {
+        t: "Worth knowing",
+        p: (
+          <>
+            <b>{plainRule(c.netRule)}</b>. {c.netWhy}
+          </>
+        ),
+      },
+    }),
     control: "unfoldSum",
     solids: "box",
     glass: 0,
@@ -428,17 +453,19 @@ const CUBOID_SPINE: Beat[] = [
   },
   {
     title: "Fill it up.",
-    body: "Volume asks how much space is inside. So fill the box with cubes of side 1 and count them.",
-    know: {
-      t: "Worth knowing",
-      p: (
-        <>
-          <b>{plainRule(CUBOID_VOL_RULE)}</b>. One layer holds l × w cubes, and there are
-          h layers. Double every length and the surface grows four times, the volume
-          eight.
-        </>
-      ),
-    },
+    titleByFig: { triprism: "Sweep it up.", hexprism: "Sweep it up." },
+    body: PRISM_COPY.cuboid.volBody,
+    byFig: (c) => ({
+      body: c.volBody,
+      know: {
+        t: "Worth knowing",
+        p: (
+          <>
+            <b>{plainRule(c.volRule)}</b>. {c.volWhy}
+          </>
+        ),
+      },
+    }),
     control: "vol",
     solids: "box",
     glass: 1,
@@ -446,16 +473,11 @@ const CUBOID_SPINE: Beat[] = [
   },
   {
     title: "Where are the triangles?",
-    body: "A cuboid has no triangles drawn on it. But join two corners and one appears — and a right triangle is something you already know how to handle.",
-    know: {
-      t: "Worth knowing",
-      p: (
-        <>
-          Every one of these has the same shape: two sides you know, one you want. What
-          changes is which two you start from.
-        </>
-      ),
-    },
+    body: PRISM_COPY.cuboid.triBody,
+    byFig: (c) => ({
+      body: c.triBody,
+      know: { t: "Worth knowing", p: <>{c.triWhy}</> },
+    }),
     control: "tris",
     solids: "box",
     glass: 0.85,
@@ -488,7 +510,8 @@ const CUBOID_SPINE: Beat[] = [
   },
   {
     title: "How steep is it?",
-    body: "A line inside the box leans. To say how much, compare it with its own shadow on the floor.",
+    body: PRISM_COPY.cuboid.angBody,
+    byFig: (c) => ({ body: c.angBody }),
     know: {
       t: "Worth knowing",
       p: (
@@ -516,8 +539,8 @@ const CUBOID_SPINE: Beat[] = [
  */
 export const BEATS: Beat[] = [...NARRATIVE_BEATS, ...TOOLKIT_BEATS];
 
-/** The cuboid's own running order: its spine, then the shared toolkit. */
-export const CUBOID_BEATS: Beat[] = [...CUBOID_SPINE, ...TOOLKIT_BEATS];
+/** The box topic's running order: the prism spine, then the shared toolkit. */
+export const PRISM_BEATS: Beat[] = [...PRISM_SPINE, ...TOOLKIT_BEATS];
 
 /* ============================================================
    per-topic selection
@@ -559,8 +582,8 @@ export function initialUserState(topicSlug: string): UserState {
 export function getBeats(topicSlug: string): Beat[] {
   const solid = solidFor(topicSlug);
   // The cuboid has its own running order and needs no filtering: every beat in
-  // CUBOID_BEATS is already either its own or the shared toolkit.
-  if (solid === "box") return CUBOID_BEATS;
+  // PRISM_BEATS is already either its own or the shared toolkit.
+  if (solid === "box") return PRISM_BEATS;
   return BEATS.filter(
     (b) => b.solids === "both" || b.solids === "none" || b.solids === solid,
   ).map((b) => (b.solids === "both" ? { ...b, solids: solid } : b));

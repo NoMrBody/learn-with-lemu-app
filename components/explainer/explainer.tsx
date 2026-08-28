@@ -12,6 +12,9 @@ import {
   createExplainerScene, volume, type ExplainerScene, type SceneParams,
   type Solid,
 } from "@/lib/explainer/scene";
+import {
+  PRISM_ANGS, PRISM_SECS, PRISM_SIZES, PRISM_TRIS, clampIdx, type PrismId,
+} from "@/lib/explainer/prisms";
 import { markStageProgress } from "@/app/[subject]/[topicSlug]/actions";
 
 export type ExplainerProps = {
@@ -70,6 +73,7 @@ export default function Explainer({
     const params: SceneParams = {
       dims: user.dims,
       solid: user.solid,
+      fig: user.fig,
       unfold: user.unfold,
       glass: b.glass,
       fill: user.fill,
@@ -146,6 +150,29 @@ export default function Explainer({
     [beat, beats],
   );
 
+  /**
+   * A new prism brings its own proportions and its own catalogues, so the
+   * sizes are reset and every chip index is pulled back inside the new lists —
+   * they are different lengths, and an index past the end would blank a slide.
+   */
+  const setFig = useCallback(
+    (fig: PrismId) => {
+      sceneRef.current?.stopSpin();
+      setUser((u) => ({
+        ...u,
+        fig,
+        dims: PRISM_SIZES[fig],
+        fill: 0,
+        unfold: 0,
+        doubled: false,
+        triIdx: clampIdx(u.triIdx, PRISM_TRIS[fig].length),
+        secIdx: clampIdx(u.secIdx, PRISM_SECS[fig].length),
+        angIdx: clampIdx(u.angIdx, PRISM_ANGS[fig].length),
+      }));
+    },
+    [],
+  );
+
   const set = useCallback((patch: Partial<UserState>) => {
     sceneRef.current?.stopSpin();
     setUser((u) => {
@@ -157,7 +184,7 @@ export default function Explainer({
   }, []);
 
   const b = beats[beat];
-  const text = beatText(b, user.solid);
+  const text = beatText(b, user.solid, user.fig);
   const last = beat === beats.length - 1;
 
   return (
@@ -219,6 +246,7 @@ export default function Explainer({
               user={user}
               set={set}
               setSolid={setSolid}
+              setFig={setFig}
             />
           </div>
 

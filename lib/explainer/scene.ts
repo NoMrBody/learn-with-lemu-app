@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { figColor, onFigureTheme } from "@/lib/figure-theme";
+import { surd, type FigAng, type FigSec, type FigTri, type Pt } from "./cuboid-figures";
+import { createPrismLayer } from "./prism-layer";
 import {
-  CUBOID_ANGS, CUBOID_SECS, CUBOID_TRIS, surd,
-  type CuboidAng, type CuboidSec, type CuboidTri, type Pt,
-} from "./cuboid-figures";
+  PRISM_ANGS, PRISM_SECS, PRISM_TRIS, baseRing, type PrismId,
+} from "./prisms";
 
 /**
  * The cuboid explainer's 3D world, ported from legacy/cuboid.html.
@@ -153,6 +154,11 @@ export type SceneParams = {
   labels: SceneLabels;
   /** Which solid the learner is looking at. Persists across beats. */
   solid: Solid;
+  /**
+   * Which prism, when the solid is a box. 'cuboid' is the six hinged faces
+   * below; the other two are drawn by ./prism-layer from their base ring.
+   */
+  fig: PrismId;
   faceKind: FaceKind;
   pyrFaceKind: PyrFaceKind;
   tppTheta: number;
@@ -560,6 +566,14 @@ export function createExplainerScene(
 
   let D: Dims = { L: 6, W: 4, H: 3 };
   let solid: Solid = "box";
+  /** Which prism is showing. Only ever read while `solid` is 'box'. */
+  let fig: PrismId = "cuboid";
+  /** True while the figure is one ./prism-layer draws rather than the faces. */
+  const ringFig = () => solid === "box" && fig !== "cuboid";
+
+  /* the triangular and hexagonal prisms — the cuboid keeps the faces above */
+  const prism = createPrismLayer();
+  world.add(prism.group);
 
   const FACES: {
     g: FaceGroup;
@@ -1048,15 +1062,39 @@ export function createExplainerScene(
     labelBox.appendChild(el);
     return el;
   }
+  /** Pushes a label clear of the solid, along its own radius. */
+  const outward = (v: number[]): number[] => {
+    const r = Math.hypot(v[0], v[1]) || 1;
+    const k = 1 + 0.9 / r;
+    return [v[0] * k, v[1] * k, v[2]];
+  };
+  /** The midpoint of the ring's first side, where `a` is written. */
+  const ringSide = (): number[] => {
+    const b = baseRing(fig, D);
+    return [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2, 0];
+  };
   const dimLabels = [
-    { el: mkLabel("dim"), get: () => D.L, pos: () => [0, -D.W / 2 - 0.95, -0.5] },
+    {
+      el: mkLabel("dim"),
+      // A regular base is one number: the `a` slider writes L, so this slot
+      // reads the side length on a ring figure and the length on a cuboid.
+      get: () => D.L,
+      pos: () => (ringFig() ? outward(ringSide()) : [0, -D.W / 2 - 0.95, -0.5]),
+    },
     { el: mkLabel("dim"), get: () => D.W, pos: () => [D.L / 2 + 0.95, 0, -0.5] },
     {
       el: mkLabel("dim"),
       get: () => D.H,
       // The pyramid has no vertical edge to hang this off, so it rides the axis.
-      pos: () =>
-        solid === "pyr" ? [0.55, 0, D.H / 2] : [D.L / 2 + 0.7, -D.W / 2 - 0.7, D.H / 2],
+      pos: () => {
+        if (ringFig()) {
+          const b = baseRing(fig, D);
+          return outward([b[0][0], b[0][1], D.H / 2]);
+        }
+        return solid === "pyr"
+          ? [0.55, 0, D.H / 2]
+          : [D.L / 2 + 0.7, -D.W / 2 - 0.7, D.H / 2];
+      },
     },
   ];
   const dLab: Record<DiagLabelKey, HTMLDivElement> = {
@@ -1111,7 +1149,7 @@ export function createExplainerScene(
     (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2,
   ];
 
-  function setCatTri(t: CuboidTri) {
+  function setCatTri(t: FigTri) {
     const p = t.pts(D);
     showQuad([p[0], p[1], p[2], p[2]], t.col);
 
@@ -1133,14 +1171,14 @@ export function createExplainerScene(
     }
   }
 
-  function setCatSec(s: CuboidSec) {
+  function setCatSec(s: FigSec) {
     const q = s.quad(D);
     // A three-point cut closes as a degenerate quad, exactly as PYR_FACE_PTS.apo
     // already does: showQuad drops the zero-length edge.
     showQuad(q.length === 3 ? [...q, q[2]] : q, s.col);
   }
 
-  function setCatAng(a: CuboidAng) {
+  function setCatAng(a: FigAng) {
     const lines = a.lines(D);
     angSegs.forEach((m, i) => {
       const line = lines[i];
@@ -1244,6 +1282,7 @@ export function createExplainerScene(
     [back, front, right, left].forEach((w) => w.f.position.set(0, 0, H / 2));
     topPivot.position.set(0, 0, H);
     topFace.position.set(0, -W / 2, 0);
+    prism.layout(fig, D);
     layoutCubes(); layoutDouble(); layoutDblPyr(); layoutDiagonals(); layoutTPP();
     layoutPrj(); layoutSolo(); layoutPar(); layoutCri();
     refreshLabelText();
@@ -1266,6 +1305,11 @@ export function createExplainerScene(
       return;
     }
     const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    if (ringFig()) {
+      prism.setUnfold(e);
+      applyCam(t);
+      return;
+    }
     for (const p of HINGES) {
       const a = p.userData.end * e;
       if (p.userData.axis === "x") p.rotation.x = a;
@@ -1278,6 +1322,13 @@ export function createExplainerScene(
   function applyCam(t: number) {
     const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     const { L, W, H } = D;
+    if (ringFig()) {
+      // The layer knows every point of its own net, so it is asked rather than
+      // having the bound restated here in terms of l and w it does not use.
+      want.dist = fitDist(prism.radius(e)) * zoomMul;
+      prism.centre(e, want.target);
+      return;
+    }
     let rSolid: number, rNet: number;
     if (solid === "pyr") {
       rSolid = 0.5 * Math.hypot(L, W) + H * 0.35;
@@ -1306,6 +1357,7 @@ export function createExplainerScene(
     pyrBase.userData.mat.opacity = 1 - 0.86 * g;
     pyrBase.userData.lineMat.opacity = 0.55 + 0.45 * g;
     pyrSides.forEach((f) => (f.userData.mat.opacity = 1 - 0.86 * g));
+    prism.setGlass(g);
   }
   function applyOrbit() {
     const t = (orbit.theta * Math.PI) / 180, p = (orbit.phi * Math.PI) / 180;
@@ -1383,7 +1435,14 @@ export function createExplainerScene(
     // Cubes are a box-only device. Guarding here rather than at each call
     // site stops a part-filled box being left inside the pyramid after a
     // toggle, which is what the original did.
-    cubes.count = solidVisible && solid === "box" ? Math.round(fill) : 0;
+    cubes.count = solidVisible && solid === "box" && !ringFig() ? Math.round(fill) : 0;
+    // The prisms answer the volume slide by sweeping their base up instead of
+    // counting cubes, so the same eased `fill` drives both.
+    // `fill` counts unit cubes for the cuboid; a prism has no cubes to count,
+    // so it reads the same number as the fraction of itself swept so far.
+    prism.setFill(
+      ringFig() && solidVisible ? fill / Math.max(D.L * D.W * D.H, 1) : 0,
+    );
     orbit.dist += (want.dist - orbit.dist) * 0.09;
     orbit.target.lerp(want.target, 0.09);
     applyOrbit();
@@ -1395,9 +1454,12 @@ export function createExplainerScene(
 
   function update(p: SceneParams) {
     const dimsChanged = p.dims.L !== D.L || p.dims.W !== D.W || p.dims.H !== D.H;
-    const solidChanged = p.solid !== solid;
+    const solidChanged = p.solid !== solid || p.fig !== fig;
     D = p.dims;
     solid = p.solid;
+    // A figure change rewrites the same buffers a size change does.
+    const figChanged = p.fig !== fig;
+    fig = p.fig;
     solidVisible = p.groups.solidVisible;
 
     unfoldT = p.unfold;
@@ -1409,17 +1471,21 @@ export function createExplainerScene(
     if (soloH !== p.soloH) { soloH = p.soloH; layoutSolo(); }
     if (parT !== p.parT) { parT = p.parT; layoutPar(); }
     if (criAng !== p.criAng) { criAng = p.criAng; layoutCri(); }
-    if (dimsChanged) setDims();
+    if (dimsChanged || figChanged) setDims();
     // A toggle re-points visibility and re-frames the camera at the current
     // fold, but deliberately leaves orbit angle, zoom and the eased unfold /
     // glass / fill values alone, so the view does not jump.
     if (solidChanged || dimsChanged) applyUnfold(unfold);
 
-    const showBox = p.groups.solidVisible && solid === "box";
+    // Within the box topic the two rings and the six faces are alternatives:
+    // whichever the learner picked is the only one drawn.
+    const showRing = p.groups.solidVisible && ringFig();
+    const showBox = p.groups.solidVisible && solid === "box" && !ringFig();
     const showPyr = p.groups.solidVisible && solid === "pyr";
     FACES.forEach((f) => (f.g.visible = showBox));
     HINGES.forEach((h) => (h.visible = showBox));
     base.visible = showBox;
+    prism.group.visible = showRing;
     pyrG.visible = showPyr;
     if (showPyr) layoutPyramid(unfold);
     thirdG.visible = p.groups.third && showPyr;
@@ -1432,15 +1498,16 @@ export function createExplainerScene(
     soloG.visible = p.groups.solo;
     parG.visible = p.groups.par;
     criG.visible = p.groups.cri;
-    dbl.visible = p.groups.doubled && solid === "box";
+    // The doubling outline is a box wireframe, so it is a cuboid argument only.
+    dbl.visible = p.groups.doubled && showBox;
     dblPyr.visible = p.groups.doubled && solid === "pyr";
 
     // The cuboid's triangle and section catalogues borrow the highlight group
     // for their fill and outline, so when one is selected it takes precedence
     // over the named-face highlight.
-    const tri = p.triIdx != null ? CUBOID_TRIS[p.triIdx] : undefined;
-    const sec = p.secIdx != null ? CUBOID_SECS[p.secIdx] : undefined;
-    const ang = p.angIdx != null ? CUBOID_ANGS[p.angIdx] : undefined;
+    const tri = p.triIdx != null ? PRISM_TRIS[fig][p.triIdx] : undefined;
+    const sec = p.secIdx != null ? PRISM_SECS[fig][p.secIdx] : undefined;
+    const ang = p.angIdx != null ? PRISM_ANGS[fig][p.angIdx] : undefined;
 
     catTriG.visible = p.groups.highlight && tri !== undefined;
     angG.visible = p.groups.angle && ang !== undefined;
@@ -1457,7 +1524,8 @@ export function createExplainerScene(
     markBase.visible = p.showMarkBase;
     prjArc.visible = p.showPrjArc;
 
-    dimLabels.forEach((d) => toggle(d.el, p.labels.dims));
+    // A regular base has no separate width to name.
+    dimLabels.forEach((d, i) => toggle(d.el, p.labels.dims && !(i === 1 && ringFig())));
     // Face-area labels are positioned from the box's faces, so they would
     // float over a pyramid as six strays — the original did exactly that.
     FACES.forEach((f) => toggle(f.label, p.labels.areas && showBox));

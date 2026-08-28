@@ -126,18 +126,18 @@ type Entry = {
   note: string;
 };
 
-export type CuboidTri = Entry & {
+export type FigTri = Entry & {
   /** Which of the three points carries the right-angle mark. */
   right: 0 | 1 | 2;
   pts: (d: Dims) => [Pt, Pt, Pt];
 };
 
-export type CuboidSec = Entry & {
+export type FigSec = Entry & {
   /** Four points, or three for a cut that comes out a triangle. */
   quad: (d: Dims) => Pt[];
 };
 
-export type CuboidAng = Entry & {
+export type FigAng = Entry & {
   /** The leaning line, its shadow, and the upright — as [from, to, colour, radius]. */
   lines: (d: Dims) => [Pt, Pt, number, number][];
   /** The degree readout and where to float it. */
@@ -148,7 +148,7 @@ export type CuboidAng = Entry & {
  * Every right triangle the cuboid hides. Each is two sides you know and one you
  * want; what changes is which two you start from.
  */
-export const CUBOID_TRIS: CuboidTri[] = [
+export const CUBOID_TRIS: FigTri[] = [
   {
     label: "base diagonal",
     col: 0x2b4fe8,
@@ -203,7 +203,7 @@ export const CUBOID_TRIS: CuboidTri[] = [
 ];
 
 /** The cuts. Slice straight through and what you get back is a flat shape. */
-export const CUBOID_SECS: CuboidSec[] = [
+export const CUBOID_SECS: FigSec[] = [
   {
     label: "diagonal section",
     col: 0xe39a22,
@@ -262,7 +262,7 @@ const SHADOW = 0x2b4fe8, UPRIGHT = 0xe39a22;
  * The angles. Each is one leaning line, its shadow, and the upright that joins
  * them — because an angle off the base is always measured against the shadow.
  */
-export const CUBOID_ANGS: CuboidAng[] = [
+export const CUBOID_ANGS: FigAng[] = [
   {
     label: "space diagonal ∠ base",
     col: 0xe8442a,
