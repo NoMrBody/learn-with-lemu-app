@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type {
-  Dims, FaceKind, PyrFaceKind, SceneGroups, SceneLabels, Solid,
+  Dims, FaceKind, PyrAngKind, PyrFaceKind, PyrTriKind, SceneGroups, SceneLabels,
+  Solid,
 } from "./scene";
 
 /**
@@ -27,7 +28,7 @@ import type {
 
 export type ControlKind =
   | "dims" | "none" | "unfoldSum" | "fill" | "double" | "diag"
-  | "faces" | "cri" | "angDist" | "prj"
+  | "faces" | "pyrTri" | "pyrAng" | "cri" | "angDist" | "prj"
   // Retained for the beats that were cut (parallel translation, three
   // perpendiculars, the plain angle panel). No beat references them; their
   // scene groups are still built, so restoring a slide is a one-line change.
@@ -48,6 +49,8 @@ export type UserState = {
   doubled: boolean;
   faceKind: FaceKind;
   pyrFaceKind: PyrFaceKind;
+  pyrTri: PyrTriKind;
+  pyrAng: PyrAngKind;
   tppTheta: number;
   soloH: number;
   parT: number;
@@ -62,6 +65,8 @@ export const INITIAL_USER_STATE: UserState = {
   doubled: false,
   faceKind: "base",
   pyrFaceKind: "base",
+  pyrTri: "apo",
+  pyrAng: "face",
   tppTheta: 90,
   soloH: 4,
   parT: 0,
@@ -90,8 +95,9 @@ export type Beat = {
 };
 
 export const BEAT_GROUPS: SceneGroups = {
-  solidVisible: true, third: false, diag: false, tri: false, highlight: false,
-  tpp: false, prj: false, solo: false, par: false, cri: false, doubled: false,
+  solidVisible: true, third: false, ptri: false, pang: false, diag: false,
+  tri: false, highlight: false, tpp: false, prj: false, solo: false,
+  par: false, cri: false, doubled: false,
 };
 
 export const BEAT_LABELS: SceneLabels = {
@@ -248,6 +254,33 @@ export const BEATS: Beat[] = [
     onEnter: { unfold: 0, fill: 0, doubled: false },
   },
   {
+    // The pyramid's answer to the box's Pythagoras slide, and the piece the
+    // split port left behind: TRIANGLES_PYR in legacy/topic-cuboid.html.
+    title: "The three hidden right triangles.",
+    body: "Every question about this pyramid comes down to one of these three. All of them share the height — what changes is the second leg. Tap each one.",
+    know: {
+      t: "Use this in exercises",
+      p: (
+        <>
+          <b>h, w/2, apothem</b> gives the apothem, which the surface area needs.{" "}
+          <b>h, R, lateral edge</b> gives the lateral edge — its foot is a corner, so
+          the second leg is the half-diagonal, not w/2. <b>apothem, l/2, lateral edge</b>{" "}
+          sits inside one face and ties the other two together, which is why the same
+          edge comes out of both. Reaching for the wrong second leg is the single most
+          common mistake in this topic.
+        </>
+      ),
+    },
+    control: "pyrTri",
+    solids: "pyr",
+    // Glass is transparency, not opacity: these triangles run through the
+    // inside, so they need the same see-through the box's diagonal beat uses.
+    glass: 0.85,
+    groups: { ptri: true },
+    labels: { dims: true },
+    onEnter: { unfold: 0, fill: 0, doubled: false, solid: "pyr", pyrTri: "apo" },
+  },
+  {
     title: "You will need Pythagoras. A lot.",
     body: "Questions ask for corner-to-opposite-corner. That line is not an edge and it is not drawn — you build it, from a right triangle that sits on no face. Green flat on the base, then gold standing up on green.",
     know: {
@@ -287,6 +320,20 @@ export const BEATS: Beat[] = [
         </>
       ),
     },
+    knowBySolid: {
+      pyr: {
+        t: "Use this in exercises",
+        p: (
+          <>
+            Read the wording carefully. <b>Lateral</b> means the four triangles only.{" "}
+            <b>Total</b> adds the base. The last two chips are <b>sections</b> — cuts
+            through the inside, not faces — and both of them contain the height. That is
+            exactly what makes them the two worth taking: a cut with h in it turns a
+            question about space into a question about a triangle.
+          </>
+        ),
+      },
+    },
     control: "faces",
     solids: "both",
     glass: 0.8,
@@ -295,6 +342,29 @@ export const BEATS: Beat[] = [
     onEnter: {
       unfold: 0, fill: 0, doubled: false, faceKind: "base", pyrFaceKind: "base",
     },
+  },
+  {
+    // ANGLES_PYR in legacy/topic-cuboid.html. Concrete first: the abstract
+    // angle-to-a-plane slide two on from here generalises what this shows.
+    title: "How steep is it?",
+    body: "A face leans on the base, and so does an edge. Same height both times — only the foot moves, and that alone makes them different angles.",
+    know: {
+      t: "Use this in exercises",
+      p: (
+        <>
+          A <b>lateral face</b> uses h and w/2. A <b>lateral edge</b> uses h and the
+          half-diagonal R. Since w/2 &lt; R, the face angle is always the steeper of the
+          two — a free check on an answer. Why the angle is measured against the shadow
+          rather than against a convenient edge is coming up.
+        </>
+      ),
+    },
+    control: "pyrAng",
+    solids: "pyr",
+    // The axis and the shadow both cross the interior — further open still.
+    glass: 0.9,
+    groups: { pang: true },
+    onEnter: { unfold: 0, fill: 0, doubled: false, solid: "pyr", pyrAng: "face" },
   },
   {
     title: "Two lines are enough.",

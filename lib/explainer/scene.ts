@@ -23,6 +23,14 @@ export type Solid = "box" | "pyr";
 export type FaceKind = "base" | "lateral" | "diagonal" | "tilted";
 /** The pyramid names its sections differently from the box. */
 export type PyrFaceKind = "base" | "lateral" | "apo" | "diag";
+/**
+ * The three right triangles hiding inside the pyramid, named by the two legs
+ * you already know. All three share the apex; what changes is the second leg,
+ * and picking the wrong one is the classic mistake in this topic.
+ */
+export type PyrTriKind = "apo" | "edge" | "face";
+/** Which line is leaning on the base — a lateral face, or a lateral edge. */
+export type PyrAngKind = "face" | "edge";
 export type DiagLabelKey = "face" | "space" | "vert" | "ang";
 
 export const MAXD = 8;
@@ -30,6 +38,17 @@ const CAP = MAXD * MAXD * MAXD;
 const RSEG = 0.055;
 const COL = { a: 0xe8442a, b: 0x2b4fe8, c: 0xe39a22 } as const;
 const CSS = { a: "#E8442A", b: "#2340C4", c: "#9A6614" } as const;
+
+/**
+ * One colour per pyramid triangle and per pyramid angle, carried by whatever
+ * the slide is actually asking about — the hypotenuse, the leaning line. The
+ * control panel exports the same hues as chip swatches, so the chips are a
+ * legend. Values are the legacy file's.
+ */
+export const PYR_TRI_COL = { apo: 0x2b4fe8, edge: 0xe8442a, face: 0xe39a22 } as const;
+export const PYR_TRI_CSS = { apo: "#2B4FE8", edge: "#E8442A", face: "#E39A22" } as const;
+export const PYR_ANG_COL = { face: 0x2b4fe8, edge: 0xe8442a } as const;
+export const PYR_ANG_CSS = { face: "#2B4FE8", edge: "#E8442A" } as const;
 
 /**
  * Tag every material under `obj` as following one of the --fig-* structural
@@ -94,6 +113,19 @@ export const halfDiag = (d: Dims) => Math.hypot(d.L / 2, d.W / 2);
 /** Corner to apex. Not the same as the apothem, which is the classic slip. */
 export const lateralEdge = (d: Dims) => Math.hypot(halfDiag(d), d.H);
 
+/**
+ * How steeply a lateral face leans on the base, in degrees. The foot is the
+ * midpoint of a base edge, so the run is half the other side.
+ */
+export const pyrFaceAngle = (d: Dims) => (Math.atan2(d.H, d.W / 2) * 180) / Math.PI;
+/**
+ * How steeply a lateral edge leans on the base, in degrees. The foot is a
+ * corner, so the run is the half-diagonal — always longer than w/2, which is
+ * why the face angle is the steeper of the two.
+ */
+export const pyrEdgeAngle = (d: Dims) =>
+  (Math.atan2(d.H, halfDiag(d)) * 180) / Math.PI;
+
 export const pyrLateralArea = (d: Dims) => d.L * apoLW(d) + d.W * apoWH(d);
 export const pyrSurfaceArea = (d: Dims) => d.L * d.W + pyrLateralArea(d);
 export const pyrVolume = (d: Dims) => (d.L * d.W * d.H) / 3;
@@ -111,6 +143,10 @@ export type SceneGroups = {
   solidVisible: boolean;
   /** The containing box wireframe, used to argue the pyramid is a third of it. */
   third: boolean;
+  /** One of the pyramid's three hidden right triangles, pulled out. */
+  ptri: boolean;
+  /** A lateral face or edge leaning on the base, with its shadow and arc. */
+  pang: boolean;
   diag: boolean;
   tri: boolean;
   highlight: boolean;
@@ -144,6 +180,8 @@ export type SceneParams = {
   solid: Solid;
   faceKind: FaceKind;
   pyrFaceKind: PyrFaceKind;
+  pyrTri: PyrTriKind;
+  pyrAng: PyrAngKind;
   tppTheta: number;
   soloH: number;
   parT: number;
@@ -307,6 +345,22 @@ function quadGeo(mesh: THREE.Mesh, p: Vec3[]) {
   mesh.geometry.dispose();
   mesh.geometry = g;
 }
+
+/** The quad's three-cornered sibling, for the triangles pulled out of the pyramid. */
+function triGeo(mesh: THREE.Mesh, p1: Vec3, p2: Vec3, p3: Vec3) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute([...p1, ...p2, ...p3], 3),
+  );
+  mesh.geometry.dispose();
+  mesh.geometry = g;
+}
+
+const len3 = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const mid3 = (a: Vec3, b: Vec3) => [
+  (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2,
+];
 
 function gridPoints(size: number, n: number) {
   const pts: number[] = [];
@@ -539,9 +593,116 @@ export function createExplainerScene(
     thirdWire.position.set(0, 0, H / 2);
   }
 
+  /* ---- the three right triangles hiding inside the pyramid ----
+     Ported from ptriG / showPyrTri in legacy/topic-cuboid.html. The legacy
+     figure was a regular square pyramid with one apothem; this one is
+     rectangular, so the apothem the triangles use is the one onto a base edge
+     of length l, and the note in the panel names the other. */
+  const ptriG = new THREE.Group();
+  ptriG.visible = false;
+  world.add(ptriG);
+  const ptriLegA = seg(0x5fb0a6, RSEG);
+  const ptriLegB = seg(0xe27a5f, RSEG);
+  // The hypotenuse is what the triangle actually hands you, so it reads heaviest.
+  const ptriHyp = seg(0xe8b84b, RSEG * 1.15);
+  ptriG.add(ptriLegA, ptriLegB, ptriHyp);
+  const ptriMark = figRole(rightMark(figColor("ink")), "ink");
+  ptriG.add(ptriMark);
+  const ptriFill = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: 0xe8b84b, transparent: true, opacity: 0.13, side: THREE.DoubleSide,
+    }),
+  );
+  ptriG.add(ptriFill);
+
+  /**
+   * One triangle as `c` (the square corner), `a` (always the apex) and `b`.
+   * S is the apex, O the base centre, M the midpoint of a base edge of length
+   * l, A the corner that edge runs to.
+   */
+  function pyrTriPts(kind: PyrTriKind) {
+    const { L, W, H } = D;
+    const S = [0, 0, H], O = [0, 0, 0];
+    const M = [0, -W / 2, 0], A = [-L / 2, -W / 2, 0];
+    if (kind === "apo") return { c: O, a: S, b: M };
+    if (kind === "edge") return { c: O, a: S, b: A };
+    // Inside one lateral face: the apothem and half of l give the same edge.
+    return { c: M, a: S, b: A };
+  }
+
+  function layoutPyrTri(kind: PyrTriKind) {
+    const { c, a, b } = pyrTriPts(kind);
+    // The hypotenuse takes the triangle's own colour, so the panel's chips
+    // read as a legend for what is drawn rather than as decoration.
+    const col = PYR_TRI_COL[kind];
+    (ptriHyp.material as THREE.MeshBasicMaterial).color.setHex(col);
+    (ptriFill.material as THREE.MeshBasicMaterial).color.setHex(col);
+    pLab.c.style.color = "#" + col.toString(16).padStart(6, "0");
+    place(ptriLegA, c, a);
+    place(ptriLegB, c, b);
+    place(ptriHyp, a, b);
+    setMark(
+      ptriMark, c,
+      [a[0] - c[0], a[1] - c[1], a[2] - c[2]],
+      [b[0] - c[0], b[1] - c[1], b[2] - c[2]],
+      Math.min(len3(c, a), len3(c, b)) * 0.2 + 0.2,
+    );
+    triGeo(ptriFill, c, a, b);
+  }
+
+  /* ---- how steeply a face and an edge lean on the base ----
+     Ported from angG2 / showPyrAngles. Both angles stand on the same height
+     and differ only in where they touch down, which is the whole point. */
+  const pangG = new THREE.Group();
+  pangG.visible = false;
+  world.add(pangG);
+  const pangSlant = seg(0xe8b84b, RSEG * 1.15);
+  const pangShadow = seg(0x5fb0a6, RSEG);
+  const pangRise = seg(0xe27a5f, RSEG * 0.9);
+  pangG.add(pangSlant, pangShadow, pangRise);
+  const pangMark = figRole(rightMark(figColor("ink")), "ink");
+  pangG.add(pangMark);
+  const pangArc = new THREE.Line(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: 0xe8442a, transparent: true, opacity: 0.95 }),
+  );
+  pangG.add(pangArc);
+
+  /** Where the leaning line touches down: a base-edge midpoint, or a corner. */
+  function pyrAngFoot(kind: PyrAngKind) {
+    const { L, W } = D;
+    return kind === "face" ? [0, -W / 2, 0] : [-L / 2, -W / 2, 0];
+  }
+
+  function layoutPyrAng(kind: PyrAngKind) {
+    const { H } = D;
+    const F = pyrAngFoot(kind);
+    const S = [0, 0, H], O = [0, 0, 0];
+    const run = Math.hypot(F[0], F[1]);
+    const col = PYR_ANG_COL[kind];
+    (pangSlant.material as THREE.MeshBasicMaterial).color.setHex(col);
+    (pangArc.material as THREE.LineBasicMaterial).color.setHex(col);
+    paLab.style.color = PYR_ANG_CSS[kind];
+    place(pangSlant, F, S);
+    place(pangShadow, F, O);
+    place(pangRise, O, S);
+    setMark(pangMark, O, [F[0], F[1], 0], [0, 0, 1], Math.min(run, H) * 0.2 + 0.22);
+    setLinePoints(
+      pangArc,
+      arcPoints(
+        F,
+        [O[0] - F[0], O[1] - F[1], 0],
+        [S[0] - F[0], S[1] - F[1], H],
+        run * 0.34 + 0.4,
+      ),
+    );
+  }
 
   let D: Dims = { L: 6, W: 4, H: 3 };
   let solid: Solid = "box";
+  let pyrTri: PyrTriKind = "apo";
+  let pyrAng: PyrAngKind = "face";
 
   const FACES: {
     g: FaceGroup;
@@ -1049,6 +1210,13 @@ export function createExplainerScene(
   dLab.space.style.color = "#E8B84B";
   dLab.vert.style.color = "#E27A5F";
   dLab.ang.style.color = "#E8B84B";
+  // The pyramid's right triangle: its two legs and what they give you.
+  const pLab = { a: mkLabel("area"), b: mkLabel("area"), c: mkLabel("area") };
+  pLab.a.style.color = "#5FB0A6";
+  pLab.b.style.color = "#E27A5F";
+  pLab.c.style.color = "#E8B84B";
+  const paLab = mkLabel("area");
+  paLab.style.color = "#E8442A";
   const tLab = { A: mkLabel("dim"), H: mkLabel("dim"), M: mkLabel("dim"), a: mkLabel("dim") };
   tLab.A.textContent = "A"; tLab.H.textContent = "H";
   tLab.M.textContent = "M"; tLab.a.textContent = "a";
@@ -1101,6 +1269,30 @@ export function createExplainerScene(
       put(dLab.ang, [A[0] + (dir[0] / L2) * rr * 1.25, A[1] + (dir[1] / L2) * rr * 1.25, D.H * 0.12 + 0.25], w, h);
     }
 
+    if (ptriG.visible) {
+      const { c, a, b } = pyrTriPts(pyrTri);
+      pLab.a.textContent = nice(len3(c, a));
+      pLab.b.textContent = nice(len3(c, b));
+      pLab.c.textContent = nice(len3(a, b));
+      put(pLab.a, mid3(c, a), w, h);
+      put(pLab.b, mid3(c, b), w, h);
+      put(pLab.c, mid3(a, b), w, h);
+    }
+
+    if (pangG.visible) {
+      paLab.textContent =
+        (pyrAng === "face" ? pyrFaceAngle(D) : pyrEdgeAngle(D)).toFixed(1) + "°";
+      // Just inside the arc, on the base side of it.
+      const F = pyrAngFoot(pyrAng);
+      const run = Math.hypot(F[0], F[1]) || 1;
+      const r = run * 0.34 + 0.4;
+      put(
+        paLab,
+        [F[0] - (F[0] / run) * r * 1.2, F[1] - (F[1] / run) * r * 1.2, D.H * 0.14 + 0.22],
+        w, h,
+      );
+    }
+
     if (tppG.visible) {
       const { Hh, Ap, M } = tppPts();
       put(tLab.A, Ap, w, h, 0, -20);
@@ -1139,6 +1331,7 @@ export function createExplainerScene(
     topFace.position.set(0, -W / 2, 0);
     layoutCubes(); layoutDouble(); layoutDblPyr(); layoutDiagonals(); layoutTPP();
     layoutPrj(); layoutSolo(); layoutPar(); layoutCri();
+    layoutPyrTri(pyrTri); layoutPyrAng(pyrAng);
     refreshLabelText();
   }
 
@@ -1302,6 +1495,8 @@ export function createExplainerScene(
     if (soloH !== p.soloH) { soloH = p.soloH; layoutSolo(); }
     if (parT !== p.parT) { parT = p.parT; layoutPar(); }
     if (criAng !== p.criAng) { criAng = p.criAng; layoutCri(); }
+    if (pyrTri !== p.pyrTri) { pyrTri = p.pyrTri; layoutPyrTri(pyrTri); }
+    if (pyrAng !== p.pyrAng) { pyrAng = p.pyrAng; layoutPyrAng(pyrAng); }
     if (dimsChanged) setDims();
     // A toggle re-points visibility and re-frames the camera at the current
     // fold, but deliberately leaves orbit angle, zoom and the eased unfold /
@@ -1316,6 +1511,10 @@ export function createExplainerScene(
     pyrG.visible = showPyr;
     if (showPyr) layoutPyramid(unfold);
     thirdG.visible = p.groups.third && showPyr;
+    // Both are built out of the pyramid's own points, so they only make sense
+    // while it is the solid on screen.
+    ptriG.visible = p.groups.ptri && showPyr;
+    pangG.visible = p.groups.pang && showPyr;
 
     diagG.visible = p.groups.diag;
     triG.visible = p.groups.tri;
@@ -1343,6 +1542,10 @@ export function createExplainerScene(
     (Object.keys(dLab) as DiagLabelKey[]).forEach((k) =>
       toggle(dLab[k], p.labels.diag.includes(k)),
     );
+    // These two ride their own groups rather than a labels flag: there is
+    // exactly one beat each, and nothing else would ever want them.
+    (["a", "b", "c"] as const).forEach((k) => toggle(pLab[k], ptriG.visible));
+    toggle(paLab, pangG.visible);
     (["A", "H", "M", "a"] as const).forEach((k) => toggle(tLab[k], p.labels.tpp));
     (["A", "H", "M"] as const).forEach((k) => toggle(sLab[k], p.labels.solo));
 

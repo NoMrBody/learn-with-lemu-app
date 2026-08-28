@@ -89,6 +89,8 @@ export default function Explainer({
       },
       faceKind: user.faceKind,
       pyrFaceKind: user.pyrFaceKind,
+      pyrTri: user.pyrTri,
+      pyrAng: user.pyrAng,
       tppTheta: user.tppTheta,
       soloH: user.soloH,
       parT: user.parT,
