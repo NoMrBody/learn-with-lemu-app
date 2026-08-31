@@ -1,4 +1,4 @@
-import type { Pt, Points } from "./geometry";
+import type { Pt, Points, View } from "./geometry";
 
 /**
  * The problem sets, ported from the PROBLEMS array in legacy/problems.html.
@@ -61,6 +61,15 @@ export type Step = {
   got: string;
   /** Asked before the prose is shown — "ask before tell". */
   ask?: { q: string; opts: readonly AskOption[] };
+  /**
+   * Where the camera stands while this step is showing. Left off almost
+   * everywhere: the scene works it out from the plane the step's own segments
+   * and board triangle lie in, which is what "the best view of this step" means
+   * in every ordinary case. Set it where the step is about something the
+   * geometry does not mention — a stated angle, say, which reads at its true
+   * size from one place and nowhere else.
+   */
+  view?: View;
 };
 
 export type Problem = {
@@ -97,7 +106,7 @@ export type Problem = {
    */
   atStart?: readonly string[];
   /** Where the camera stands when the problem opens. Defaults to -58 / 20. */
-  view?: { theta: number; phi: number };
+  view?: View;
   /** The tilted plane in 14.57, revealed at the step where it starts to matter. */
   plane?: {
     at: number;
@@ -459,6 +468,10 @@ export const BOX_PROBLEMS: readonly Problem[] = [
         t: "Tilt it into the new plane",
         p: "AH is perpendicular to BC, and BC is the hinge between the two planes. So AH sits exactly in the plane where the angle α lives — and the distance you want is the part of AH that stands off the tilted plane.",
         tex: "d=AH\\sin\\alpha=20\\cdot\\tfrac{2}{5}=8",
+        // The segment AF is not what this step is about — the fold α is, and it
+        // only reads at its true size from where the problem opens. Aiming at
+        // AF would turn away from the one thing the step is explaining.
+        view: { theta: -118, phi: 17 },
         board: null,
         add: [["A", "F", "red"]],
         lens: [["A", "F"]],

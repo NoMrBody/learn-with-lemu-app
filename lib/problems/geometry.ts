@@ -160,3 +160,159 @@ export function shuffled<T>(arr: readonly T[], seed: string): T[] {
   }
   return out;
 }
+
+/* ============================================================
+   where a step is best looked at from
+   ============================================================ */
+
+/** Where the camera stands, in the spherical degrees lib/problems/scene.ts orbits in. */
+export type View = { theta: number; phi: number };
+
+/**
+ * The points a step is actually about: the triangle it pulls out flat, the
+ * ends of the segments it draws, and the pairs whose lengths it wins.
+ *
+ * Deliberately a superset of `board`. A step that draws a line without naming
+ * a triangle — the four sides of a section — still has a plane, and it is the
+ * one those segments lie in.
+ */
+export function stepFocus(step: {
+  board?: readonly [string, string, string] | null;
+  add?: readonly (readonly [string, string, string])[];
+  lens?: readonly (readonly [string, string])[];
+}): string[] {
+  const out: string[] = [];
+  const put = (k: string) => { if (!out.includes(k)) out.push(k); };
+  (step.board ?? []).forEach(put);
+  (step.add ?? []).forEach((e) => { put(e[0]); put(e[1]); });
+  (step.lens ?? []).forEach((e) => { put(e[0]); put(e[1]); });
+  return out;
+}
+
+type V3 = [number, number, number];
+const sub = (a: Pt, b: Pt): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cross = (a: V3, b: V3): V3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
+const norm = (a: V3): V3 => {
+  const l = len(a) || 1;
+  return [a[0] / l, a[1] / l, a[2] / l];
+};
+
+/** The unit direction the camera stands in for a `View`. */
+export function dirOf(v: View): V3 {
+  const t = (v.theta * Math.PI) / 180, p = (v.phi * Math.PI) / 180;
+  return [Math.cos(p) * Math.cos(t), Math.cos(p) * Math.sin(t), Math.sin(p)];
+}
+
+/** The `View` a unit direction stands at. φ is clamped short of the pole, where
+ *  a z-up camera's `lookAt` has no way to decide which way round it is. */
+function viewAt(d: V3): View {
+  return {
+    theta: (Math.atan2(d[1], d[0]) * 180) / Math.PI,
+    phi: Math.max(-72, Math.min(72, (Math.asin(Math.max(-1, Math.min(1, d[2]))) * 180) / Math.PI)),
+  };
+}
+
+/** Rotate `from` toward `to` by at most `deg`, both unit vectors. */
+function toward(from: V3, to: V3, deg: number): V3 {
+  const c = Math.max(-1, Math.min(1, dot(from, to)));
+  const ang = Math.acos(c);
+  const want = (deg * Math.PI) / 180;
+  if (ang <= want || ang < 1e-6 || Math.PI - ang < 1e-6) return from;
+  const t = want / ang;
+  const s = Math.sin(ang);
+  const a = Math.sin((1 - t) * ang) / s, b = Math.sin(t * ang) / s;
+  return norm([
+    from[0] * a + to[0] * b,
+    from[1] * a + to[1] * b,
+    from[2] * a + to[2] * b,
+  ]);
+}
+
+/**
+ * Looking straight down a plane's normal shows the step's triangle at its true
+ * shape — and flattens the solid around it into a wireframe with no depth at
+ * all. So the camera stops this far short of face-on: enough to read the
+ * triangle, enough to still see it sitting inside a box.
+ */
+const TILT = 22;
+
+/**
+ * Where to look at `focus` from — the plane those points work in, seen close to
+ * face-on. `home` is the problem's own viewpoint: it settles the two things the
+ * geometry cannot, namely which side of the plane to stand on when both are
+ * equally clear, and which way to look along a bare segment.
+ *
+ * `null` when the step names no geometry of its own (a step that only
+ * multiplies two lengths it already has). The caller holds its current aim
+ * rather than inventing one — a step that draws nothing has nothing to show.
+ */
+export function viewOf(P: Points, focus: readonly string[], home: View): View | null {
+  const ks = focus.filter((k) => P[k]);
+  if (ks.length < 2) return null;
+  const h = dirOf(home);
+
+  const cen = (list: readonly string[]): V3 => {
+    const c: V3 = [0, 0, 0];
+    list.forEach((k) => { c[0] += P[k][0]; c[1] += P[k][1]; c[2] += P[k][2]; });
+    return [c[0] / list.length, c[1] / list.length, c[2] / list.length];
+  };
+  const fc = cen(ks);
+  let spread = 0;
+  for (const k of ks) spread = Math.max(spread, len(sub(P[k], fc)));
+  if (spread < 1e-9) return null;
+
+  // The plane the step works in is the one its biggest triangle spans. The sets
+  // here are a handful of points, so trying every triple is both exact and free.
+  let n: V3 | null = null, best = 0;
+  for (let i = 0; i < ks.length; i++) {
+    for (let j = i + 1; j < ks.length; j++) {
+      for (let m = j + 1; m < ks.length; m++) {
+        const c = cross(sub(P[ks[j]], P[ks[i]]), sub(P[ks[m]], P[ks[i]]));
+        const l = len(c);
+        if (l > best) { best = l; n = c; }
+      }
+    }
+  }
+
+  let v: V3;
+  if (n && best > 1e-3 * spread * spread) {
+    v = norm(n);
+  } else {
+    // Two points, or three in a line: there is no plane, only an axis. Stand at
+    // right angles to it — that is where the segment reads at its full length —
+    // and among all those directions take the one nearest home.
+    let axis: V3 = [0, 0, 1], al = 0;
+    for (let i = 0; i < ks.length; i++) {
+      for (let j = i + 1; j < ks.length; j++) {
+        const d = sub(P[ks[j]], P[ks[i]]);
+        if (len(d) > al) { al = len(d); axis = d; }
+      }
+    }
+    const a = norm(axis);
+    const k = dot(h, a);
+    const perp: V3 = [h[0] - k * a[0], h[1] - k * a[1], h[2] - k * a[2]];
+    // Home looking straight down the segment leaves nothing to project; any
+    // perpendicular will do, so take one.
+    v = len(perp) > 1e-6 ? norm(perp) : norm(cross(a, Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+  }
+
+  // Both sides of a plane show it equally well, and only one of them is any use:
+  // the problem's own viewpoint is above the figure and outside it, so stay in
+  // that half of the sky. Standing on the far side of the base plane would show
+  // the floor at a perfect true shape, from underneath the ground.
+  const near = dot(v, h);
+  // Unless the plane runs edge-on to home, where neither side is nearer and the
+  // sign would be decided by rounding. Then take the side the focus faces, which
+  // is at least the side with less of the solid in the way.
+  const wc = cen(Object.keys(P));
+  const side = Math.abs(near) > 0.05 ? near : dot(v, sub(fc, wc) as V3);
+  if (side < 0) v = [-v[0], -v[1], -v[2]];
+
+  return viewAt(toward(v, h, TILT));
+}
