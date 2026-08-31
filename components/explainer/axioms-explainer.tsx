@@ -231,6 +231,13 @@ export default function AxiomsExplainer({
         : b.figure === "planeSlide" ? pick.meeting
           : false;
   const stuck = b.figure === "pick3" && pick.collinear;
+  // The two beats with nothing to draw. Their stage would be an empty sheet of
+  // grid paper, which reads as a figure that failed to arrive rather than as a
+  // screen that never wanted one — so the reading takes the whole width, and
+  // pressing Next opens the stage out from the left as the theory settles into
+  // its column. The stage element itself always stays mounted: the scene owns
+  // the canvas inside it, and unmounting would take the WebGL context with it.
+  const reading = b.figure === "none";
   const body = done && b.bodyDone ? b.bodyDone : b.body;
   const hint = (done && b.hintDone) || b.hint;
   const collected = collectedBy(beat);
@@ -239,9 +246,20 @@ export default function AxiomsExplainer({
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <div
         ref={stageRef}
-        className={`explainer-stage relative min-h-0 flex-1 touch-none overflow-hidden ${
-          b.control === "reset" && !done ? "cursor-crosshair" : ""
-        }`}
+        aria-hidden={reading}
+        // Side by side the stage never stops growing (`lg:grow`) — it is the
+        // panel's width that moves, and the stage is whatever is left over.
+        // Anything less than a full share of grow would leave the free space
+        // undistributed mid-transition, and the gap lands after the panel,
+        // pulling it off the right edge and back. Stacked, there is no width
+        // to animate, so the two grows trade places instead: they always sum
+        // to one, which is the same guarantee by the other route.
+        //
+        // `grow` rather than `flex-1`: the shorthand and the longhand carry
+        // the same weight, so which won would come down to stylesheet order.
+        className={`explainer-stage relative min-h-0 shrink basis-0 touch-none overflow-hidden transition-[flex-grow,opacity] duration-(--dur-enter) ease-out lg:grow ${
+          reading ? "pointer-events-none grow-0 opacity-0" : "grow opacity-100"
+        } ${b.control === "reset" && !done ? "cursor-crosshair" : ""}`}
       >
         <div ref={labelsRef} className="explainer-labels" />
         <p
@@ -254,8 +272,29 @@ export default function AxiomsExplainer({
         </p>
       </div>
 
-      <div className="flex-none border-t border-line bg-surface px-5 py-5 lg:flex lg:w-[38%] lg:max-w-[440px] lg:items-center lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-8">
-        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
+      <div
+        // `w-[min(38%,440px)]` is the old `w-[38%] max-w-[440px]` written as
+        // one length rather than two, because one length is a thing a width
+        // can be animated to and a clamped pair is not: a max-width appearing
+        // at the first frame would snap the panel to 440 before it had moved.
+        //
+        // Reading takes the whole screen, with only the border's colour
+        // dropped — the hairline goes without anything shifting by the pixel
+        // it was taking up.
+        className={`shrink-0 basis-auto border-t bg-surface px-5 py-5 transition-[flex-grow,width,border-color] duration-(--dur-enter) ease-out lg:flex lg:grow-0 lg:items-center lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-8 ${
+          reading
+            ? "flex grow overflow-y-auto border-transparent lg:w-full"
+            : "grow-0 border-line lg:w-[min(38%,440px)]"
+        }`}
+      >
+        <div
+          // `my-auto` rather than the parent's `items-center`: it centres the
+          // same way with room to spare, and still lets you reach the top when
+          // the reading is taller than the screen.
+          className={`mx-auto flex w-full max-w-[640px] flex-col gap-4 ${
+            reading ? "my-auto" : ""
+          }`}
+        >
           {/* The three slots the original called the pocket. */}
           <div className="flex items-center gap-1.5">
             <ol className="flex list-none gap-1.5" aria-label="Axioms collected">

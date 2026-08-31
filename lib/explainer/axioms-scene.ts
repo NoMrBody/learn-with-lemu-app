@@ -16,6 +16,13 @@ import { figColor, onFigureTheme } from "@/lib/figure-theme";
  * nothing in common between them. So it rebuilds on a `figure` change and
  * mutates only within a figure — which is also why the theme listener here
  * replays the builder rather than hunting for materials to recolour.
+ *
+ * Nothing here sets a position the reader can see change. Input and figures
+ * write to `want`; the loop eases what is drawn toward it, per second rather
+ * than per frame, so the same easing catches a flicked drag, a scroll wheel,
+ * a change of beat and the slider. A piece that appears fades or grows in on
+ * a one-shot tween. Both collapse to the end state when the reader has asked
+ * for reduced motion.
  */
 
 /* ============================================================
@@ -192,10 +199,59 @@ export function createAxiomsScene(
   scene.add(world);
 
   /* ============================================================
+     motion
+
+     Everything that moves reads the same two helpers. `approach` is for a
+     value chasing a target — the camera, the sliding plane — and `tween`
+     is for the one-shot arrivals a figure fires when a piece appears.
+     Both are handed the frame's elapsed seconds rather than counting
+     frames, so a 120Hz display moves at the same speed as a 60Hz one
+     instead of at twice it.
+
+     A reader who has asked for less motion gets the end state directly:
+     every tween lands on 1 and every approach snaps, so the figures still
+     say what they say, without the travel.
+     ============================================================ */
+
+  const reduceQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reduced = reduceQuery.matches;
+  const onReduce = () => { reduced = reduceQuery.matches; };
+  reduceQuery.addEventListener("change", onReduce);
+
+  /** Ease `cur` toward `target`. `k` is a rate per second, not per frame. */
+  const approach = (cur: number, target: number, k: number, dt: number) =>
+    reduced ? target : cur + (target - cur) * (1 - Math.exp(-k * dt));
+
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const easeOut = (t: number) => 1 - (1 - t) ** 3;
+  /** Overshoots a little and settles: a point placed lands rather than blinks. */
+  const popIn = (t: number) => {
+    const u = t - 1;
+    return 1 + 2.2 * u ** 3 + 1.2 * u ** 2;
+  };
+
+  /** How long a piece takes to arrive, in ms. */
+  const FADE_MS = 420, POP_MS = 340, GROW_MS = 300;
+
+  /** One-shot tweens. They belong to the figure that started them. */
+  let anims: ((dt: number) => boolean)[] = [];
+
+  function tween(ms: number, apply: (t: number) => void) {
+    if (reduced) { apply(1); return; }
+    let t = 0;
+    apply(0);
+    anims.push((dt) => {
+      t = Math.min(1, t + (dt * 1000) / ms);
+      apply(t);
+      return t >= 1;
+    });
+  }
+
+  /* ============================================================
      builders
      ============================================================ */
 
-  function dotAt(g: THREE.Group, p: Vec, colour: number, r = 0.22) {
+  function dotAt(g: THREE.Group, p: Vec, colour: number, r = 0.22, appear = false) {
     const m = new THREE.Mesh(
       new THREE.SphereGeometry(r, 18, 14),
       new THREE.MeshBasicMaterial({ color: colour }),
@@ -205,11 +261,15 @@ export function createAxiomsScene(
     m.material.depthTest = false;
     m.renderOrder = 12;
     g.add(m);
+    // A point the learner just placed grows into position, so the eye is
+    // carried to it instead of having to find what changed.
+    if (appear) tween(POP_MS, (t) => m.scale.setScalar(Math.max(0.001, popIn(t))));
     return m;
   }
 
   function segment(
     g: THREE.Group, a: Vec, b: Vec, colour: number, rad = 0.055, onTop = false,
+    appear = false,
   ) {
     const A = new THREE.Vector3(a[0], a[1], a[2]);
     const B = new THREE.Vector3(b[0], b[1], b[2]);
@@ -224,10 +284,13 @@ export function createAxiomsScene(
       new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize(),
     );
     g.add(m);
+    // The cylinder's axis is its y, so drawing it is a matter of growing
+    // that one scale out from the middle.
+    if (appear) tween(GROW_MS, (t) => m.scale.setY(Math.max(0.001, easeOut(t))));
     return m;
   }
 
-  function quad(g: THREE.Group, pts: Vec[], colour: number, op: number) {
+  function quad(g: THREE.Group, pts: Vec[], colour: number, op: number, appear = false) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute(
       "position",
@@ -236,10 +299,26 @@ export function createAxiomsScene(
       ),
     );
     geo.computeVertexNormals();
-    g.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
+    const face = new THREE.MeshLambertMaterial({
       color: colour, transparent: true, opacity: op, side: THREE.DoubleSide,
-    })));
-    for (let i = 0; i < 4; i++) segment(g, pts[i], pts[(i + 1) % 4], colour, 0.035);
+    });
+    g.add(new THREE.Mesh(geo, face));
+    const edges: THREE.MeshBasicMaterial[] = [];
+    for (let i = 0; i < 4; i++) {
+      const e = segment(g, pts[i], pts[(i + 1) % 4], colour, 0.035);
+      if (e) edges.push(e.material as THREE.MeshBasicMaterial);
+    }
+    // A plane fades up where it is rather than sliding or scaling in: it is
+    // meant to read as having been there all along, once enough is known to
+    // draw it. The patch is centred on the figure, so any scale-in would
+    // slide it across the world instead.
+    if (!appear) return;
+    for (const m of edges) m.transparent = true;
+    tween(FADE_MS, (t) => {
+      const e = easeOut(t);
+      face.opacity = op * e;
+      for (const m of edges) m.opacity = e;
+    });
   }
 
   type Patch = { u: Vec; v: Vec; c: Vec; s: number; n: Vec };
@@ -247,6 +326,7 @@ export function createAxiomsScene(
   /** A plane drawn as a square patch, given a point on it and its normal. */
   function planePatch(
     g: THREE.Group, point: Vec, normal: Vec, size: number, colour: number, op: number,
+    appear = false,
   ): Patch {
     const n = norm(normal);
     const u = norm(Math.abs(n[2]) < 0.9 ? cross(n, [0, 0, 1]) : cross(n, [1, 0, 0]));
@@ -257,22 +337,29 @@ export function createAxiomsScene(
       add(add(point, mul(u, s)), mul(v, -s)),
       add(add(point, mul(u, s)), mul(v, s)),
       add(add(point, mul(u, -s)), mul(v, s)),
-    ], colour, op);
+    ], colour, op, appear);
     return { u, v, c: point, s, n };
   }
 
   /* ---- floating labels ---- */
 
-  type Tag = { el: HTMLDivElement; at: () => Vec };
+  type Tag = { el: HTMLDivElement; at: () => Vec; born: boolean };
   let tags: Tag[] = [];
 
   function tag(text: string, at: () => Vec, colour: string) {
     const el = document.createElement("div");
-    el.className = "lab dim";
+    // Born hidden: the first frame paints it at zero and the second clears
+    // the class, so .lab's own opacity transition fades it up. Placing it
+    // before the first paint would have it appear at full strength.
+    el.className = "lab dim hide";
     el.textContent = text;
     el.style.color = colour;
+    // Position is carried entirely by the transform below, so left/top stay
+    // at the origin rather than being written every frame.
+    el.style.left = "0";
+    el.style.top = "0";
     labelBox.appendChild(el);
-    tags.push({ el, at });
+    tags.push({ el, at, born: false });
     return el;
   }
 
@@ -282,9 +369,15 @@ export function createAxiomsScene(
     for (const t of tags) {
       const p = t.at();
       _v.set(p[0], p[1], p[2]).project(camera);
-      t.el.style.left = `${(_v.x * 0.5 + 0.5) * w}px`;
-      t.el.style.top = `${(-_v.y * 0.5 + 0.5) * h}px`;
-      t.el.classList.toggle("hide", _v.z > 1);
+      const behind = _v.z > 1;
+      // A transform moves the label on the compositor. Writing left/top
+      // instead re-runs layout for every label on every frame, which is the
+      // one cost the loop cannot afford while the camera is turning.
+      t.el.style.transform =
+        `translate3d(${(_v.x * 0.5 + 0.5) * w}px, ${(-_v.y * 0.5 + 0.5) * h}px, 0)`
+        + " translate(-50%, -50%)";
+      if (!t.born && !behind) { t.born = true; continue; }
+      t.el.classList.toggle("hide", behind);
     }
   }
 
@@ -303,25 +396,53 @@ export function createAxiomsScene(
     }
     for (const t of tags) t.el.remove();
     tags = [];
+    // The tweens belong to the pieces just disposed of.
+    anims = [];
   }
 
   /* ============================================================
      camera
      ============================================================ */
 
-  const orbit = { theta: -58, phi: 22, dist: 26 };
-  let autoSpin = true, zoomMul = 1;
+  /**
+   * Where the camera is, and where it is going. Every input — a drag, the
+   * wheel, a figure asking to be framed differently — writes to `want`, and
+   * the loop eases `cam` toward it. Nothing moves the camera directly, so a
+   * jump is not expressible: the same easing catches a flicked drag, a
+   * notched scroll wheel and a change of beat.
+   */
+  const cam = { theta: -58, phi: 22, dist: 26, zoom: 1 };
+  const want = { ...cam };
+
+  /** How fast each part of the camera catches up, per second. */
+  const K_TURN = 18, K_DIST = 4.5, K_ZOOM = 11;
+
+  let autoSpin = true;
+  /** Idle rotation, in degrees per second — the old 0.08 a frame at 60Hz. */
+  const SPIN = 4.8;
+
+  /** What is left of a drag once the finger lifts, in degrees per second. */
+  let spinVel = 0, tiltVel = 0;
+  const K_COAST = 3.4;
 
   function applyOrbit() {
-    const t = (orbit.theta * Math.PI) / 180;
-    const p = (orbit.phi * Math.PI) / 180;
-    const d = orbit.dist * zoomMul;
+    const t = (cam.theta * Math.PI) / 180;
+    const p = (cam.phi * Math.PI) / 180;
+    const d = cam.dist * cam.zoom;
     camera.position.set(
       d * Math.cos(p) * Math.cos(t),
       d * Math.cos(p) * Math.sin(t),
       d * Math.sin(p),
     );
     camera.lookAt(0, 0, 0);
+  }
+
+  /** Arrive rather than travel — the first frame has nothing to come from. */
+  function snapOrbit() {
+    cam.theta = want.theta; cam.phi = want.phi;
+    cam.dist = want.dist; cam.zoom = want.zoom;
+    spinVel = 0; tiltVel = 0;
+    applyOrbit();
   }
 
   /* ============================================================
@@ -334,6 +455,8 @@ export function createAxiomsScene(
 
   const pts = new Map<number, [number, number]>();
   let lx = 0, ly = 0, pd = 0, downAt = 0, dragged = false;
+  /** When the last move arrived, so a drag's speed is in seconds, not frames. */
+  let lastMoveAt = 0, dragging = false;
 
   const spread = () => {
     const a = [...pts.values()];
@@ -345,6 +468,10 @@ export function createAxiomsScene(
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 1) {
       lx = e.clientX; ly = e.clientY; downAt = Date.now(); dragged = false;
+      lastMoveAt = performance.now();
+      dragging = true;
+      // Taking hold stops whatever the last flick was still doing.
+      spinVel = 0; tiltVel = 0;
     } else if (pts.size === 2) pd = spread();
     autoSpin = false;
   };
@@ -355,12 +482,24 @@ export function createAxiomsScene(
     if (pts.size === 1) {
       const dx = e.clientX - lx, dy = e.clientY - ly;
       if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
-      orbit.theta -= dx * 0.4;
-      orbit.phi = Math.max(-84, Math.min(84, orbit.phi + dy * 0.34));
+      const dTheta = -dx * 0.4;
+      const dPhi = dy * 0.34;
+      want.theta += dTheta;
+      want.phi = clamp(want.phi + dPhi, -84, 84);
+
+      // Speed is measured against the clock and then blended, so one stray
+      // event between frames cannot decide how the flick coasts.
+      const now = performance.now();
+      const ms = Math.max(8, now - lastMoveAt);
+      lastMoveAt = now;
+      const inst = 1000 / ms;
+      spinVel = clamp(spinVel * 0.6 + dTheta * inst * 0.4, -420, 420);
+      tiltVel = clamp(tiltVel * 0.6 + dPhi * inst * 0.4, -420, 420);
+
       lx = e.clientX; ly = e.clientY;
     } else if (pts.size === 2) {
       const d = spread();
-      if (pd) zoomMul = Math.max(0.6, Math.min(2.2, (zoomMul * pd) / d));
+      if (pd) want.zoom = clamp((want.zoom * pd) / d, 0.6, 2.2);
       pd = d;
     }
   };
@@ -369,12 +508,24 @@ export function createAxiomsScene(
     if (!pts.has(e.pointerId)) return;
     const single = pts.size === 1;
     pts.delete(e.pointerId);
+    if (pts.size === 0) dragging = false;
+    // A press that never became a drag has no speed to hand on.
+    if (!dragged) { spinVel = 0; tiltVel = 0; }
+    // A drag that ended stationary should stay where it was let go of.
+    if (performance.now() - lastMoveAt > 90) { spinVel = 0; tiltVel = 0; }
     if (single && !dragged && Date.now() - downAt < 500) live.onClick?.(e);
   };
 
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    zoomMul = Math.max(0.6, Math.min(2.2, zoomMul * (1 + Math.sign(e.deltaY) * 0.1)));
+    // Scaled by how much the wheel actually reported, so a trackpad's stream
+    // of small deltas glides where a notched wheel steps — and neither jumps,
+    // because the loop eases toward this rather than adopting it. The unit
+    // has to be asked for: Firefox reports lines and Safari pixels for the
+    // same gesture, and reading a line count as pixels is no zoom at all.
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const notch = clamp((e.deltaY * unit) / 240, -1, 1);
+    want.zoom = clamp(want.zoom * Math.exp(notch * 0.18), 0.6, 2.2);
   };
 
   stage.addEventListener("pointerdown", onDown);
@@ -415,7 +566,10 @@ export function createAxiomsScene(
 
   type Live = {
     onClick?: (e: PointerEvent) => void;
-    onSlide?: (t: number) => void;
+    /** `snap` is the rebuild restoring a slider position, not the reader moving it. */
+    onSlide?: (t: number, snap?: boolean) => void;
+    /** Called every frame, for a figure with something of its own to ease. */
+    onFrame?: (dt: number) => void;
   };
   let live: Live = {};
 
@@ -423,30 +577,37 @@ export function createAxiomsScene(
 
   const FIGURES: Record<AxiomFigure, () => void> = {
     none() {
-      orbit.dist = 26;
+      want.dist = 26;
     },
 
     /* ---------- axiom 1, the statement ---------- */
     plane3pts() {
       const A: Vec = [-4, -2, 0], B: Vec = [3, -3, 1.5], Cp: Vec = [0, 4, -1];
       const pl = planeOf(A, B, Cp);
-      planePatch(world, mul(add(add(A, B), Cp), 1 / 3), pl.n, 6.5, C.planeA, 0.2);
+      planePatch(world, mul(add(add(A, B), Cp), 1 / 3), pl.n, 6.5, C.planeA, 0.2, true);
       ([[A, "A"], [B, "B"], [Cp, "C"]] as const).forEach(([p, nm]) => {
-        dotAt(world, p, C.point, 0.24);
+        dotAt(world, p, C.point, 0.24, true);
         tag(nm, () => add(p, [0, 0, 0.9]), LAB.target);
       });
-      orbit.dist = 24;
+      want.dist = 24;
     },
 
     /* ---------- axiom 1, place them yourself ---------- */
     pick3() {
       const placed: Vec[] = [];
-      orbit.dist = 30;
+      // Each click redraws the figure from scratch, so this remembers how
+      // much of it the learner has already seen: the points already down
+      // stay where they are while the new one lands.
+      let shown = 0;
+      want.dist = 30;
 
       const draw = () => {
         wipe();
+        const from = shown;
+        shown = placed.length;
+        const fresh = placed.length > from;
         placed.forEach((p, i) => {
-          dotAt(world, p, C.point, 0.24);
+          dotAt(world, p, C.point, 0.24, i >= from);
           tag("ABC"[i], () => add(p, [0, 0, 0.9]), LAB.target);
         });
         if (placed.length < 3) {
@@ -458,15 +619,15 @@ export function createAxiomsScene(
           // No plane is drawn: three points on a line lie on infinitely many,
           // so drawing one would be the opposite of the lesson.
           for (let i = 0; i < 2; i++) {
-            segment(world, placed[i], placed[i + 1], C.warn, 0.05, true);
+            segment(world, placed[i], placed[i + 1], C.warn, 0.05, true, fresh);
           }
           onPick({ count: 3, collinear: true, meeting: false });
           return;
         }
         const centre = mul(add(add(placed[0], placed[1]), placed[2]), 1 / 3);
-        planePatch(world, centre, pl.n, 7, C.planeA, 0.22);
+        planePatch(world, centre, pl.n, 7, C.planeA, 0.22, fresh);
         for (let i = 0; i < 3; i++) {
-          segment(world, placed[i], placed[(i + 1) % 3], C.point, 0.045, true);
+          segment(world, placed[i], placed[(i + 1) % 3], C.point, 0.045, true, fresh);
         }
         onPick({ count: 3, collinear: false, meeting: false });
       };
@@ -485,26 +646,26 @@ export function createAxiomsScene(
 
     /* ---------- axiom 1, why three ---------- */
     planeFlat() {
-      planePatch(world, [0, 0, 0], [0, 0, 1], 6, C.planeA, 0.18);
+      planePatch(world, [0, 0, 0], [0, 0, 1], 6, C.planeA, 0.18, true);
       ([[-3.5, -2, 0], [3, -2.5, 0], [0.5, 3.5, 0]] as Vec[]).forEach((p) =>
-        dotAt(world, p, C.point, 0.22),
+        dotAt(world, p, C.point, 0.22, true),
       );
-      orbit.dist = 22;
-      orbit.phi = 26;
+      want.dist = 22;
+      want.phi = 26;
     },
 
     /* ---------- axiom 2, the statement ---------- */
     lineInPlane() {
-      planePatch(world, [0, 0, 0], [0, 0, 1], 7, C.planeA, 0.2);
+      planePatch(world, [0, 0, 0], [0, 0, 1], 7, C.planeA, 0.2, true);
       const A: Vec = [-3, -1.4, 0], B: Vec = [2.6, 1.8, 0];
       const d = norm(sub(B, A));
-      segment(world, add(A, mul(d, -4)), add(B, mul(d, 4)), C.point, 0.055, true);
+      segment(world, add(A, mul(d, -4)), add(B, mul(d, 4)), C.point, 0.055, true, true);
       ([[A, "A"], [B, "B"]] as const).forEach(([p, nm]) => {
-        dotAt(world, p, C.point, 0.24);
+        dotAt(world, p, C.point, 0.24, true);
         tag(nm, () => add(p, [0, 0, 0.8]), LAB.target);
       });
       tag("α", () => [5.4, -5.4, 0], LAB.known);
-      orbit.dist = 24;
+      want.dist = 24;
     },
 
     /* ---------- axiom 2, place them yourself ---------- */
@@ -513,20 +674,25 @@ export function createAxiomsScene(
       const P0: Vec = [0, 0, 0];
       const S = 7;
       const placed: Vec[] = [];
-      orbit.dist = 26;
+      // As in pick3: the plane arrives once, and each point only lands once.
+      let shown = 0, firstDraw = true;
+      want.dist = 26;
 
       const draw = () => {
         wipe();
-        const pl = planePatch(world, P0, N, S, C.planeA, 0.2);
+        const from = shown;
+        shown = placed.length;
+        const pl = planePatch(world, P0, N, S, C.planeA, 0.2, firstDraw);
+        firstDraw = false;
         tag("α", () => add(add(P0, mul(pl.u, S * 0.78)), mul(pl.v, -S * 0.78)), LAB.known);
         placed.forEach((p, i) => {
-          dotAt(world, p, C.point, 0.24);
+          dotAt(world, p, C.point, 0.24, i >= from);
           tag("AB"[i], () => add(p, [0, 0, 0.8]), LAB.target);
         });
         if (placed.length === 2) {
           const line = { p: placed[0], dir: norm(sub(placed[1], placed[0])) };
           const seg = clipToRect(line, P0, pl.u, pl.v, S, S);
-          if (seg) segment(world, seg[0], seg[1], C.point, 0.055, true);
+          if (seg) segment(world, seg[0], seg[1], C.point, 0.055, true, from < 2);
         }
         onPick({ count: placed.length, collinear: false, meeting: false });
       };
@@ -551,14 +717,14 @@ export function createAxiomsScene(
     /* ---------- axiom 3, the statement ---------- */
     twoPlanes() {
       const nA: Vec = [0, 0, 1], nB = norm([0.75, 0, 0.66]);
-      planePatch(world, [0, 0, 0], nA, 6, C.planeA, 0.18);
-      planePatch(world, [0, 0, 0], nB, 6, C.planeB, 0.16);
+      planePatch(world, [0, 0, 0], nA, 6, C.planeA, 0.18, true);
+      planePatch(world, [0, 0, 0], nB, 6, C.planeB, 0.16, true);
       const L = meetLine(nA, 0, nB, 0);
       if (L) {
-        segment(world, add(L.p, mul(L.dir, -6)), add(L.p, mul(L.dir, 6)), figColor("ink"), 0.06, true);
+        segment(world, add(L.p, mul(L.dir, -6)), add(L.p, mul(L.dir, 6)), figColor("ink"), 0.06, true, true);
         tag("l", () => add(L.p, mul(L.dir, 6.6)), LAB.ink);
       }
-      orbit.dist = 24;
+      want.dist = 24;
     },
 
     /* ---------- axiom 3, bring the planes together ---------- */
@@ -567,17 +733,28 @@ export function createAxiomsScene(
       const tilt = (52 * Math.PI) / 180;
       const nB = norm([Math.sin(tilt), 0, Math.cos(tilt)]);
       const S = 6.5, HIGH = 9;
-      let height = HIGH;
+      // Where β is, and where the slider has asked it to be. The reader
+      // drags a continuous control but can also step it with the arrow keys
+      // or click the track, and those arrive as jumps — so the plane always
+      // travels to the reading rather than adopting it.
+      let height = HIGH, wantHeight = HIGH;
       let meeting: [Vec, Vec] | null = null;
+      // The common line fades rather than blinking, and keeps its last
+      // placement while it goes, so parting the planes is not a hard cut.
+      let lineOp = 0;
+      // Only told to the panel when the answer changes, not every frame.
+      let reported: boolean | null = null;
 
       // Built once: the slider moves things, it never rebuilds them.
-      const pa = planePatch(world, [0, 0, 0], nA, S, C.planeA, 0.17);
+      const pa = planePatch(world, [0, 0, 0], nA, S, C.planeA, 0.17, true);
       const betaG = new THREE.Group();
       world.add(betaG);
-      const pb = planePatch(betaG, [0, 0, 0], nB, S, C.planeB, 0.15);
+      const pb = planePatch(betaG, [0, 0, 0], nB, S, C.planeB, 0.15, true);
 
       const lineMat = new THREE.MeshBasicMaterial({ color: figColor("ink") });
       lineMat.depthTest = false;
+      lineMat.transparent = true;
+      lineMat.opacity = 0;
       const lineMesh = new THREE.Mesh(
         new THREE.CylinderGeometry(0.07, 0.07, 1, 12), lineMat,
       );
@@ -614,52 +791,71 @@ export function createAxiomsScene(
         if (meeting) {
           const A = new THREE.Vector3(...meeting[0]);
           const B = new THREE.Vector3(...meeting[1]);
-          lineMesh.visible = true;
           lineMesh.scale.set(1, A.distanceTo(B), 1);
           lineMesh.position.copy(A).add(B).multiplyScalar(0.5);
           lineMesh.quaternion.setFromUnitVectors(
             new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize(),
           );
-        } else {
-          lineMesh.visible = false;
         }
+        // Visibility is the fade's business, not this function's.
         lTag.classList.toggle("hide", !meeting);
-        onPick({ count: 0, collinear: false, meeting: meeting !== null });
+        const now = meeting !== null;
+        if (now !== reported) {
+          reported = now;
+          onPick({ count: 0, collinear: false, meeting: now });
+        }
       };
 
-      live.onSlide = (t) => {
-        height = HIGH - t * HIGH;
+      live.onSlide = (t, snap) => {
+        wantHeight = HIGH - t * HIGH;
+        if (!snap) return;
+        // A rebuild restoring the slider's position has nowhere to travel from.
+        height = wantHeight;
+        lineOp = 0;
         move();
       };
 
+      live.onFrame = (dt) => {
+        const h = approach(height, wantHeight, 14, dt);
+        if (Math.abs(h - height) > 1e-4) {
+          height = Math.abs(h - wantHeight) < 1e-3 ? wantHeight : h;
+          move();
+        }
+        const target = meeting ? 1 : 0;
+        lineOp = approach(lineOp, target, 12, dt);
+        if (Math.abs(lineOp - target) < 0.01) lineOp = target;
+        lineMat.opacity = lineOp;
+        lineMesh.visible = lineOp > 0.01;
+      };
+
       move();
-      orbit.dist = 27;
-      orbit.phi = 16;
+      want.dist = 27;
+      want.phi = 16;
     },
 
     /* ---------- axiom 3, two walls of a room ---------- */
     corner() {
-      planePatch(world, [0, 0, 0], [1, 0, 0], 5, C.planeA, 0.17);
-      planePatch(world, [0, 0, 0], [0, 1, 0], 5, C.planeB, 0.15);
-      segment(world, [0, 0, -5], [0, 0, 5], figColor("ink"), 0.07, true);
+      planePatch(world, [0, 0, 0], [1, 0, 0], 5, C.planeA, 0.17, true);
+      planePatch(world, [0, 0, 0], [0, 1, 0], 5, C.planeB, 0.15, true);
+      segment(world, [0, 0, -5], [0, 0, 5], figColor("ink"), 0.07, true, true);
       tag("l", () => [0, 0, 5.6], LAB.ink);
-      orbit.dist = 22;
-      orbit.phi = 8;
+      want.dist = 22;
+      want.phi = 8;
     },
 
     /* ---------- the toolkit ---------- */
     toolkit() {
       const nA: Vec = [0, 0, 1], nB = norm([0.6, 0.2, 0.8]);
-      planePatch(world, [0, 0, 0], nA, 5.5, C.planeA, 0.15);
-      planePatch(world, [0, 0, 0], nB, 5.5, C.planeB, 0.13);
+      planePatch(world, [0, 0, 0], nA, 5.5, C.planeA, 0.15, true);
+      planePatch(world, [0, 0, 0], nB, 5.5, C.planeB, 0.13, true);
       const L = meetLine(nA, 0, nB, 0);
       if (L) {
-        segment(world, add(L.p, mul(L.dir, -5.5)), add(L.p, mul(L.dir, 5.5)), figColor("ink"), 0.055, true);
+        segment(world, add(L.p, mul(L.dir, -5.5)), add(L.p, mul(L.dir, 5.5)), figColor("ink"), 0.055, true, true);
       }
       ([[-3, -2, 0], [2.6, -2.4, 0], [0.4, 3.2, 0]] as Vec[]).forEach((p) =>
-        dotAt(world, p, C.point, 0.2),
+        dotAt(world, p, C.point, 0.2, true),
       );
-      orbit.dist = 24;
+      want.dist = 24;
     },
   };
 
@@ -667,20 +863,62 @@ export function createAxiomsScene(
      the loop
      ============================================================ */
 
+  /**
+   * Whether the stage is on screen at all. The figure-less beats collapse it
+   * to nothing, and a renderer given no area has nothing to say.
+   */
+  let hasArea = false;
+
   function resize() {
     const w = stage.clientWidth, h = stage.clientHeight;
-    if (!w || !h) return;
+    hasArea = w > 0 && h > 0;
+    if (!hasArea) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
-  window.addEventListener("resize", resize);
 
-  let raf = 0;
-  function tick() {
+  // The stage's box, not the window's. A window listener would miss the beats
+  // that open and close this column in CSS — and an observer also fires on
+  // every frame of that transition, so the canvas grows with it rather than
+  // snapping to size once it has finished.
+  const boxWatch = new ResizeObserver(resize);
+  boxWatch.observe(stage);
+
+  let raf = 0, lastFrame = 0;
+  function tick(now: number) {
     raf = requestAnimationFrame(tick);
-    if (autoSpin) orbit.theta -= 0.08;
+    // Seconds since the last frame, clamped so a tab returning from the
+    // background does not resume with one enormous step.
+    const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 1 / 60;
+    lastFrame = now;
+
+    // Nothing to draw into. `dt` has already been taken, so the easing picks
+    // up from the present moment rather than lurching when the stage reopens.
+    if (!hasArea) return;
+
+    if (autoSpin && !reduced) want.theta -= SPIN * dt;
+
+    // What is left of a flick, spent down over about a second.
+    if (!dragging && !reduced && (spinVel || tiltVel)) {
+      want.theta += spinVel * dt;
+      want.phi = clamp(want.phi + tiltVel * dt, -84, 84);
+      const decay = Math.exp(-K_COAST * dt);
+      spinVel *= decay;
+      tiltVel *= decay;
+      if (Math.abs(spinVel) < 1.5) spinVel = 0;
+      if (Math.abs(tiltVel) < 1.5) tiltVel = 0;
+    }
+
+    cam.theta = approach(cam.theta, want.theta, K_TURN, dt);
+    cam.phi = approach(cam.phi, want.phi, K_TURN, dt);
+    cam.dist = approach(cam.dist, want.dist, K_DIST, dt);
+    cam.zoom = approach(cam.zoom, want.zoom, K_ZOOM, dt);
     applyOrbit();
+
+    if (anims.length) anims = anims.filter((a) => !a(dt));
+    live.onFrame?.(dt);
+
     renderer.render(scene, camera);
     updateTags();
   }
@@ -693,18 +931,26 @@ export function createAxiomsScene(
   let currentReset = -1;
   let slide = 0;
 
+  /** The first figure is arrived at rather than travelled to. */
+  let started = false;
+
   function build(figure: AxiomFigure) {
     wipe();
     live = {};
-    orbit.phi = 22;
-    zoomMul = 1;
+    // A figure asks to be framed; it does not set the camera. Whatever it
+    // asks for here, the loop eases into over the next half second, so
+    // turning a page moves the view instead of cutting it.
+    want.phi = 22;
+    want.zoom = 1;
     autoSpin = true;
     onPick(IDLE);
     FIGURES[figure]();
     // A figure with a slider is rebuilt at whatever the slider already reads,
-    // so paging away and back does not silently lift β again.
-    live.onSlide?.(slide);
+    // so paging away and back does not silently lift β again — and with no
+    // travel, because there is no previous position to have come from.
+    live.onSlide?.(slide, true);
     resize();
+    if (!started) { started = true; snapOrbit(); }
   }
 
   function update(p: AxiomsParams) {
@@ -719,8 +965,8 @@ export function createAxiomsScene(
   }
 
   resize();
-  applyOrbit();
-  tick();
+  snapOrbit();
+  tick(performance.now());
 
   // Only the intersection line is structural, and it is baked into a material
   // at build time, so replaying the current figure is both the simplest and
@@ -736,7 +982,8 @@ export function createAxiomsScene(
     dispose() {
       cancelAnimationFrame(raf);
       stopTheme();
-      window.removeEventListener("resize", resize);
+      reduceQuery.removeEventListener("change", onReduce);
+      boxWatch.disconnect();
       stage.removeEventListener("pointerdown", onDown);
       stage.removeEventListener("pointermove", onMove);
       stage.removeEventListener("pointerup", onUp);

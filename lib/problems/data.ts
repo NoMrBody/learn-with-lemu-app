@@ -1,15 +1,21 @@
-import type { Points } from "./geometry";
+import type { Pt, Points } from "./geometry";
 
 /**
  * The problem sets, ported from the PROBLEMS array in legacy/problems.html.
  *
  * Unlike the explainer beats, the box and the pyramid do NOT share these: each
  * topic has its own set, selected by `getProblems(topicSlug)` at the bottom of
- * this file. BOX_PROBLEMS are the original four.
+ * this file. BOX_PROBLEMS opens with the two cuboid problems, then the four
+ * dihedral-angle exercises.
  *
  * Prose keeps the original `$…$` maths and `<b>` emphasis as authored, so it
  * still diffs cleanly against the legacy file; lib/problems/rich.tsx turns
  * that into React nodes at render time.
+ *
+ * Two TeX conventions live side by side, and they are not interchangeable:
+ * every prose field (including `Step.ask.opts[].v`) goes through `Rich` and so
+ * writes maths as `$…$`, while `Step.tex`, `Problem.answer` and
+ * `Problem.options[].v` go straight to <M> and are bare TeX with no delimiters.
  */
 
 const R60 = (60 * Math.PI) / 180;
@@ -18,6 +24,22 @@ export type SegColor = "blue" | "red" | "amber";
 export type Pair = readonly [string, string];
 export type Seg = readonly [string, string, SegColor];
 export type Tri = readonly [string, string, string];
+
+/**
+ * A surface the statement itself names — the floor a diagonal leans on, the
+ * plane that does the cutting, the two faces of a fold. Drawn before any work
+ * begins, because the reader was given it rather than having to build it.
+ *
+ * Three or four points; the scene fan-triangulates, so a triangular face needs
+ * no special case.
+ */
+export type Face = {
+  quad: () => readonly Pt[];
+  /** Semantic, not a hex literal — see the colour note at the top of scene.ts. */
+  col: SegColor;
+  /** Fill opacity. Defaults to 0.11, the value the legacy figures used. */
+  op?: number;
+};
 
 export type AskOption = { v: string; ok?: boolean; why: string };
 
@@ -54,16 +76,232 @@ export type Problem = {
   pts: () => Points;
   wire: readonly Pair[];
   target: Pair;
+  /**
+   * What the problem is actually after, when that is not the length of
+   * `target`. The section problem asks for an area: the figure still marks a
+   * segment in red, but the Ledger must not print that segment's length as if
+   * it were the answer.
+   */
+  targetRow?: { label: string; value: string };
   tools: readonly string[];
   steps: readonly Step[];
   answer: string;
   options: readonly { v: string; ok?: boolean; why?: string }[];
   why: string;
+  /** Surfaces the statement names, drawn from step 0. */
+  faces?: readonly Face[];
+  /**
+   * Points the statement hands you outright. Everything else is born at the
+   * step that builds it; without this a cuboid's far corners would never
+   * appear, since no step ever mentions them.
+   */
+  atStart?: readonly string[];
+  /** Where the camera stands when the problem opens. Defaults to -58 / 20. */
+  view?: { theta: number; phi: number };
   /** The tilted plane in 14.57, revealed at the step where it starts to matter. */
-  plane?: { at: number; quad: () => readonly (readonly [number, number, number])[] };
+  plane?: {
+    at: number;
+    quad: () => readonly (readonly [number, number, number])[];
+    /** The edge the two planes turn about, if the stated angle is worth marking. */
+    hinge?: Pair;
+    /** A letter, drawn on an arc where the planes meet. */
+    angle?: { label: string };
+  };
 };
 
 export const BOX_PROBLEMS: readonly Problem[] = [
+  /* ----------------------------------------------------------------
+     The two cuboid problems. They share one solid, and the second
+     re-asks the first one's flat sub-problem (AC = 10) on purpose:
+     the point of the pair is that a box keeps asking the same small
+     question.
+     ---------------------------------------------------------------- */
+  {
+    id: "pcub1",
+    no: "C1",
+    tab: "Diagonal and the floor",
+    statement:
+      "A cuboid $ABCDA_1B_1C_1D_1$ has $AB=6$, $BC=8$ and $AA_1=12$. " +
+      "Find the angle between the space diagonal $AC_1$ and the base plane $ABCD$.",
+    given: ["$AB=6$", "$BC=8$", "$AA_1=12$"],
+    ask: "the angle $AC_1$ makes with the base",
+    known: [["A", "B"], ["B", "C"], ["A", "A1"]],
+    atStart: ["A", "B", "C", "D", "A1", "B1", "C1", "D1"],
+    incomplete:
+      "The box is drawn, but <b>the triangle you need is not</b>. " +
+      "An angle only becomes findable once it sits inside a right triangle — so your first job is to build one.",
+    pts: () => ({
+      A: [0, 0, 0], B: [6, 0, 0], C: [6, 8, 0], D: [0, 8, 0],
+      A1: [0, 0, 12], B1: [6, 0, 12], C1: [6, 8, 12], D1: [0, 8, 12],
+    }),
+    wire: [
+      ["A", "B"], ["B", "C"], ["C", "D"], ["D", "A"],
+      ["A1", "B1"], ["B1", "C1"], ["C1", "D1"], ["D1", "A1"],
+      ["A", "A1"], ["B", "B1"], ["C", "C1"], ["D", "D1"],
+    ],
+    target: ["A", "C1"],
+    targetRow: { label: "tan α", value: "6/5" },
+    // The base plane ABCD, named in the statement.
+    faces: [{ quad: () => [[0, 0, 0], [6, 0, 0], [6, 8, 0], [0, 8, 0]], col: "blue", op: 0.1 }],
+    tools: ["Line ⊥ plane", "Pythagoras", "Tangent"],
+    steps: [
+      {
+        tool: "Line ⊥ plane",
+        t: "Drop it onto the floor",
+        ask: {
+          q: "To measure how a line leans on a plane, you compare it with…",
+          opts: [
+            { v: "its shadow on that plane", ok: true, why: "Yes. Shine a light straight down: where the diagonal lands is what the angle is measured against." },
+            { v: "the nearest edge of the box", why: "An edge is convenient but arbitrary. The angle with a plane always means the angle with the projection." },
+            { v: "the vertical height", why: "That is the side opposite the angle, not the one it is measured from." },
+          ],
+        },
+        p: "The shadow of $AC_1$ on the base is <b>AC</b>. Together with the upright $CC_1$ that gives " +
+          "<b>triangle ACC₁</b>, right-angled at C because $CC_1$ stands square on the base.",
+        board: ["A", "C", "C1"],
+        add: [["A", "C", "amber"]],
+        // No `lens` yet: step 2 asks the reader what AC is, so printing 10 on
+        // the figure here would answer its own question.
+        got: "△ACC₁ is right-angled",
+      },
+      {
+        tool: "Pythagoras",
+        t: "Measure the shadow",
+        ask: {
+          q: "$ABCD$ is a rectangle with sides 6 and 8. So $AC$ is…",
+          opts: [
+            { v: "$10$", ok: true, why: "Yes — $\\sqrt{36+64}=\\sqrt{100}=10$." },
+            { v: "$14$", why: "That is $6+8$. Pythagoras squares the sides first, then adds." },
+            { v: "$\\sqrt{28}$", why: "That is $64-36$. The two short sides add, they do not subtract." },
+            { v: "$48$", why: "That is $6\\times 8$ — the area of the floor, not its diagonal." },
+          ],
+        },
+        p: "Forget the box for a moment. This is a flat rectangle with a diagonal across it.",
+        tex: "AC=\\sqrt{6^2+8^2}=\\sqrt{100}=10",
+        board: ["A", "B", "C"],
+        add: [["A", "C", "blue"]],
+        lens: [["A", "C"]],
+        got: "AC = 10",
+      },
+      {
+        tool: "Tangent",
+        t: "Now the angle",
+        ask: {
+          q: "Opposite $\\alpha$ sits 12, beside it sits 10. So $\\tan\\alpha$ is…",
+          opts: [
+            { v: "$\\tfrac{12}{10}=\\tfrac65$", ok: true, why: "Yes. Tangent is the side facing the angle over the side beside it." },
+            { v: "$\\tfrac{10}{12}=\\tfrac56$", why: "Upside down. 10 lies beside the angle, so it belongs underneath." },
+            { v: "$\\tfrac{12}{\\sqrt{244}}$", why: "That is $\\sin\\alpha$ — you divided by the long side instead of the near one." },
+            { v: "$\\tfrac{10}{\\sqrt{244}}$", why: "That is $\\cos\\alpha$, the same slip the other way round." },
+          ],
+        },
+        p: "α sits between the diagonal and its shadow, in the right triangle you built.",
+        tex: "\\tan\\alpha=\\frac{CC_1}{AC}=\\frac{12}{10}=\\frac{6}{5}",
+        note: "In degrees that is about $50.2^\\circ$, but $\\tfrac65$ is the exact answer.",
+        board: ["A", "C", "C1"],
+        add: [["A", "C1", "red"], ["C", "C1", "amber"]],
+        // The diagonal's own length, √244, is never worked out and is not what
+        // was asked — labelling it as the target would say otherwise.
+        got: "tan α = 6/5",
+      },
+    ],
+    answer: "\\tan\\alpha=\\tfrac{6}{5}",
+    options: [
+      { v: "\\tan\\alpha=\\tfrac65", ok: true },
+      { v: "\\tan\\alpha=\\tfrac56", why: "Flipped. The 12 stands opposite the angle, so it goes on top." },
+      { v: "\\tan\\alpha=\\tfrac{12}{6}=2", why: "That uses an edge instead of the shadow. The diagonal leans on AC, not on AB." },
+      { v: "\\tan\\alpha=\\tfrac{12}{8}=\\tfrac32", why: "Also an edge rather than the shadow — this time BC." },
+    ],
+    why: "Three small things: find a right triangle, use Pythagoras, use the tangent. Not one of them was about 3D.",
+  },
+  {
+    id: "pcub2",
+    no: "C2",
+    tab: "Section of a cuboid",
+    statement:
+      "The same cuboid has $AB=6$, $BC=8$ and $AA_1=12$. " +
+      "The plane through $A$, $C$, $C_1$, $A_1$ cuts it. Find the area of the section.",
+    given: ["$AB=6$", "$BC=8$", "$AA_1=12$"],
+    ask: "the area of the section $ACC_1A_1$",
+    known: [["A", "B"], ["B", "C"], ["A", "A1"]],
+    atStart: ["A", "B", "C", "D", "A1", "B1", "C1", "D1"],
+    incomplete:
+      "The four corners of the cut are given, but <b>what shape they make is for you to say</b> — " +
+      "and until you know that, no area formula applies.",
+    pts: () => ({
+      A: [0, 0, 0], B: [6, 0, 0], C: [6, 8, 0], D: [0, 8, 0],
+      A1: [0, 0, 12], B1: [6, 0, 12], C1: [6, 8, 12], D1: [0, 8, 12],
+    }),
+    wire: [
+      ["A", "B"], ["B", "C"], ["C", "D"], ["D", "A"],
+      ["A1", "B1"], ["B1", "C1"], ["C1", "D1"], ["D1", "A1"],
+      ["A", "A1"], ["B", "B1"], ["C", "C1"], ["D", "D1"],
+    ],
+    // The figure marks the section's diagonal, but the question is an area, so
+    // the Ledger prints the area instead of that segment's length.
+    target: ["A", "C1"],
+    targetRow: { label: "S", value: "120" },
+    // The plane through A, C, C1, A1.
+    faces: [{ quad: () => [[0, 0, 0], [6, 8, 0], [6, 8, 12], [0, 0, 12]], col: "red", op: 0.16 }],
+    tools: ["Naming the shape", "Pythagoras"],
+    steps: [
+      {
+        tool: "Naming the shape",
+        t: "What did we cut?",
+        ask: {
+          q: "The four corners $A,\\;C,\\;C_1,\\;A_1$ make…",
+          opts: [
+            { v: "a rectangle", ok: true, why: "Yes. $AA_1$ and $CC_1$ are both upright and both 12, and $AA_1$ stands square on the base — so every corner is a right angle." },
+            { v: "a parallelogram, but not a rectangle", why: "The opposite sides do match. But the uprights also stand <b>square</b> on the base, which makes the corners right angles too." },
+            { v: "a trapezium", why: "A trapezium has one pair of parallel sides. Here both pairs are parallel: the two uprights, and $AC$ with $A_1C_1$." },
+          ],
+        },
+        p: "$AA_1$ and $CC_1$ are parallel and equal, and each stands square on the base. " +
+          "So the cut is a <b>rectangle</b>, and all we need is length × width.",
+        board: null,
+        add: [["A", "C", "amber"], ["C", "C1", "amber"], ["C1", "A1", "amber"], ["A1", "A", "amber"]],
+        got: "the section is a rectangle",
+      },
+      {
+        tool: "Pythagoras",
+        t: "The side we are missing",
+        ask: {
+          q: "One side is $AA_1=12$. The other is $AC$, flat on the floor. It is…",
+          opts: [
+            { v: "$10$", ok: true, why: "Yes — $\\sqrt{36+64}=10$. The very same flat problem as before." },
+            { v: "$14$", why: "That is $6+8$. Square the sides first, then add." },
+            { v: "$\\sqrt{28}$", why: "That is $64-36$ — subtraction instead of addition." },
+            { v: "$48$", why: "That is $6\\times 8$, the area of the floor rather than its diagonal." },
+          ],
+        },
+        p: "$AC$ lies flat on the base, across the rectangle $ABCD$. Ordinary plane geometry.",
+        tex: "AC=\\sqrt{6^2+8^2}=10",
+        board: ["A", "B", "C"],
+        add: [["A", "C", "blue"]],
+        lens: [["A", "C"]],
+        got: "AC = 10",
+      },
+      {
+        tool: "Naming the shape",
+        t: "Multiply",
+        p: "A rectangle 10 by 12. Nothing left to work out.",
+        tex: "S=AC\\cdot AA_1=10\\cdot 12=120",
+        board: null,
+        // No `lens` here on purpose: the length this step wins is an area, and
+        // `lens` can only speak about the distance between two points.
+        add: [],
+        got: "S = 120",
+      },
+    ],
+    answer: "S = 120",
+    options: [
+      { v: "120", ok: true },
+      { v: "44", why: "That is the perimeter, $2(10+12)$. The question asks for area." },
+      { v: "60", why: "That is half of it — the area of a triangle. The section is a whole rectangle." },
+      { v: "576", why: "That is $6\\times 8\\times 12$, the volume of the cuboid, not the area of the cut." },
+    ],
+    why: "Name the shape, find the side you are missing, multiply. And $AC=10$ was the same small problem as last time — cuboids keep asking it.",
+  },
   {
     id: "p1451",
     no: "14.51",
@@ -81,6 +319,8 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     pts: () => ({ A: [15, 0, 0], B: [0, 20, 0], C: [0, 0, 0], H: [9.6, 7.2, 0], M: [0, 0, 5] }),
     wire: [["A", "B"], ["B", "C"], ["C", "A"], ["C", "M"]],
     target: ["M", "H"],
+    // Low enough that the 5-unit upright reads at its full length.
+    view: { theta: -62, phi: 11 },
     tools: ["Pythagoras", "Area, two ways", "Line ⊥ plane"],
     steps: [
       {
@@ -160,8 +400,8 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     ask: "distance from A to the plane",
     known: [["A", "B"], ["B", "C"], ["A", "C"]],
     incomplete:
-      "Only the triangle is given. <b>The tilted plane and the height onto BC are both missing</b> — " +
-      "you draw them once you know where they go.",
+      "The triangle and the tilted plane are both here, as stated. " +
+      "<b>The height onto BC and the perpendicular from A are not</b> — you add those.",
     pts: () => {
       const sa = 2 / 5, ca = Math.sqrt(1 - sa * sa);
       // Foot of the perpendicular from A onto the plane through BC tilted by α.
@@ -172,12 +412,18 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     },
     wire: [["A", "B"], ["B", "C"], ["C", "A"]],
     target: ["A", "F"],
+    // Where the stated angle actually reads at its true size.
+    view: { theta: -118, phi: 17 },
     plane: {
-      at: 2,
+      // The statement gives you this plane, so it is there from the start.
+      at: 0,
       quad: () => {
-        const sa = 2 / 5, ca = Math.sqrt(1 - sa * sa), L = 19;
-        return [[8, 0, 0], [34, 0, 0], [34, L * ca, L * sa], [8, L * ca, L * sa]];
+        // Hinged on BC itself, opening by the stated angle: sin α = 2/5.
+        const sa = 2 / 5, ca = Math.sqrt(1 - sa * sa), L = 26;
+        return [[0, 0, 0], [36, 0, 0], [36, L * ca, L * sa], [0, L * ca, L * sa]];
       },
+      hinge: ["B", "C"],
+      angle: { label: "α" },
     },
     tools: ["Heron", "Area, two ways", "Angle between planes"],
     steps: [
@@ -240,7 +486,8 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     ask: "PQ",
     known: [["A", "B"], ["P", "A"], ["P", "B"]],
     incomplete:
-      "Both triangles are here, but <b>nothing connects P to Q yet</b>, and neither height is drawn. " +
+      "Both triangles and both planes are here, as stated. " +
+      "<b>Nothing connects P to Q yet</b>, and neither height is drawn. " +
       "Those three lines are the whole solution.",
     pts: () => ({
       A: [-8, 0, 0], B: [8, 0, 0], M: [0, 0, 0],
@@ -248,6 +495,15 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     }),
     wire: [["A", "B"], ["A", "P"], ["B", "P"], ["A", "Q"], ["B", "Q"]],
     target: ["P", "Q"],
+    atStart: ["A", "B", "P", "Q"],
+    // The two triangles the statement folds together.
+    faces: [
+      { quad: () => [[-8, 0, 0], [8, 0, 0], [0, 15, 0]], col: "blue", op: 0.1 },
+      {
+        quad: () => [[-8, 0, 0], [8, 0, 0], [0, 8 * Math.cos(R60), 8 * Math.sin(R60)]],
+        col: "red", op: 0.1,
+      },
+    ],
     tools: ["Pythagoras", "Right isosceles", "Angle between planes", "Law of cosines"],
     steps: [
       {
@@ -327,6 +583,18 @@ export const BOX_PROBLEMS: readonly Problem[] = [
     }),
     wire: [["A", "A1"], ["B", "B1"], ["A1", "B1"]],
     target: ["A", "B"],
+    atStart: ["A", "A1", "B", "B1"],
+    // The two faces of the dihedral angle.
+    faces: [
+      { quad: () => [[-2, 0, 0], [7, 0, 0], [7, 5, 0], [-2, 5, 0]], col: "blue", op: 0.1 },
+      {
+        quad: () => {
+          const c = Math.cos(R60), sn = Math.sin(R60);
+          return [[-2, 0, 0], [7, 0, 0], [7, 5 * c, 5 * sn], [-2, 5 * c, 5 * sn]];
+        },
+        col: "red", op: 0.1,
+      },
+    ],
     tools: ["Parallel translation", "Law of cosines", "Line ⊥ plane", "Pythagoras"],
     steps: [
       {

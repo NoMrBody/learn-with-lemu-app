@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { Problem } from "./data";
 import { keyOf, nice, nm, type Points } from "./geometry";
 import { figColor, onFigureTheme } from "@/lib/figure-theme";
+import { onReducedMotion, prefersReducedMotion } from "@/lib/reduced-motion";
 
 /**
  * The problem stage's 3D figure, ported from legacy/problems.html.
@@ -10,6 +11,14 @@ import { figColor, onFigureTheme } from "@/lib/figure-theme";
  * overlay (the point pins and the length labels), and React pushes plain data
  * in. Pin selection lives here rather than in React because it is driven by
  * per-frame projected positions; picking three points calls back out.
+ *
+ * Construction is animated. `Problem.steps[i].add` is already an ordered list
+ * of the segments a step draws, with step 0 being the bare solid, so revealing
+ * step i hands its segments to the draw queue below: each one grows from its
+ * first point to its second, one after another, and a point that this step
+ * brings into being waits hidden until its line arrives. That is the whole
+ * teaching value — you see where a construction line comes from and where it
+ * lands, rather than finding it already there.
  */
 
 export type Tri3 = readonly [string, string, string];
@@ -35,6 +44,22 @@ const COL = {
   blue: 0x2b4fe8, red: 0xe8442a, amber: 0xe39a22,
 } as const;
 
+/**
+ * Drawing speeds, in ms. Fast enough not to be a wait, slow enough that the
+ * eye can follow the far end travelling. The answer line gets a little longer
+ * because it is the conclusion. GAP > GROW by design: one segment finishes
+ * before the next begins, so a step that adds four of them reads as four
+ * separate acts rather than a bloom.
+ */
+const GROW_MS = 320;
+const GROW_TARGET_MS = 420;
+const GAP_MS = 360;
+const GAP_TARGET_MS = 520;
+const DASH_MS = 40;
+
+/** Where the camera stands when a problem does not ask for somewhere else. */
+const HOME_VIEW = { theta: -58, phi: 20 } as const;
+
 export function createProblemScene(
   stage: HTMLElement,
   layer: HTMLElement,
@@ -57,9 +82,9 @@ export function createProblemScene(
   const world = new THREE.Group();
   scene.add(world);
 
-  const planeG = new THREE.Group(), structG = new THREE.Group();
+  const facesG = new THREE.Group(), planeG = new THREE.Group(), structG = new THREE.Group();
   const addG = new THREE.Group(), hlG = new THREE.Group(), targetG = new THREE.Group();
-  world.add(planeG, structG, addG, hlG, targetG);
+  world.add(facesG, planeG, structG, addG, hlG, targetG);
 
   let LV: Problem | null = null;
   let PT: Points = {};
@@ -90,7 +115,9 @@ export function createProblemScene(
   }
   function clearG(g: THREE.Group) {
     while (g.children.length) {
-      const c = g.children[0] as THREE.Mesh;
+      // Meshes for the tubes and fills, Lines for the angle arcs. Both carry a
+      // geometry and a material, which is all this needs.
+      const c = g.children[0] as THREE.Mesh | THREE.Line;
       g.remove(c);
       c.geometry?.dispose();
       const m = c.material;
@@ -98,13 +125,98 @@ export function createProblemScene(
       else m?.dispose();
     }
   }
-  /** Everything scales off the figure's own size, so all four problems read alike. */
+  /** Everything scales off the figure's own size, so every problem reads alike. */
   function scaleOf() {
     let m = 0;
     for (const k in PT) m = Math.max(m, Math.hypot(PT[k][0], PT[k][1], PT[k][2]));
     return m / 12;
   }
   const alive = (k: string) => BORN[k] !== undefined && BORN[k] <= shown;
+
+  /* ---- the draw queue ----
+     One job per segment being drawn. `tick` walks it; nothing here uses a
+     timer, so a rebuild mid-animation drops the lot cleanly. */
+
+  type DrawJob = {
+    m: THREE.Mesh;
+    A: THREE.Vector3;
+    B: THREE.Vector3;
+    L: number;
+    /** performance.now() at which this job starts. */
+    t0: number;
+    ms: number;
+    /** A dash of a construction line: it appears whole rather than growing. */
+    dash?: true;
+    /** A point that waits, hidden, until this line reaches it. */
+    lands?: string;
+  };
+
+  let drawing: DrawJob[] = [];
+  /** Pairs currently being drawn, so nothing else draws them at the same time. */
+  const animating = new Set<string>();
+  /** Points holding their entrance until their line arrives. */
+  const holdPins: Record<string, boolean> = {};
+  const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+  function growSeg(
+    m: THREE.Mesh, p: readonly number[], q: readonly number[],
+    ms: number, delay: number, lands?: string,
+  ) {
+    const A = new THREE.Vector3(p[0], p[1], p[2]);
+    const B = new THREE.Vector3(q[0], q[1], q[2]);
+    const L = A.distanceTo(B);
+    if (L < 1e-6) { m.visible = false; return; }
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+    m.visible = false;
+    // Only a point this step actually brings into being waits for its line.
+    // Holding one that is already on screen would read as a flicker.
+    const hold = lands !== undefined && BORN[lands] === shown;
+    if (hold) {
+      holdPins[lands] = true;
+      if (pinEls[lands]) pinEls[lands].style.visibility = "hidden";
+    }
+    drawing.push({ m, A, B, L, t0: nowMs() + delay, ms, lands: hold ? lands : undefined });
+  }
+
+  /** A dash waits its turn and then simply appears. */
+  function showAt(m: THREE.Mesh, delay: number) {
+    m.visible = false;
+    drawing.push({
+      m, A: new THREE.Vector3(), B: new THREE.Vector3(), L: 0,
+      t0: nowMs() + delay, ms: 1, dash: true,
+    });
+  }
+
+  function stepDrawing() {
+    if (!drawing.length) return;
+    const t = nowMs();
+    const keep: DrawJob[] = [];
+    for (const d of drawing) {
+      if (t < d.t0) { keep.push(d); continue; }
+      if (d.dash) { d.m.visible = true; continue; }
+      const k = Math.min(1, (t - d.t0) / d.ms);
+      // Ease in and out, so the line starts and lands softly.
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      d.m.visible = true;
+      d.m.scale.set(1, Math.max(1e-4, d.L * e), 1);
+      // The near end stays put and the far end travels — which is the whole
+      // point: you can see which way round the segment was drawn.
+      d.m.position.copy(d.A.clone().lerp(d.B, e / 2));
+      if (k < 1) keep.push(d);
+      else if (d.lands) landPin(d.lands);
+    }
+    drawing = keep;
+    // The last line has landed, so the persistent target tube can take over.
+    if (!drawing.length && animating.size) { animating.clear(); buildTarget(); }
+  }
+
+  function stopDrawing() {
+    drawing = [];
+    animating.clear();
+    for (const k in holdPins) {
+      if (holdPins[k]) { holdPins[k] = false; if (pinEls[k]) pinEls[k].style.visibility = ""; }
+    }
+  }
 
   /**
    * A point exists only once the statement gives it or a step builds it, so
@@ -114,6 +226,10 @@ export function createProblemScene(
     const born: Record<string, number> = {};
     p.wire.forEach((e) => { born[e[0]] = 0; born[e[1]] = 0; });
     (p.known ?? []).forEach((e) => { born[e[0]] = 0; born[e[1]] = 0; });
+    // Whatever the statement draws for you is there from the very first frame.
+    // A cuboid needs this: no step ever names its far corners, so without it
+    // they would be born at 99 and never appear.
+    (p.atStart ?? []).forEach((k) => { born[k] = 0; });
     p.steps.forEach((st, i) => {
       const mark = (k: string) => { if (born[k] === undefined) born[k] = i + 1; };
       (st.add ?? []).forEach((x) => { mark(x[0]); mark(x[1]); });
@@ -135,55 +251,162 @@ export function createProblemScene(
     });
   }
 
+  /**
+   * The surfaces the statement itself names — the floor a diagonal leans on,
+   * the two faces of a fold. Drawn from step 0, because they were given rather
+   * than built. Fan-triangulated, so a triangular face needs no special case.
+   */
+  function buildFaces() {
+    clearG(facesG);
+    if (!LV?.faces) return;
+    const s = scaleOf();
+    LV.faces.forEach((f) => {
+      const q = f.quad();
+      const pos: number[] = [];
+      for (let i = 1; i < q.length - 1; i++) pos.push(...q[0], ...q[i], ...q[i + 1]);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      const col = COL[f.col];
+      const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+        color: col, transparent: true, opacity: f.op ?? 0.11,
+        side: THREE.DoubleSide, depthWrite: false,
+      }));
+      // A face and the lines drawn in it are coplanar — the section plane IS
+      // the four segments the first step traces. Three.js sorts the
+      // transparent pass by distance, so at equal depth the order is
+      // arbitrary, and a face that lands last composites its tint over every
+      // line underneath and greys them out. Drawing faces first fixes the
+      // order: lines always go on top of the surface they lie in.
+      mesh.renderOrder = -1;
+      facesG.add(mesh);
+      for (let i = 0; i < q.length; i++) {
+        const t = tube(col, 0.035 * s, 0.6);
+        place(t, q[i], q[(i + 1) % q.length]);
+        t.renderOrder = -1;
+        facesG.add(t);
+      }
+    });
+  }
+
+  /** An arc between two directions, drawn where two planes hinge. */
+  function hingeArc(
+    g: THREE.Group, at: readonly number[],
+    d1: readonly number[], d2: readonly number[], r: number, col: number,
+  ) {
+    const O = new THREE.Vector3(at[0], at[1], at[2]);
+    const U = new THREE.Vector3(d1[0], d1[1], d1[2]).normalize();
+    const V = new THREE.Vector3(d2[0], d2[1], d2[2]).normalize();
+    const ax = new THREE.Vector3().crossVectors(U, V);
+    if (ax.lengthSq() < 1e-12) return;
+    ax.normalize();
+    const tot = U.angleTo(V);
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 26; i++) {
+      pts.push(O.clone().add(U.clone().applyAxisAngle(ax, (tot * i) / 26).multiplyScalar(r)));
+    }
+    const mat = new THREE.LineBasicMaterial({ color: col });
+    mat.depthTest = false;
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+    l.renderOrder = 12;
+    g.add(l);
+  }
+
   function buildPlane() {
     clearG(planeG);
+    if (angLabel) { angLabel.el.remove(); angLabel = null; }
     if (!LV?.plane || shown < LV.plane.at) return;
     const q = LV.plane.quad();
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(
       [...q[0], ...q[1], ...q[2], ...q[0], ...q[2], ...q[3]], 3));
-    planeG.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
-      color: COL.amber, transparent: true, opacity: 0.13, side: THREE.DoubleSide,
-    })));
+    const fill = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+      color: COL.amber, transparent: true, opacity: 0.13,
+      side: THREE.DoubleSide, depthWrite: false,
+    }));
+    fill.renderOrder = -1;
+    planeG.add(fill);
     const s = scaleOf();
     for (let i = 0; i < 4; i++) {
       const t = tube(COL.amber, 0.04 * s, 0.75);
       place(t, q[i], q[(i + 1) % 4]);
+      t.renderOrder = -1;
       planeG.add(t);
     }
+
+    // Mark the angle the statement names, right where the two planes meet, so
+    // the given α is attached to something rather than floating in the prose.
+    const { hinge, angle } = LV.plane;
+    if (!hinge || !angle || !PT[hinge[0]] || !PT[hinge[1]]) return;
+    const H0 = PT[hinge[0]], H1 = PT[hinge[1]];
+    const mid: [number, number, number] = [
+      (H0[0] + H1[0]) / 2, (H0[1] + H1[1]) / 2, (H0[2] + H1[2]) / 2,
+    ];
+    const into = [q[3][0] - q[0][0], q[3][1] - q[0][1], q[3][2] - q[0][2]];
+    // Big enough to read, small enough to stay clear of the plane's far edge.
+    const r = 0.2 * Math.hypot(H1[0] - H0[0], H1[1] - H0[1], H1[2] - H0[2]);
+    hingeArc(planeG, mid, [0, 1, 0], into, r, COL.amber);
+    const el = document.createElement("div");
+    el.className = "anglab";
+    el.textContent = angle.label;
+    layer.appendChild(el);
+    angLabel = { el, at: [mid[0], mid[1] + 0.8 * r, mid[2] + 0.27 * r] };
   }
 
   function buildTarget() {
     clearG(targetG);
     if (!LV || !alive(LV.target[0]) || !alive(LV.target[1])) return;
+    // Several steps add a red segment on the very pair the target names. While
+    // that one is growing, this persistent tube would give the ending away, so
+    // it waits; stepDrawing calls back here once the queue drains.
+    if (animating.has(keyOf(LV.target[0], LV.target[1]))) return;
     const t = tube(COL.red, 0.075 * scaleOf(), 0.92);
     place(t, PT[LV.target[0]], PT[LV.target[1]]);
     targetG.add(t);
   }
 
-  function buildAdded() {
+  /**
+   * Every segment the revealed steps have added. `animateStep`, when given, is
+   * the one step whose segments should be drawn rather than placed — the step
+   * just revealed. Everything earlier is already history and appears whole.
+   */
+  function buildAdded(animateStep?: number) {
     clearG(addG);
     if (!LV) return;
     const s = scaleOf();
+    let delay = 0;
     for (let i = 0; i < shown; i++) {
+      const live = i === animateStep;
       (LV.steps[i].add ?? []).forEach((e) => {
         if (e[2] === "amber") {
           // A construction line — the learner drew it, so it reads as dashes.
           const A = new THREE.Vector3(...PT[e[0]]);
           const B = new THREE.Vector3(...PT[e[1]]);
           const n = Math.max(6, Math.round(A.distanceTo(B) / (0.9 * s)));
-          for (let j = 0; j < n; j += 2) {
-            const p1 = A.clone().lerp(B, j / n);
-            const p2 = A.clone().lerp(B, Math.min(1, (j + 1) / n));
+          let j = 0;
+          for (let k = 0; k < n; k += 2) {
+            const p1 = A.clone().lerp(B, k / n);
+            const p2 = A.clone().lerp(B, Math.min(1, (k + 1) / n));
             const d = tube(COL.amber, 0.055 * s, 1);
             place(d, p1.toArray(), p2.toArray());
             addG.add(d);
+            // The dashes arrive one after another, so the line still has a
+            // direction even though it is not one continuous stroke.
+            if (live) showAt(d, delay + j * DASH_MS);
+            j++;
           }
+          if (live) { animating.add(keyOf(e[0], e[1])); delay += GAP_MS; }
           return;
         }
+        const isTarget = e[2] === "red";
         const t = tube(COL[e[2]] ?? COL.blue, 0.07 * s, 1);
-        place(t, PT[e[0]], PT[e[1]]);
         addG.add(t);
+        if (live) {
+          growSeg(t, PT[e[0]], PT[e[1]], isTarget ? GROW_TARGET_MS : GROW_MS, delay, e[1]);
+          animating.add(keyOf(e[0], e[1]));
+          delay += isTarget ? GAP_TARGET_MS : GAP_MS;
+        } else {
+          place(t, PT[e[0]], PT[e[1]]);
+        }
       });
     }
   }
@@ -209,6 +432,8 @@ export function createProblemScene(
 
   /* ---- pins ---- */
   const pinEls: Record<string, HTMLButtonElement> = {};
+  /** The letter naming a given angle, projected each frame like a pin. */
+  let angLabel: { el: HTMLDivElement; at: readonly [number, number, number] } | null = null;
   function syncPins() {
     Object.keys(PT).forEach((k) => {
       if (alive(k)) {
@@ -221,6 +446,8 @@ export function createProblemScene(
           b.onclick = () => pick(k);
           layer.appendChild(b);
           pinEls[k] = b;
+          // Built before its line has reached it — it waits.
+          if (holdPins[k]) b.style.visibility = "hidden";
           setTimeout(() => b.classList.remove("new"), 600);
         }
       } else if (pinEls[k]) {
@@ -229,6 +456,16 @@ export function createProblemScene(
       }
     });
   }
+  /** The point arrives as the line reaches it, rather than before. */
+  function landPin(k: string) {
+    holdPins[k] = false;
+    const b = pinEls[k];
+    if (!b) return;
+    b.style.visibility = "";
+    b.classList.add("new");
+    setTimeout(() => b.classList.remove("new"), 600);
+  }
+
   function pick(k: string) {
     const i = picks.indexOf(k);
     if (i >= 0) picks.splice(i, 1);
@@ -246,6 +483,7 @@ export function createProblemScene(
   }
   function clearPins() {
     for (const k in pinEls) { pinEls[k].remove(); delete pinEls[k]; }
+    for (const k in holdPins) delete holdPins[k];
     picks = [];
   }
 
@@ -324,7 +562,10 @@ export function createProblemScene(
     return Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) || 1;
   };
   const onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement)?.closest(".pin")) return;
+    // Anything interactive layered over the figure keeps its own clicks.
+    // Capturing the pointer below retargets the whole gesture at the stage,
+    // so pointerup — and with it the click — would never reach the control.
+    if ((e.target as HTMLElement)?.closest(".pin, .fig-control")) return;
     stage.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, [e.clientX, e.clientY]);
     if (ptrs.size === 1) { lx = e.clientX; ly = e.clientY; }
@@ -369,11 +610,19 @@ export function createProblemScene(
   let raf = 0;
   function tick() {
     raf = requestAnimationFrame(tick);
-    if (spin) orbit.theta -= 0.09;
+    stepDrawing();
+    // The idle turn is motion nobody asked for, so it goes when they ask for less.
+    if (spin && !reduced) orbit.theta -= 0.09;
     applyOrbit();
     renderer.render(scene, camera);
 
     const w = stage.clientWidth, h = stage.clientHeight;
+    if (angLabel) {
+      _v.set(...angLabel.at).project(camera);
+      angLabel.el.style.left = (_v.x * 0.5 + 0.5) * w + "px";
+      angLabel.el.style.top = (-_v.y * 0.5 + 0.5) * h + "px";
+      angLabel.el.style.opacity = _v.z > 1 ? "0" : "1";
+    }
     for (const k in pinEls) {
       if (!PT[k]) continue;
       _v.set(...PT[k]).project(camera);
@@ -392,8 +641,19 @@ export function createProblemScene(
     }
   }
 
-  function rebuild() {
-    buildStructure(); buildAdded(); buildPlane(); buildTarget();
+  /**
+   * Redraw everything at the current `shown`. Pass `animateStep` to have that
+   * one step's segments drawn rather than placed; leave it off — as the theme
+   * handler does — and the figure simply appears in its finished state.
+   */
+  function rebuild(animateStep?: number) {
+    stopDrawing();
+    buildStructure(); buildFaces(); buildAdded(animateStep);
+    // buildTarget stands aside for anything in `animating`, and stepDrawing is
+    // what lifts that. If nothing was actually queued — every segment of this
+    // step was zero-length — nothing would ever lift it, so lift it here.
+    if (!drawing.length) animating.clear();
+    buildPlane(); buildTarget();
     syncPins(); syncLens();
   }
 
@@ -406,6 +666,11 @@ export function createProblemScene(
     clearG(hlG);
     rebuild();
     frameFigure();
+    // Some problems only read correctly from one angle — 14.57's stated angle
+    // shows at its true size from a low left. The rest open square on.
+    const v = problem.view ?? HOME_VIEW;
+    orbit.theta = v.theta;
+    orbit.phi = v.phi;
     zoomMul = 1;
     spin = true;
     resize();
@@ -414,20 +679,32 @@ export function createProblemScene(
   function setShown(n: number) {
     if (!LV) return;
     const grew = n > shown;
-    // Mark the newest length so it pings, as the original did.
+    // Mark the newest length so it pings, as the original did. Stepping the
+    // figure back is not a discovery, so nothing pings on the way down.
     if (grew) {
       const step = LV.steps[n - 1];
       const first = step?.lens?.[0];
       freshKey = first ? keyOf(first[0], first[1]) : null;
+    } else {
+      freshKey = null;
     }
     shown = n;
-    rebuild();
+    // Only the step that just arrived is drawn; going back, it is a removal.
+    rebuild(grew && !reduced ? n - 1 : undefined);
     if (grew && freshKey) {
       if (freshTimer) clearTimeout(freshTimer);
       freshTimer = setTimeout(() => { freshKey = null; syncLens(); }, 900);
     }
     spin = false;
   }
+
+  let reduced = prefersReducedMotion();
+  const stopReduced = onReducedMotion(() => {
+    reduced = prefersReducedMotion();
+    // Asking for less motion mid-draw lands the figure where it was heading
+    // rather than freezing it half-drawn.
+    if (reduced && LV) rebuild();
+  });
 
   const stopTheme = onFigureTheme(() => {
     // rebuild() regenerates every mesh from the current colours, so replaying
@@ -448,6 +725,9 @@ export function createProblemScene(
     dispose() {
       cancelAnimationFrame(raf);
       stopTheme();
+      stopReduced();
+      stopDrawing();
+      if (angLabel) { angLabel.el.remove(); angLabel = null; }
       if (freshTimer) clearTimeout(freshTimer);
       window.removeEventListener("resize", resize);
       stage.removeEventListener("pointerdown", onDown);
@@ -456,7 +736,7 @@ export function createProblemScene(
       stage.removeEventListener("pointercancel", onUp);
       stage.removeEventListener("wheel", onWheel);
       clearPins(); clearLens();
-      [planeG, structG, addG, hlG, targetG].forEach(clearG);
+      [facesG, planeG, structG, addG, hlG, targetG].forEach(clearG);
       renderer.dispose();
       renderer.domElement.remove();
     },

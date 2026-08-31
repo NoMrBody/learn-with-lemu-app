@@ -2,6 +2,7 @@
 
 import "katex/dist/katex.min.css";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { M } from "@/components/explainer/math";
 import TriBoard from "./tri-board";
@@ -16,6 +17,7 @@ type AnswerOption = Problem["options"][number];
 import { dist, keyOf, nice, nm, shuffled, type Points } from "@/lib/problems/geometry";
 import { createProblemScene, type ProblemScene, type Tri3 } from "@/lib/problems/scene";
 import { markStageProgress } from "@/app/[subject]/[topicSlug]/actions";
+import { scrollBehavior } from "@/lib/reduced-motion";
 
 type Mode = "gate" | "try" | "walk";
 
@@ -44,6 +46,12 @@ export default function Problems({
   const [idx, setIdx] = useState(0);
   const [mode, setMode] = useState<Mode>("gate");
   const [shown, setShown] = useState(0);
+  /**
+   * What the figure is showing, which can lag the lesson. `shown` is how far
+   * the reader has got; `figShown` is how much of that construction is on the
+   * solid right now, so they can step back and see it without it.
+   */
+  const [figShown, setFigShown] = useState(0);
   const [answered, setAnswered] = useState<Record<number, boolean>>({});
   const [wrongAsk, setWrongAsk] = useState<Record<string, string>>({});
   const [attempts, setAttempts] = useState(0);
@@ -85,8 +93,8 @@ export default function Problems({
   }, [problem, points]);
 
   useEffect(() => {
-    sceneRef.current?.setShown(shown);
-  }, [shown]);
+    sceneRef.current?.setShown(figShown);
+  }, [figShown]);
 
   /* ---- progress ---- */
   useEffect(() => {
@@ -126,7 +134,8 @@ export default function Problems({
     setOptionState({});
     setVerdict(null);
     setBoards([]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFigShown(0);
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   }, [problems.length]);
 
   const advance = useCallback(() => {
@@ -137,13 +146,45 @@ export default function Problems({
     }
     const next = shown + 1;
     setShown(next);
+    // The lesson moving on carries the figure with it. From there the figure
+    // can be stepped back on its own, without disturbing where the reader is.
+    setFigShown(next);
     const step = problem.steps[next - 1];
     sceneRef.current?.highlight(step.board ?? null);
     if (next === problem.steps.length) recordSolved(problem.id);
     requestAnimationFrame(() =>
-      stepsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      stepsEndRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" }),
     );
   }, [shown, problem, answered, idx, openProblem, recordSolved]);
+
+  /* ---- stepping the figure's construction, independently of the lesson ----
+     Both directions re-aim the triangle highlight at whatever the figure is
+     now showing, so the flat board beside the prose and the solid agree. */
+  const boardAt = useCallback(
+    (step: number) => (step > 0 ? problem.steps[step - 1]?.board ?? null : null),
+    [problem],
+  );
+
+  const figureBack = useCallback(() => {
+    if (figShown <= 0) return;
+    const next = figShown - 1;
+    setFigShown(next);
+    sceneRef.current?.highlight(boardAt(next));
+  }, [figShown, boardAt]);
+
+  const figureForward = useCallback(() => {
+    if (figShown >= shown) return;
+    const next = figShown + 1;
+    setFigShown(next);
+    sceneRef.current?.highlight(boardAt(next));
+  }, [figShown, shown, boardAt]);
+
+  /** Nothing to step through if no step ever draws anything. */
+  const hasConstruction = useMemo(
+    () => problem.steps.some((s) => (s.add?.length ?? 0) > 0),
+    [problem],
+  );
+  const showFigureControls = mode === "walk" && hasConstruction;
 
   const pickAnswer = useCallback(
     (o: AnswerOption) => {
@@ -249,7 +290,25 @@ export default function Problems({
     }
     // Once the last step has landed the target is no longer a question.
     const solvedTarget = shown >= problem.steps.length;
-    push(problem.target[0], problem.target[1], solvedTarget ? "found" : "target");
+    const state: LedgerRow["state"] = solvedTarget ? "found" : "target";
+    if (problem.targetRow) {
+      // An area or an angle, not a length. The figure still marks a segment in
+      // red, but printing that segment's length here would assert a number the
+      // solution never works out. Replaces rather than appends: rows are keyed
+      // on the id, and a step's `lens` may already have claimed this pair.
+      const id = keyOf(problem.target[0], problem.target[1]);
+      const at = rows.findIndex((r) => r.id === id);
+      const row: LedgerRow = {
+        id,
+        label: problem.targetRow.label,
+        value: solvedTarget ? problem.targetRow.value : "?",
+        state,
+      };
+      if (at >= 0) rows[at] = row;
+      else rows.push(row);
+    } else {
+      push(problem.target[0], problem.target[1], state);
+    }
     return rows;
   })();
 
@@ -260,6 +319,41 @@ export default function Problems({
         className="problem-stage relative h-[44dvh] min-h-[250px] flex-none touch-none overflow-hidden lg:sticky lg:top-0 lg:h-[calc(100dvh-var(--rail-h))] lg:flex-1 lg:border-r lg:border-line"
       >
         <div ref={layerRef} className="problem-layer" />
+
+        {/* Stepping the construction. Both buttons stay put and grey out at
+            the ends of the history — a control that vanishes is a control the
+            reader has to rediscover. */}
+        {showFigureControls && (
+          <div className="fig-control absolute bottom-14 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-fig-rule bg-fig-paper/70 p-1 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={figureBack}
+              disabled={figShown <= 0}
+              aria-label="Step the figure back to before the last construction"
+              className="flex size-7 items-center justify-center rounded-full text-fig-dim transition-colors duration-(--dur-press) ease-out hover:bg-fig-inset hover:text-fig-ink disabled:pointer-events-none disabled:opacity-35"
+            >
+              <ChevronLeft aria-hidden="true" className="size-4" />
+            </button>
+            <span
+              aria-live="polite"
+              className="min-w-[11ch] text-center font-mono text-eyebrow uppercase tabular-nums text-fig-dim"
+            >
+              {figShown === 0
+                ? "base figure"
+                : `step ${figShown} of ${problem.steps.length}`}
+            </span>
+            <button
+              type="button"
+              onClick={figureForward}
+              disabled={figShown >= shown}
+              aria-label="Draw the next construction again"
+              className="flex size-7 items-center justify-center rounded-full text-fig-dim transition-colors duration-(--dur-press) ease-out hover:bg-fig-inset hover:text-fig-ink disabled:pointer-events-none disabled:opacity-35"
+            >
+              <ChevronRight aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+        )}
+
         <p
           aria-hidden="true"
           className={`pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-fig-rule bg-fig-paper/70 px-3 py-1 font-mono text-eyebrow uppercase text-fig-dim backdrop-blur-sm transition-opacity duration-500 ease-out ${
@@ -590,7 +684,9 @@ export default function Problems({
 
         {allDone && (
           <div className="mt-8 flex flex-col gap-3 rounded-xl border border-correct bg-correct-soft px-4 py-4">
-            <p className="text-body font-medium text-correct">All four solved — this stage is complete.</p>
+            <p className="text-body font-medium text-correct">
+              Every problem solved — this stage is complete.
+            </p>
             {/* Only when the sticky bar is not already offering the hand-off,
                 so the two never appear as duplicate buttons. */}
             {nextStage && action?.kind !== "next-stage" && (
