@@ -23,6 +23,16 @@ import { figColor, onFigureTheme } from "@/lib/figure-theme";
  * a change of beat and the slider. A piece that appears fades or grows in on
  * a one-shot tween. Both collapse to the end state when the reader has asked
  * for reduced motion.
+ *
+ * A drag turns one of two things, and `trackball` says which. Most figures are
+ * authored around the origin and looked at from around: the drag walks the
+ * camera over a sphere (`want.theta/phi`) and the world holds still. The one
+ * figure the reader builds — the three points of `pick3` — is turned instead:
+ * the camera holds still and the drag rotates `world` itself, as a quaternion
+ * with no privileged axis, so the plane the reader made turns under the hand
+ * rather than swinging about the world's vertical. The two cannot both be live,
+ * because they would answer the same gesture; `build` clears the flag and the
+ * rotation, so every other figure gets the orbit and an untouched world.
  */
 
 /* ============================================================
@@ -368,7 +378,12 @@ export function createAxiomsScene(
     const w = stage.clientWidth, h = stage.clientHeight;
     for (const t of tags) {
       const p = t.at();
-      _v.set(p[0], p[1], p[2]).project(camera);
+      // A tag names a point in the figure, and the figure can be turned, so
+      // the group's transform has to be walked before the camera's. Inert
+      // wherever the group is still identity, which is every figure but the
+      // one the reader turns by hand. `matrixWorld` is current: this runs
+      // after the render that refreshed it.
+      _v.set(p[0], p[1], p[2]).applyMatrix4(world.matrixWorld).project(camera);
       const behind = _v.z > 1;
       // A transform moves the label on the compositor. Writing left/top
       // instead re-runs layout for every label on every frame, which is the
@@ -425,6 +440,79 @@ export function createAxiomsScene(
   let spinVel = 0, tiltVel = 0;
   const K_COAST = 3.4;
 
+  /* ---- turning the figure itself ----
+
+     Most figures are looked at from around: the drag walks the camera and the
+     world stays put. One — the three points the reader places — is handled
+     instead, so the drag turns the geometry and the camera holds still. The
+     two cannot both be live, because they would answer the same gesture, so
+     `trackball` picks which one the pointer is talking to and every figure but
+     that one leaves it false.
+
+     Same want/drawn split as the camera: input writes `wantSpin`, the loop
+     slerps `spin` toward it. A quaternion rather than a pair of angles because
+     the whole point is that there is no privileged axis to measure from. */
+  let trackball = false;
+  const spin = new THREE.Quaternion();
+  const wantSpin = new THREE.Quaternion();
+
+  /**
+   * Radians turned per pixel dragged — the turntable's own 0.4 deg/px, so the
+   * two controls answer a hand at the same rate and only differ in what they
+   * turn.
+   */
+  const TB_RATE = (0.4 * Math.PI) / 180;
+  /** The idle drift and the flick clamp, in the units a quaternion wants. */
+  const SPIN_RAD = (SPIN * Math.PI) / 180;
+  const COAST_MAX = (420 * Math.PI) / 180;
+  const COAST_MIN = (1.5 * Math.PI) / 180;
+
+  /**
+   * What is left of a flick, as an angular velocity in radians per second.
+   * One vector rather than an axis and a rate side by side, because the 0.6/0.4
+   * blend below has to be able to average two drags that turned about
+   * different axes, and a rate carried apart from its axis cannot say what the
+   * average of those two is.
+   */
+  const omega = new THREE.Vector3();
+
+  /** Scratch, so a drag allocates nothing per event. */
+  const _right = new THREE.Vector3();
+  const _up = new THREE.Vector3();
+  const _axis = new THREE.Vector3();
+  const _q = new THREE.Quaternion();
+  const _dq = new THREE.Quaternion();
+  const _zUp = new THREE.Vector3(0, 0, 1);
+  const _fwd = new THREE.Vector3();
+  const _v3 = new THREE.Vector3();
+
+  /**
+   * Turn the figure by a drag of `dx, dy` screen pixels. The axis lies in the
+   * screen plane at right angles to the drag, so the surface nearest the
+   * reader follows the cursor: drag right and it goes right, drag down and it
+   * goes down. Pre-multiplied because the turn is described in the camera's
+   * frame, not in whatever frame the figure has already been left in — that is
+   * the difference between a hand on the object and a fixed skewer through it.
+   */
+  function turnBy(dx: number, dy: number) {
+    // Read off the quaternion rather than the world matrix: `applyOrbit` writes
+    // the quaternion through `lookAt`, but the matrix is only refreshed by the
+    // render, so between frames the quaternion is the one that is current.
+    _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    // Right and up are orthonormal, so the axis comes out with the drag's
+    // length in pixels already in it, and one `length()` serves for both.
+    _axis.set(0, 0, 0).addScaledVector(_up, dx).addScaledVector(_right, dy);
+    const px = _axis.length();
+    if (px < 1e-9) return 0;
+    _axis.divideScalar(px);
+    // Pre- rather than post-multiply: the axis was named in the camera's frame,
+    // not in whatever frame the figure has already been turned into. Composing
+    // the other way round would let the figure's own drift steer the next drag.
+    wantSpin.premultiply(_dq.setFromAxisAngle(_axis, px * TB_RATE)).normalize();
+    return px;
+  }
+
   function applyOrbit() {
     const t = (cam.theta * Math.PI) / 180;
     const p = (cam.phi * Math.PI) / 180;
@@ -442,6 +530,9 @@ export function createAxiomsScene(
     cam.theta = want.theta; cam.phi = want.phi;
     cam.dist = want.dist; cam.zoom = want.zoom;
     spinVel = 0; tiltVel = 0;
+    spin.copy(wantSpin);
+    world.quaternion.copy(spin);
+    omega.set(0, 0, 0);
     applyOrbit();
   }
 
@@ -471,7 +562,7 @@ export function createAxiomsScene(
       lastMoveAt = performance.now();
       dragging = true;
       // Taking hold stops whatever the last flick was still doing.
-      spinVel = 0; tiltVel = 0;
+      spinVel = 0; tiltVel = 0; omega.set(0, 0, 0);
     } else if (pts.size === 2) pd = spread();
     autoSpin = false;
   };
@@ -482,10 +573,6 @@ export function createAxiomsScene(
     if (pts.size === 1) {
       const dx = e.clientX - lx, dy = e.clientY - ly;
       if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
-      const dTheta = -dx * 0.4;
-      const dPhi = dy * 0.34;
-      want.theta += dTheta;
-      want.phi = clamp(want.phi + dPhi, -84, 84);
 
       // Speed is measured against the clock and then blended, so one stray
       // event between frames cannot decide how the flick coasts.
@@ -493,8 +580,26 @@ export function createAxiomsScene(
       const ms = Math.max(8, now - lastMoveAt);
       lastMoveAt = now;
       const inst = 1000 / ms;
-      spinVel = clamp(spinVel * 0.6 + dTheta * inst * 0.4, -420, 420);
-      tiltVel = clamp(tiltVel * 0.6 + dPhi * inst * 0.4, -420, 420);
+
+      if (trackball) {
+        // The flick keeps the axis the drag turned about, so letting go
+        // mid-tumble carries on tumbling the same way rather than falling back
+        // onto an axis the figure was never turned about. `_axis` is the unit
+        // axis turnBy just used, and it only wrote one if the drag moved.
+        const px = turnBy(dx, dy);
+        if (px > 0) {
+          omega.multiplyScalar(0.6)
+            .addScaledVector(_axis, px * TB_RATE * inst * 0.4)
+            .clampLength(0, COAST_MAX);
+        }
+      } else {
+        const dTheta = -dx * 0.4;
+        const dPhi = dy * 0.34;
+        want.theta += dTheta;
+        want.phi = clamp(want.phi + dPhi, -84, 84);
+        spinVel = clamp(spinVel * 0.6 + dTheta * inst * 0.4, -420, 420);
+        tiltVel = clamp(tiltVel * 0.6 + dPhi * inst * 0.4, -420, 420);
+      }
 
       lx = e.clientX; ly = e.clientY;
     } else if (pts.size === 2) {
@@ -510,9 +615,9 @@ export function createAxiomsScene(
     pts.delete(e.pointerId);
     if (pts.size === 0) dragging = false;
     // A press that never became a drag has no speed to hand on.
-    if (!dragged) { spinVel = 0; tiltVel = 0; }
+    if (!dragged) { spinVel = 0; tiltVel = 0; omega.set(0, 0, 0); }
     // A drag that ended stationary should stay where it was let go of.
-    if (performance.now() - lastMoveAt > 90) { spinVel = 0; tiltVel = 0; }
+    if (performance.now() - lastMoveAt > 90) { spinVel = 0; tiltVel = 0; omega.set(0, 0, 0); }
     if (single && !dragged && Date.now() - downAt < 500) live.onClick?.(e);
   };
 
@@ -599,13 +704,42 @@ export function createAxiomsScene(
       // much of it the learner has already seen: the points already down
       // stay where they are while the new one lands.
       let shown = 0;
-      want.dist = 30;
+      // Near enough that a click out at the edge of the stage still lands
+      // inside the patch its plane is drawn as, now that the points are placed
+      // around the origin instead of strung out in front of the camera.
+      want.dist = 24;
+      // The one figure the reader turns rather than walks around: it is theirs,
+      // so it is the one that answers to being taken hold of.
+      trackball = true;
+
+      /**
+       * The third point completes the figure, so the figure turns to be seen.
+       * The points are taken from the screen exactly, which puts all three on
+       * the plane facing the reader — true to the clicks, but a plane seen
+       * face-on is a flat blue square that says nothing about being a plane.
+       * A turn of about 27 degrees tipped and 17 turned answers that, and it
+       * is only ever done once: it is seeded into `wantSpin`, so the loop
+       * eases into it like any other, and the reader takes over from wherever
+       * it has reached. It doubles as the beat telling its own hint — "drag to
+       * turn it around" — by showing that the figure is a thing that turns.
+       */
+      const reveal = () => {
+        _right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+        _up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        wantSpin
+          .premultiply(_dq.setFromAxisAngle(_right, -0.48))
+          .premultiply(_q.setFromAxisAngle(_up, 0.30))
+          .normalize();
+      };
 
       const draw = () => {
         wipe();
         const from = shown;
         shown = placed.length;
         const fresh = placed.length > from;
+        // Only on the click that completed it, never on a redraw the theme or
+        // a rebuild asked for.
+        if (fresh && placed.length === 3) reveal();
         placed.forEach((p, i) => {
           dotAt(world, p, C.point, 0.24, i >= from);
           tag("ABC"[i], () => add(p, [0, 0, 0.9]), LAB.target);
@@ -625,7 +759,15 @@ export function createAxiomsScene(
           return;
         }
         const centre = mul(add(add(placed[0], placed[1]), placed[2]), 1 / 3);
-        planePatch(world, centre, pl.n, 7, C.planeA, 0.22, fresh);
+        // Sized to the triangle it carries rather than fixed, so three points
+        // placed wide apart still land on a plane instead of outside the edge
+        // of one. The patch is a square of half-size s, so a vertex lying along
+        // one of its own axes needs s at least `reach`; the rest is the margin
+        // that leaves the plane reading as larger than the three points that
+        // fixed it. The floor keeps a tight cluster of clicks off a scrap of
+        // plane, the ceiling keeps a wide one off a plane that leaves the stage.
+        const reach = Math.max(...placed.map((q) => len(sub(q, centre))));
+        planePatch(world, centre, pl.n, clamp(reach * 1.8, 5, 13), C.planeA, 0.22, fresh);
         for (let i = 0; i < 3; i++) {
           segment(world, placed[i], placed[(i + 1) % 3], C.point, 0.045, true, fresh);
         }
@@ -634,10 +776,30 @@ export function createAxiomsScene(
 
       live.onClick = (e) => {
         if (placed.length >= 3) return;
-        const R = rayFrom(e);
-        // A click names a direction, not a point, so the depth is chosen for
-        // the learner — far enough out that the three rarely line up.
-        placed.push(add(R.o, mul(R.d, 10 + Math.random() * 14)));
+        // A click names a direction, not a point, so a depth has to be chosen
+        // for the learner. It is measured from the plane through the origin
+        // facing the camera, so the three land around the middle of the world
+        // rather than strung out in front of it — which is what makes turning
+        // the figure turn it in place rather than swing it around a pivot
+        // sitting somewhere off in the empty part of the scene.
+        _fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        const at = hitPlane(e, [0, 0, 0], [_fwd.x, _fwd.y, _fwd.z]);
+        if (!at) return;
+        // No depth is invented on top of that. The old code scattered each
+        // point 10 to 24 units along its ray, and that randomness was what
+        // killed this beat's own warning: with the depths thrown about over
+        // 14 units, three points clicked along a straight line came out a
+        // triangle several units tall, well clear of the 0.85 in `planeOf`, so
+        // "Keep the 3 points off one straight line" could not be disobeyed
+        // even on purpose. Taking the click at face value makes the warning
+        // mean what it says — clicking a line gives a line. What the jitter
+        // was really for, keeping the plane from being seen face-on, is the
+        // reveal turn in `draw` instead, which is honest about being a turn.
+        // Stored in the figure's own frame, not the world's: the reader may
+        // have already turned it, and the point belongs to the figure.
+        _v3.set(at[0], at[1], at[2]);
+        world.worldToLocal(_v3);
+        placed.push([_v3.x, _v3.y, _v3.z]);
         draw();
       };
 
@@ -897,24 +1059,53 @@ export function createAxiomsScene(
     // up from the present moment rather than lurching when the stage reopens.
     if (!hasArea) return;
 
-    if (autoSpin && !reduced) want.theta -= SPIN * dt;
+    // Idle drift, and what is left of a flick spent down over about a second.
+    // Both say the same thing twice, once as a walk around the world and once
+    // as a turn of the figure, because which one the reader is holding decides
+    // which of the two the gesture meant.
+    if (trackball) {
+      // Positive about world +Z. Walking the camera to a smaller theta and
+      // turning the figure the other way are the same drift seen from the two
+      // ends, so the sign is the opposite of the camera's `-=` below.
+      if (autoSpin && !reduced) {
+        wantSpin.premultiply(_q.setFromAxisAngle(_zUp, SPIN_RAD * dt)).normalize();
+      }
+      if (!dragging && !reduced && omega.lengthSq() > 0) {
+        const rate = omega.length();
+        _axis.copy(omega).divideScalar(rate);
+        wantSpin.premultiply(_q.setFromAxisAngle(_axis, rate * dt)).normalize();
+        omega.multiplyScalar(Math.exp(-K_COAST * dt));
+        if (omega.length() < COAST_MIN) omega.set(0, 0, 0);
+      }
+    } else {
+      if (autoSpin && !reduced) want.theta -= SPIN * dt;
 
-    // What is left of a flick, spent down over about a second.
-    if (!dragging && !reduced && (spinVel || tiltVel)) {
-      want.theta += spinVel * dt;
-      want.phi = clamp(want.phi + tiltVel * dt, -84, 84);
-      const decay = Math.exp(-K_COAST * dt);
-      spinVel *= decay;
-      tiltVel *= decay;
-      if (Math.abs(spinVel) < 1.5) spinVel = 0;
-      if (Math.abs(tiltVel) < 1.5) tiltVel = 0;
+      if (!dragging && !reduced && (spinVel || tiltVel)) {
+        want.theta += spinVel * dt;
+        want.phi = clamp(want.phi + tiltVel * dt, -84, 84);
+        const decay = Math.exp(-K_COAST * dt);
+        spinVel *= decay;
+        tiltVel *= decay;
+        if (Math.abs(spinVel) < 1.5) spinVel = 0;
+        if (Math.abs(tiltVel) < 1.5) tiltVel = 0;
+      }
     }
 
+    // The camera still eases in either mode: a turned figure is still framed
+    // and zoomed, it is just no longer walked around. In trackball mode
+    // nothing writes theta or phi, so these two hold wherever the figure
+    // asked to be seen from.
     cam.theta = approach(cam.theta, want.theta, K_TURN, dt);
     cam.phi = approach(cam.phi, want.phi, K_TURN, dt);
     cam.dist = approach(cam.dist, want.dist, K_DIST, dt);
     cam.zoom = approach(cam.zoom, want.zoom, K_ZOOM, dt);
     applyOrbit();
+
+    // Slerp rather than approach: the same rate, on the one quantity that
+    // cannot be eased a component at a time.
+    if (reduced) spin.copy(wantSpin);
+    else spin.slerp(wantSpin, 1 - Math.exp(-K_TURN * dt));
+    world.quaternion.copy(spin);
 
     if (anims.length) anims = anims.filter((a) => !a(dt));
     live.onFrame?.(dt);
@@ -943,8 +1134,22 @@ export function createAxiomsScene(
     want.phi = 22;
     want.zoom = 1;
     autoSpin = true;
+    // Turning the figure belongs to the figure that was turned. The next one
+    // starts square, and every figure that does not ask for the trackball
+    // gets the orbit and an untouched world.
+    trackball = false;
+    spin.identity();
+    wantSpin.identity();
+    world.quaternion.identity();
+    omega.set(0, 0, 0);
     onPick(IDLE);
     FIGURES[figure]();
+    // A flick is allowed to coast across a change of beat, but only into a
+    // figure that can spend it. The trackball never reads these two, so a
+    // flick left over from an earlier beat would sit frozen here and then pick
+    // up again on the beat after — spending it now is what keeps it from
+    // arriving somewhere it was never aimed at.
+    if (trackball) { spinVel = 0; tiltVel = 0; }
     // A figure with a slider is rebuilt at whatever the slider already reads,
     // so paging away and back does not silently lift β again — and with no
     // travel, because there is no previous position to have come from.
