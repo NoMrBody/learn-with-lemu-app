@@ -863,14 +863,27 @@ export function createAxiomsScene(
      the loop
      ============================================================ */
 
+  /**
+   * Whether the stage is on screen at all. The figure-less beats collapse it
+   * to nothing, and a renderer given no area has nothing to say.
+   */
+  let hasArea = false;
+
   function resize() {
     const w = stage.clientWidth, h = stage.clientHeight;
-    if (!w || !h) return;
+    hasArea = w > 0 && h > 0;
+    if (!hasArea) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
-  window.addEventListener("resize", resize);
+
+  // The stage's box, not the window's. A window listener would miss the beats
+  // that open and close this column in CSS — and an observer also fires on
+  // every frame of that transition, so the canvas grows with it rather than
+  // snapping to size once it has finished.
+  const boxWatch = new ResizeObserver(resize);
+  boxWatch.observe(stage);
 
   let raf = 0, lastFrame = 0;
   function tick(now: number) {
@@ -879,6 +892,10 @@ export function createAxiomsScene(
     // background does not resume with one enormous step.
     const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 1 / 60;
     lastFrame = now;
+
+    // Nothing to draw into. `dt` has already been taken, so the easing picks
+    // up from the present moment rather than lurching when the stage reopens.
+    if (!hasArea) return;
 
     if (autoSpin && !reduced) want.theta -= SPIN * dt;
 
@@ -966,7 +983,7 @@ export function createAxiomsScene(
       cancelAnimationFrame(raf);
       stopTheme();
       reduceQuery.removeEventListener("change", onReduce);
-      window.removeEventListener("resize", resize);
+      boxWatch.disconnect();
       stage.removeEventListener("pointerdown", onDown);
       stage.removeEventListener("pointermove", onMove);
       stage.removeEventListener("pointerup", onUp);
