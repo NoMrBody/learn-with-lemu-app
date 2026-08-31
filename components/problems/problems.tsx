@@ -123,6 +123,18 @@ export default function Problems({
     });
   }, [solved, topicId, problems.length]);
 
+  /**
+   * A step's question answered — or waved past with "Skip". Answering the last
+   * one is what finishes the problem: until then that step shows the question
+   * and nothing else, so having revealed it was never the same as having read
+   * it, and ticking the tab there put a ✓ on a problem still refusing to let
+   * the reader leave.
+   */
+  const answerStep = useCallback((i: number) => {
+    setAnswered((a) => ({ ...a, [i]: true }));
+    if (i === problem.steps.length - 1) recordSolved(problem.id);
+  }, [problem, recordSolved]);
+
   /* ---- navigation ---- */
   const openProblem = useCallback((i: number) => {
     setIdx(((i % problems.length) + problems.length) % problems.length);
@@ -151,7 +163,9 @@ export default function Problems({
     setFigShown(next);
     const step = problem.steps[next - 1];
     sceneRef.current?.highlight(step.board ?? null);
-    if (next === problem.steps.length) recordSolved(problem.id);
+    // A last step with nothing to answer is finished by being shown. One that
+    // ends in a question is finished when the question is — see `answerStep`.
+    if (next === problem.steps.length && !step.ask) recordSolved(problem.id);
     requestAnimationFrame(() =>
       stepsEndRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" }),
     );
@@ -224,6 +238,14 @@ export default function Problems({
     ghost?: boolean;
     disabled?: boolean;
   };
+  /**
+   * The condition `advance` refuses to move past. Every branch below has to
+   * read it: a button that looks live while the handler silently returns is
+   * exactly the failure this guards against, and it is only reachable on a
+   * problem whose last step carries a question.
+   */
+  const waiting = shown > 0 && !!problem.steps[shown - 1]?.ask && !answered[shown - 1];
+
   const action: Action | null = (() => {
     if (mode === "gate") return null;
     if (mode === "try") {
@@ -240,7 +262,6 @@ export default function Problems({
         hint: "Or turn the figure and tap any three points first.",
       };
     if (shown < problem.steps.length) {
-      const waiting = !!problem.steps[shown - 1]?.ask && !answered[shown - 1];
       return {
         kind: "advance",
         label: waiting ? "Answer above to carry on" : "Next step",
@@ -252,6 +273,17 @@ export default function Problems({
     // so the primary action becomes the hand-off to the next stage.
     if (allDone && nextStage) {
       return { kind: "next-stage", label: `Next: ${nextStage.title} →`, hint: "" };
+    }
+    // The last step can be waiting too. The sticky bar keeps this button in
+    // view while the question it is waiting on scrolls away above, so the
+    // reason has to travel with the button.
+    if (waiting) {
+      return {
+        kind: "advance",
+        label: "Answer above to carry on",
+        disabled: true,
+        hint: "One question left, just above.",
+      };
     }
     return {
       kind: "advance",
@@ -596,7 +628,7 @@ export default function Problems({
                               disabled={!!wrong}
                               onClick={() => {
                                 if (o.ok) {
-                                  setAnswered((a) => ({ ...a, [i]: true }));
+                                  answerStep(i);
                                 } else {
                                   setWrongAsk((w) => ({ ...w, [key]: o.why }));
                                 }
@@ -622,7 +654,7 @@ export default function Problems({
                         ))}
                       <button
                         type="button"
-                        onClick={() => setAnswered((a) => ({ ...a, [i]: true }))}
+                        onClick={() => answerStep(i)}
                         className="mt-3 rounded-md font-mono text-eyebrow uppercase text-muted underline-offset-4 hover:text-fg hover:underline"
                       >
                         Skip — just show me
