@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Problems — Sightlines</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23F2F4F3%22/%3E%3Cpath d=%22M6 22 L16 6 L26 22 Z%22 fill=%22none%22 stroke=%22%232B4FE8%22 stroke-width=%222%22 stroke-linejoin=%22round%22/%3E%3Cline x1=%2216%22 y1=%226%22 x2=%2216%22 y2=%2222%22 stroke=%22%23E8442A%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<meta name="theme-color" content="#F2F4F3">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+  /* KaTeX arrives in Computer Modern — make it speak IBM Plex like everything else */
+  .katex{font-size:1em;font-family:"IBM Plex Sans",system-ui,sans-serif}
+  .katex .mord.mathnormal,.katex .mathit,.katex .mathdefault{
+    font-family:"IBM Plex Mono",monospace;font-style:italic;font-weight:500}
+  .katex .mord{font-family:"IBM Plex Mono",monospace}
+  .katex .mop,.katex .mbin,.katex .mrel,.katex .mopen,.katex .mclose,.katex .mpunct{
+    font-family:"IBM Plex Sans",sans-serif}
+  .katex .mfrac .frac-line{border-bottom-width:.055em}
+  .katex .sqrt>.root{font-family:"IBM Plex Mono",monospace}
+</style>
+<style>
+/* make KaTeX speak the same language as the rest of the page */
+.katex{font-size:1em;font-family:"IBM Plex Mono",monospace}
+.katex .mathnormal,.katex .mathit,.katex .mathdefault{
+  font-family:"IBM Plex Mono",monospace;font-style:italic;font-weight:500}
+.katex .mord.text,.katex .mop{font-family:"IBM Plex Sans",sans-serif;font-style:normal}
+.katex .mord{font-family:"IBM Plex Mono",monospace}
+.katex .frac-line{border-bottom-width:.055em}
+</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2F4F3; --card:#FFFFFF; --hair:#DCE3E0;
+  --ink:#14181A; --ink-2:#5A6560; --ink-3:#8B958F;
+  /* four roles on the figure, four colours */
+  --given:#5A6560;   --given-d:#3E4744;                  /* stated in the problem */
+  --found:#2B4FE8;   --found-d:#2340C4; --found-l:#E9EDFD; /* you worked it out   */
+  --built:#E39A22;   --built-d:#8F5F12;                  /* you drew it in       */
+  --target:#E8442A;  --target-d:#C4331C; --target-l:#FDECE8;
+  /* aliases kept so nothing else has to change */
+  --blue:#2B4FE8; --blue-d:#2340C4; --blue-l:#E9EDFD;
+  --red:#E8442A;  --red-d:#C4331C;  --red-l:#FDECE8;
+  --amber:#E39A22; --amber-d:#8F5F12;
+  --tk-line:#F7D3CB; --tk-bg:#FDECE8; --tk-field:#FFFFFF;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--paper)}
+body{opacity:0;animation:pagein .5s ease forwards;color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16.5px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+@keyframes pagein{to{opacity:1}}
+.katex{font-size:1.06em;font-family:"IBM Plex Mono","KaTeX_Main",monospace}
+.katex .mord.mathnormal,.katex .mathit{font-family:"IBM Plex Mono",monospace;font-style:italic}
+.katex .mord{font-family:"IBM Plex Mono",monospace}
+.katex-display{margin:0}
+/* an equation is something the page says, not something it quotes */
+.math{background:none;border:none;border-radius:0;padding:6px 0 4px;margin:2px 0 12px;
+  overflow-x:auto;text-align:left;color:var(--blue-d)}
+.math .katex{font-size:1.16em}
+em.q{font-style:italic;font-family:"IBM Plex Mono",monospace;font-weight:500}
+
+/* ---------- layout ---------- */
+#shell{display:flex;flex-direction:column;min-height:100dvh}
+#stage{position:sticky;top:0;z-index:5;height:44dvh;min-height:250px;touch-action:none;overflow:hidden;
+  background-color:#F2F4F3;
+  background-image:
+    repeating-linear-gradient(60deg,  rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, rgba(20,24,26,.05) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(0deg,   rgba(20,24,26,.035) 0 1px, transparent 1px 36.4px)}
+#stage canvas{display:block;width:100%;height:100%}
+#layer{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#layer .pin{pointer-events:auto}
+#col{flex:0 0 auto;padding:52px 20px 40px;max-width:660px;margin:0 auto;width:100%}
+@media(min-width:960px){
+  #shell{flex-direction:row;align-items:flex-start}
+  #stage{height:100dvh;flex:1 1 52%;align-self:flex-start;border-right:1px solid var(--hair)}
+  #col{flex:0 0 48%;max-width:620px;min-height:100dvh;padding:60px 40px 50px}
+}
+
+/* ---------- pins ---------- */
+.pin{position:absolute;transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;
+  font-family:"IBM Plex Sans",sans-serif;font-weight:700;font-size:16px;
+  font-style:italic;letter-spacing:.01em;color:var(--ink);
+  cursor:pointer;user-select:none;padding:2px 4px;background:none;border:none;
+  text-shadow:-1px -1px 0 #F2F4F3,1px -1px 0 #F2F4F3,-1px 1px 0 #F2F4F3,1px 1px 0 #F2F4F3,
+    -1px 0 0 #F2F4F3,1px 0 0 #F2F4F3,0 -1px 0 #F2F4F3,0 1px 0 #F2F4F3,0 0 5px rgba(242,244,243,.95);
+  transition:transform .16s cubic-bezier(.2,.9,.3,1.4),color .16s}
+.pin:hover{transform:translate(-50%,-50%) scale(1.16);color:var(--blue-d)}
+.anglab{position:absolute;transform:translate(-50%,-50%);pointer-events:none;
+  font-family:"IBM Plex Sans",sans-serif;font-style:italic;font-weight:700;font-size:17px;
+  text-shadow:-1px -1px 0 #F2F4F3,1px -1px 0 #F2F4F3,-1px 1px 0 #F2F4F3,1px 1px 0 #F2F4F3,
+    0 0 5px rgba(242,244,243,.95)}
+.pin.new{animation:popin .5s cubic-bezier(.2,.9,.3,1.5)}
+@keyframes popin{0%{transform:translate(-50%,-50%) scale(0);opacity:0}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.pin.on{color:var(--blue-d);transform:translate(-50%,-50%) scale(1.12)}
+.len{position:absolute;transform:translate(-50%,-50%);font-family:"IBM Plex Mono",monospace;
+  font-weight:600;font-size:14px;white-space:nowrap;letter-spacing:-.01em;
+  color:var(--found-d);
+  text-shadow:0 0 4px #F2F4F3,0 0 4px #F2F4F3,0 0 8px #F2F4F3,0 0 8px #F2F4F3;
+  transition:color .4s}
+.len.given{color:var(--given-d)}
+.len.tgt{color:var(--target-d)}
+.len.fresh{animation:ping .8s ease}
+@keyframes ping{0%{transform:translate(-50%,-50%) scale(1.9);color:var(--target)}
+  100%{transform:translate(-50%,-50%) scale(1)}}
+#hint3d{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-3);pointer-events:none;transition:opacity .5s}
+
+/* ---------- header ---------- */
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 12px;font-weight:500}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:clamp(28px,5.4vw,40px);
+  line-height:1.02;margin:0 0 12px;letter-spacing:-.028em}
+.promise{color:var(--ink-2);font-size:16.5px;margin:0 0 30px;max-width:46ch}
+.promise b{color:var(--ink);font-weight:600}
+
+/* ---------- problem picker ---------- */
+.picker{display:flex;gap:0;flex-wrap:wrap;margin:0 0 30px;border-bottom:1px solid var(--hair)}
+.pk{background:none;border:none;border-bottom:2px solid transparent;padding:9px 14px 11px;
+  font-family:"IBM Plex Sans",sans-serif;font-size:14px;color:var(--ink-3);cursor:pointer;
+  margin-bottom:-1px;transition:color .15s,border-color .15s}
+.pk:hover{color:var(--ink)}
+.pk.on{color:var(--ink);border-bottom-color:var(--red);font-weight:600}
+.pk .tick{color:var(--blue);margin-left:6px;font-size:12px}
+
+/* ---------- statement: this is an exam question ---------- */
+.stmt{margin:0 0 22px}
+.stmt p{margin:0 0 16px;font-size:19px;line-height:1.5;color:var(--ink);letter-spacing:-.006em}
+.stmt .katex{font-size:1.02em}
+.given{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
+  padding-top:14px;border-top:1px solid var(--hair)}
+.gv{font-size:16px;color:var(--ink-2)}
+.gv .katex{color:var(--ink)}
+.findline{display:block;width:100%;margin-top:4px;font-size:16px;color:var(--red-d);font-weight:500}
+
+/* ---------- half-drawn note ---------- */
+.halfdrawn{font-size:15.5px;color:var(--ink-2);line-height:1.55;margin:0 0 26px;
+  padding-left:15px;border-left:2px solid var(--amber)}
+.halfdrawn b{color:var(--ink);font-weight:600}
+
+/* ---------- ask before tell ---------- */
+.ask{margin:0 0 14px;padding-left:15px;border-left:2px solid var(--blue)}
+.askhead{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:17px;
+  margin:0 0 12px;color:var(--ink);letter-spacing:-.015em;line-height:1.3}
+.askopts{display:flex;flex-direction:column;gap:6px}
+.askopt{background:none;border:1px solid var(--hair);border-radius:10px;padding:11px 14px;
+  font-family:inherit;font-size:15.5px;color:var(--ink);text-align:left;cursor:pointer;
+  transition:transform .13s,border-color .13s,background .13s}
+.askopt:hover:not(:disabled){transform:translateX(3px);border-color:var(--blue);background:var(--blue-l)}
+.askopt:disabled{cursor:default}
+.askopt.right{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.askopt.wrong{opacity:.45}
+.askv:empty{display:none}
+.askgood{margin-top:12px;font-size:15.5px;color:var(--blue-d);line-height:1.5}
+.askbad{margin-top:12px;font-size:15.5px;color:var(--red-d);line-height:1.5}
+.skip{margin-top:12px;background:none;border:none;color:var(--ink-3);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;padding:0}
+.skip:hover{color:var(--ink-2);text-decoration:underline}
+.btn:disabled{opacity:.4;cursor:default;box-shadow:none}
+
+/* ---------- the student's own scratchpad ---------- */
+#tray{margin:0 0 26px}
+.trayh{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--amber-d);margin:0 0 10px;font-weight:500}
+#trayin{display:flex;flex-direction:column;gap:10px}
+
+/* ---------- the two doors ---------- */
+.doors{display:flex;flex-direction:column;gap:8px;margin:0 0 22px}
+.door{background:none;border:1px solid var(--hair);border-radius:12px;padding:15px 17px;
+  text-align:left;font-family:inherit;cursor:pointer;
+  transition:transform .16s cubic-bezier(.2,.9,.3,1.2),border-color .16s,background .16s}
+.door:hover{transform:translateY(-2px);border-color:var(--red);background:var(--red-l)}
+.door b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:17px;
+  font-weight:700;margin-bottom:2px;letter-spacing:-.015em}
+.door span{display:block;font-size:14.5px;color:var(--ink-2);line-height:1.42}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px}
+.opt{background:none;border:1px solid var(--hair);border-radius:12px;padding:18px 10px;
+  font-size:18px;cursor:pointer;transition:transform .14s,border-color .14s,background .14s}
+.opt:hover:not(:disabled){transform:translateY(-2px);border-color:var(--blue);background:var(--blue-l)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--blue);background:var(--blue-l);box-shadow:inset 0 0 0 1px var(--blue)}
+.opt.wrong{opacity:.42}
+.verdict{margin:0 0 16px;font-size:16px;line-height:1.55;padding-left:15px}
+.verdict.good{border-left:2px solid var(--blue);color:var(--ink-2)}
+.verdict.bad{border-left:2px solid var(--red);color:var(--ink-2)}
+.verdict b{color:var(--ink);font-weight:600}
+.askq{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:19px;
+  margin:0 0 14px;letter-spacing:-.018em}
+
+/* ---------- toolbelt ---------- */
+.belt{margin:0 0 26px}
+.belt h3{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 10px;font-weight:500}
+.tools{display:flex;flex-wrap:wrap;gap:6px}
+.tool{display:flex;align-items:center;gap:7px;border-radius:20px;padding:6px 13px;
+  font-size:13.5px;color:var(--ink-3);background:none;border:1px solid var(--hair);
+  transition:all .35s cubic-bezier(.2,.9,.3,1.3)}
+.tool .dot{width:5px;height:5px;border-radius:50%;background:var(--hair);flex:0 0 5px;transition:background .3s}
+.tool.got{border-color:var(--blue);color:var(--blue-d);font-weight:600;
+  animation:unlock .5s cubic-bezier(.2,.9,.3,1.4)}
+.tool.got .dot{background:var(--blue)}
+@keyframes unlock{0%{transform:scale(.92)}55%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+/* ---------- steps ---------- */
+.step{margin:0 0 30px;animation:rise .35s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.step .head{display:flex;align-items:baseline;gap:11px;margin-bottom:10px}
+.step .n{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3);flex:0 0 auto}
+.step .t{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:20px;
+  letter-spacing:-.02em;line-height:1.15}
+.step p{margin:0 0 14px;font-size:16.5px;color:var(--ink-2);line-height:1.55}
+.step p b{color:var(--ink);font-weight:600}
+.math{margin:18px 0;text-align:center;font-size:19px;overflow-x:auto;padding:2px 0}
+.board{margin:0 0 14px}
+.board .bh{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.board svg{display:block;width:100%;height:auto;max-height:190px}
+.board.mine .bh{color:var(--amber-d)}
+.board.mine .x{margin-left:auto;background:none;border:none;color:var(--ink-3);font-size:15px;
+  line-height:1;cursor:pointer;padding:0 2px}
+.board.mine .x:hover{color:var(--ink)}
+.gotit{display:inline-flex;align-items:center;gap:7px;font-family:"IBM Plex Mono",monospace;
+  font-size:13px;color:var(--blue-d);font-weight:500}
+
+/* ---------- the one action ---------- */
+.act{position:sticky;bottom:16px;margin:26px 0 0;z-index:6}
+.btn{width:100%;background:var(--ink);color:var(--paper);border:none;border-radius:12px;
+  padding:15px 20px;font-family:"IBM Plex Sans",sans-serif;font-size:16px;font-weight:600;
+  cursor:pointer;box-shadow:0 6px 18px -8px rgba(20,24,26,.5);transition:filter .15s,transform .1s}
+.btn:hover{filter:brightness(1.25)} .btn:active{transform:translateY(1px)}
+.btn.ghost{background:var(--paper);color:var(--ink);border:1px solid var(--hair);box-shadow:none}
+.btn.ghost:hover{border-color:var(--ink-3);filter:none}
+.hintline{text-align:center;font-size:13.5px;color:var(--ink-3);margin:10px 0 0}
+
+.final{border-top:2px solid var(--red);padding:22px 0 0;margin:26px 0 0;
+  animation:rise .4s cubic-bezier(.2,.9,.3,1.2)}
+.final .lbl{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--red-d);margin-bottom:12px;font-weight:500}
+.final .val{font-size:30px;margin-bottom:14px}
+.final .why{color:var(--ink-2);font-size:16px;line-height:1.55;margin:0}
+
+/* ---------- rail ---------- */
+#rail{position:fixed;left:0;right:0;top:0;z-index:9998;display:flex;align-items:center;gap:14px;
+  padding:11px 16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;background:linear-gradient(180deg,#F2F4F3 55%,rgba(242,244,243,0));
+  pointer-events:none}
+#rail a,#rail span{pointer-events:auto}
+#rail .home{color:#8B958F;text-decoration:none;white-space:nowrap}
+#rail .home:hover{color:#14181A}
+#rail .track{flex:1;display:flex;align-items:center;max-width:340px}
+#rail .node{width:7px;height:7px;border-radius:50%;background:#CBD3CF;flex:0 0 7px;
+  transition:background .3s,box-shadow .3s}
+#rail .node.on{background:#E8442A;box-shadow:0 0 0 4px rgba(232,68,42,.16)}
+#rail .node.done{background:#2B4FE8}
+#rail .seg{flex:1;height:1px;background:#D7DEDA}
+#rail .seg.done{background:#93A9E8}
+#rail .now{color:#C4331C;white-space:nowrap}
+@media(max-width:560px){#rail .now{display:none}}
+:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="stage"><div id="layer"></div><div id="hint3d">drag to turn · tap three points</div></div>
+  <div id="col">
+    <p class="eyebrow">Solved problems</p>
+    <h1 id="title">Nothing here is hard.</h1>
+    <p class="promise">Every stereometry problem is a <b>short sequence of things you already know</b>. We take them one at a time, and you collect the tool each step needs.</p>
+
+    <div class="picker" id="picker"></div>
+    <div id="stmt"></div>
+    <div id="gate"></div>
+    <div class="belt" id="belt" hidden><h3>Tools this one needs</h3><div class="tools" id="tools"></div></div>
+    <div id="tray" hidden>
+      <h3 class="trayh">Your scratchpad</h3>
+      <div id="trayin"></div>
+    </div>
+    <div id="steps"></div>
+    <div class="act"><button class="btn" id="go"></button><p class="hintline" id="hintline"></p></div>
+  </div>
+</div>
+
+<script>
+/* track.js — inlined so each page works standalone. Master copy: track.js */
+/* ============================================================
+   track.js — shared analytics + feedback for all parts
+   Loaded by index.html, cuboid.html, problem-dihedral.html, game.html
+   ------------------------------------------------------------
+   PUBLIC API
+     Track.event(name, props)      record something
+     Track.part(name)             declare which part this page is
+     Track.mountFeedback(el, cfg) render the end-of-part feedback block
+     Track.debug()                open the live event panel (or press ` )
+   ------------------------------------------------------------
+   To go live: set POSTHOG_KEY below. Until then everything is
+   buffered locally and visible via the debug panel, so the page
+   works with no backend at all.
+   ============================================================ */
+(function(){
+'use strict';
+
+var POSTHOG_KEY = 'phc_khGJHZ5sECXB2bvTVURfwZJ58B4zwQUYSLF3XsESRW2g';
+var POSTHOG_HOST = 'https://eu.i.posthog.com';
+var STORE = 'sightlines.v1';
+
+/* ---------- identity (no personal data) ---------- */
+function uid(){
+  return 'v-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+}
+function load(){
+  try{ return JSON.parse(localStorage.getItem(STORE)) || {}; }catch(e){ return {}; }
+}
+function save(o){
+  try{ localStorage.setItem(STORE, JSON.stringify(o)); }catch(e){}
+}
+var mem = load();
+if(!mem.visitor){ mem.visitor = uid(); mem.firstSeen = Date.now(); mem.visits = 0; }
+if(!mem.parts) mem.parts = {};
+if(!mem.session || Date.now() - (mem.lastSeen||0) > 30*60*1000){
+  mem.session = uid(); mem.visits = (mem.visits||0) + 1;
+}
+mem.lastSeen = Date.now();
+save(mem);
+
+var ph = null;
+var phReady = false;
+var pending = [];
+var PART = 'unknown';
+var queue = [];
+var log = [];
+var t0 = Date.now();
+
+/* ---------- the one function everything goes through ---------- */
+function event(name, props){
+  var p = Object.assign({
+    part: PART,
+    visitor: mem.visitor,
+    session: mem.session,
+    visit_no: mem.visits,
+    returning: mem.visits > 1,
+    device: matchMedia('(pointer:coarse)').matches ? 'touch' : 'desktop',
+    t_ms: Date.now() - t0
+  }, props||{});
+  var rec = {name:name, props:p, at:new Date().toISOString()};
+  log.push(rec);
+  if(POSTHOG_KEY){
+    var P = window.posthog;                       // always look it up fresh
+    if(phReady && P && typeof P.capture === 'function'){ try{ P.capture(name, p); }catch(e){} }
+    else pending.push({name:name, props:p});      // wait for the recorder
+  } else queue.push(rec);
+  paintDebug();
+  return rec;
+}
+
+/* ---------- part lifecycle ---------- */
+var partStart = Date.now();
+function part(name){
+  PART = name;
+  partStart = Date.now();
+  mem.parts[name] = mem.parts[name] || {opened:0, completed:0};
+  mem.parts[name].opened++;
+  save(mem);
+  event('part_open', {opened_before: mem.parts[name].opened - 1});
+  event('visit', {visits: mem.visits});
+}
+function complete(extra){
+  mem.parts[PART] = mem.parts[PART] || {opened:1, completed:0};
+  mem.parts[PART].completed++;
+  save(mem);
+  var order = ['explainer','problem','game'];
+  var done = order.filter(function(k){ return mem.parts[k] && mem.parts[k].completed; });
+  event('part_complete', Object.assign({
+    seconds: Math.round((Date.now()-partStart)/1000),
+    completed_parts: done.length,
+    order_followed: done.join('>') === order.slice(0,done.length).join('>')
+  }, extra||{}));
+}
+addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){
+    event('part_leave', {seconds: Math.round((Date.now()-partStart)/1000)});
+  }
+});
+
+/* ============================================================
+   feedback block
+   ============================================================ */
+var CSS = '\
+.tk-fb{--tk-a:#E8442A;font-family:inherit;margin:26px 0 0;padding:18px 20px;border-radius:16px;\
+  border:1px solid var(--tk-line,rgba(128,128,128,.28));background:var(--tk-bg,rgba(128,128,128,.06))}\
+.tk-fb .tk-h{display:block;font-size:17px;font-weight:600;margin-bottom:3px}\
+.tk-fb .tk-sub{margin:0 0 13px;opacity:.68;font-size:14.5px;line-height:1.45}\
+.tk-inline{display:flex;gap:8px;flex-wrap:wrap}\
+.tk-fb input{flex:1 1 220px;min-width:0;font-family:inherit;font-size:15px;padding:11px 14px;\
+  border-radius:9px;border:1px solid var(--tk-line,rgba(128,128,128,.3));\
+  background:var(--tk-field,rgba(255,255,255,.05));color:inherit}\
+.tk-fb input:focus{outline:2px solid var(--tk-a);outline-offset:-1px}\
+.tk-send{background:var(--tk-a);color:#fff;border:none;border-radius:9px;padding:11px 20px;\
+  font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap}\
+.tk-send:hover{filter:brightness(1.09)}\
+.tk-send:disabled{opacity:.5;cursor:default}\
+.tk-hide{display:none}\
+.tk-ok{margin-top:10px;font-size:14.5px;color:var(--tk-a);font-weight:600}\
+.tk-mini{font-size:13px;opacity:.6;margin:12px 0 0;line-height:1.45}\
+.tk-mini a{color:inherit;text-decoration:underline;text-underline-offset:2px}\
+#tk-debug{position:fixed;left:10px;bottom:10px;z-index:99999;width:min(430px,92vw);max-height:60vh;\
+  overflow:auto;background:#0d0f16;color:#d8e2f5;border:1px solid #2b3550;border-radius:10px;\
+  padding:12px;font:12px/1.5 ui-monospace,monospace;display:none}\
+#tk-debug.on{display:block}\
+#tk-debug b{color:#f2b84b}\
+#tk-debug .r{border-bottom:1px solid #1e2740;padding:3px 0}\
+';
+var styled = false;
+function injectCSS(){
+  if(styled) return; styled = true;
+  var s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s);
+}
+
+function mountFeedback(host, cfg){
+  injectCSS();
+  cfg = cfg || {};
+  var box = document.createElement('div');
+  box.className = 'tk-fb';
+  box.innerHTML =
+    '<b class="tk-h">' + (cfg.title || 'Stay in the loop') + '</b>' +
+    '<p class="tk-sub">' + (cfg.sub || 'New topics are on the way. Drop your email and we will tell you when.') + '</p>' +
+    '<div class="tk-inline">' +
+      '<input type="email" id="tk-mail" placeholder="you@example.com" autocomplete="email">' +
+      '<button class="tk-send" id="tk-send">Notify me</button>' +
+    '</div>' +
+    '<div class="tk-ok tk-hide" id="tk-ok"></div>' +
+    '<p class="tk-mini">Or write to <a href="mailto:lemiu2026@gmail.com">lemiu2026@gmail.com</a> \u2014 thoughts, criticism, or a problem you want built. We read everything.</p>';
+  host.appendChild(box);
+
+  box.querySelector('#tk-send').onclick = function(){
+    var el = box.querySelector('#tk-mail');
+    var mail = el ? el.value.trim() : '';
+    var valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail);
+    event('email_submit', {email_given: valid, email: valid ? mail : '', from_part: PART});
+    if(valid){
+      try{
+        var P = window.posthog;
+        if(P && typeof P.identify === 'function') P.identify(mem.visitor, {email:mail});
+        else if(P && typeof P.setPersonProperties === 'function') P.setPersonProperties({email:mail});
+      }catch(e){}
+      mem.email = true; save(mem);
+    }
+    var ok = box.querySelector('#tk-ok');
+    ok.classList.remove('tk-hide');
+    ok.textContent = valid ? 'Done \u2014 you will hear from us first.' : 'That email does not look right.';
+    if(valid) box.querySelector('#tk-send').disabled = true;
+  };
+  box.querySelector('#tk-mail').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') box.querySelector('#tk-send').click();
+  });
+
+  event('feedback_shown');
+  return box;
+}
+
+/* ---------- share ---------- */
+function share(label){
+  var url = location.href.split('#')[0];
+  event('share_click', {label:label});
+  if(navigator.share){
+    navigator.share({title:document.title, url:url}).then(function(){
+      event('share_done', {method:'native'});
+    }).catch(function(){});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){ event('share_done', {method:'clipboard'}); });
+  }
+}
+
+/* ---------- debug panel ---------- */
+var dbg = null;
+function paintDebug(){
+  if(!dbg || !dbg.classList.contains('on')) return;
+  dbg.innerHTML = '<b>' + log.length + ' events · ' + mem.visitor + '</b>' +
+    log.slice(-60).reverse().map(function(r){
+      return '<div class="r">' + r.name + ' ' +
+        JSON.stringify(r.props, function(k,v){
+          return ['visitor','session','device','visit_no','returning'].indexOf(k) >= 0 ? undefined : v;
+        }) + '</div>';
+    }).join('');
+}
+function debug(){
+  injectCSS();
+  if(!dbg){ dbg = document.createElement('div'); dbg.id = 'tk-debug'; document.body.appendChild(dbg); }
+  dbg.classList.toggle('on');
+  paintDebug();
+}
+addEventListener('keydown', function(e){
+  if(e.key === '`' || (e.key === 'D' && e.shiftKey && e.ctrlKey)) debug();
+});
+
+var startPosthog = function(){
+/* ---------- posthog, loaded only if a key is set ---------- */
+if(!POSTHOG_KEY) return;
+  try{
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
+  function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);
+  t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}
+  (p=t.createElement("script")).type="text/javascript",p.async=!0,
+  p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);
+  var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){
+  var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){
+  return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),
+  n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  window.posthog.init(POSTHOG_KEY,{
+    api_host:POSTHOG_HOST,
+    persistence:'localStorage',
+    bootstrap:{distinctID: mem.visitor},
+    disable_cookie:true,
+    autocapture:false,
+    capture_pageview:false,
+    session_recording:{
+      maskAllInputs:false,
+      captureCanvas:{ canvasFps:4, canvasQuality:'0.5' }
+    },
+    loaded: function(p){
+      phReady = true;
+      try{ if(typeof p.startSessionRecording === 'function') p.startSessionRecording(); }catch(e){}
+      // replay is live now — send anything captured before it started
+      for(var i=0;i<pending.length;i++){
+        try{ p.capture(pending[i].name, pending[i].props); }catch(e){}
+      }
+      pending = [];
+    }
+  });
+  ph = window.posthog;
+  }catch(e){ ph = null; if(window.console) console.warn('analytics off:', e.message); }
+
+
+};
+
+window.Track = {
+  event: event,
+  part: part,
+  complete: complete,
+  mountFeedback: mountFeedback,
+  share: share,
+  debug: debug,
+  dump: function(){ return log.slice(); },
+  memory: function(){ return JSON.parse(JSON.stringify(mem)); }
+};
+try{ startPosthog(); }catch(e){}
+setTimeout(function(){
+  if(!phReady && POSTHOG_KEY && window.posthog && typeof window.posthog.capture === 'function'){
+    phReady = true;
+    for(var i=0;i<pending.length;i++){
+      try{ window.posthog.capture(pending[i].name, pending[i].props); }catch(e){}
+    }
+    pending = [];
+  }
+}, 6000);
+
+})();
+</script>
+<script>
+/* fallback: if the analytics library fails to load, pages still work */
+window.Track = window.Track || {event:function(){},part:function(){},complete:function(){},
+  mountFeedback:function(){},share:function(){},debug:function(){},
+  dump:function(){return[];},memory:function(){return {parts:{}};}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   the problems
+   ============================================================ */
+var R60 = 60*Math.PI/180;
+
+var PROBLEMS = [
+{
+  id:'pcub1', no:'C1', tab:'Diagonal and the floor',
+  statement:'A cuboid $ABCDA_1B_1C_1D_1$ has $AB=6$, $BC=8$ and $AA_1=12$. '
+    +'Find the angle between the space diagonal $AC_1$ and the base plane $ABCD$.',
+  given:['$AB=6$','$BC=8$','$AA_1=12$'],
+  ask:'the angle $AC_1$ makes with the base',
+  known:[['A','B'],['B','C'],['A','A1']],
+  atStart:['A','B','C','D','A1','B1','C1','D1'],
+  incomplete:'The box is drawn, but <b>the triangle you need is not</b>. '
+    +'An angle only becomes findable once it sits inside a right triangle — so your first job is to build one.',
+  pts:function(){ return {A:[0,0,0], B:[6,0,0], C:[6,8,0], D:[0,8,0],
+                          A1:[0,0,12], B1:[6,0,12], C1:[6,8,12], D1:[0,8,12]}; },
+  wire:[['A','B'],['B','C'],['C','D'],['D','A'],
+        ['A1','B1'],['B1','C1'],['C1','D1'],['D1','A1'],
+        ['A','A1'],['B','B1'],['C','C1'],['D','D1']],
+  target:['A','C1'],
+  faces:[{quad:function(){ return [[0,0,0],[6,0,0],[6,8,0],[0,8,0]]; },
+          col:0x2B4FE8, op:0.10}],          // the base plane ABCD, named in the statement
+  tools:['Line ⊥ plane','Pythagoras','Tangent'],
+  steps:[
+    { tool:'Line ⊥ plane', t:'Drop it onto the floor',
+      ask:{q:'To measure how a line leans on a plane, you compare it with…',
+        opts:[
+          {v:'its shadow on that plane',ok:true,
+           why:'Yes. Shine a light straight down: where the diagonal lands is what the angle is measured against.'},
+          {v:'the nearest edge of the box',
+           why:'An edge is convenient but arbitrary. The angle with a plane always means the angle with the projection.'},
+          {v:'the vertical height',
+           why:'That is the side opposite the angle, not the one it is measured from.'}]},
+      p:'The shadow of $AC_1$ on the base is <b>AC</b>. Together with the upright $CC_1$ that gives '
+        +'<b>triangle ACC₁</b>, right-angled at C because $CC_1$ stands square on the base.',
+      board:['A','C','C1'], add:[['A','C','amber']], lens:[['A','C']],
+      got:'△ACC₁ is right-angled' },
+    { tool:'Pythagoras', t:'Measure the shadow',
+      ask:{q:'$ABCD$ is a rectangle with sides 6 and 8. So $AC$ is…',
+        opts:[
+          {v:'$10$',ok:true,why:'Yes — $\\sqrt{36+64}=\\sqrt{100}=10$.'},
+          {v:'$14$',why:'That is $6+8$. Pythagoras squares the sides first, then adds.'},
+          {v:'$\\sqrt{28}$',why:'That is $64-36$. The two short sides add, they do not subtract.'},
+          {v:'$48$',why:'That is $6\\times 8$ — the area of the floor, not its diagonal.'}]},
+      p:'Forget the box for a moment. This is a flat rectangle with a diagonal across it.',
+      tex:'AC=\\sqrt{6^2+8^2}=\\sqrt{100}=10',
+      board:['A','B','C'], add:[['A','C','blue']], lens:[['A','C']], got:'AC = 10' },
+    { tool:'Tangent', t:'Now the angle',
+      ask:{q:'Opposite $\\alpha$ sits 12, beside it sits 10. So $\\tan\\alpha$ is…',
+        opts:[
+          {v:'$\\tfrac{12}{10}=\\tfrac65$',ok:true,
+           why:'Yes. Tangent is the side facing the angle over the side beside it.'},
+          {v:'$\\tfrac{10}{12}=\\tfrac56$',
+           why:'Upside down. 10 lies beside the angle, so it belongs underneath.'},
+          {v:'$\\tfrac{12}{\\sqrt{244}}$',
+           why:'That is $\\sin\\alpha$ — you divided by the long side instead of the near one.'},
+          {v:'$\\tfrac{10}{\\sqrt{244}}$',
+           why:'That is $\\cos\\alpha$, the same slip the other way round.'}]},
+      p:'α sits between the diagonal and its shadow, in the right triangle you built.',
+      tex:'\\tan\\alpha=\\frac{CC_1}{AC}=\\frac{12}{10}=\\frac{6}{5}',
+      note:'In degrees that is about $50.2^\\circ$, but $\\tfrac65$ is the exact answer.',
+      board:['A','C','C1'], add:[['A','C1','red'],['C','C1','amber']], lens:[['A','C1']],
+      got:'tan α = 6/5' }
+  ],
+  answer:'\\tan\\alpha=\\tfrac{6}{5}',
+  options:[{v:'\\tan\\alpha=\\tfrac65',ok:true},
+           {v:'\\tan\\alpha=\\tfrac56',why:'Flipped. The 12 stands opposite the angle, so it goes on top.'},
+           {v:'\\tan\\alpha=\\tfrac{12}{6}=2',why:'That uses an edge instead of the shadow. The diagonal leans on AC, not on AB.'},
+           {v:'\\tan\\alpha=\\tfrac{12}{8}=\\tfrac32',why:'Also an edge rather than the shadow — this time BC.'}],
+  why:'Three small things: find a right triangle, use Pythagoras, use the tangent. Not one of them was about 3D.'
+},
+{
+  id:'pcub2', no:'C2', tab:'Section of a cuboid',
+  statement:'The same cuboid has $AB=6$, $BC=8$ and $AA_1=12$. '
+    +'The plane through $A$, $C$, $C_1$, $A_1$ cuts it. Find the area of the section.',
+  given:['$AB=6$','$BC=8$','$AA_1=12$'],
+  ask:'the area of the section $ACC_1A_1$',
+  known:[['A','B'],['B','C'],['A','A1']],
+  atStart:['A','B','C','D','A1','B1','C1','D1'],
+  incomplete:'The four corners of the cut are given, but <b>what shape they make is for you to say</b> — '
+    +'and until you know that, no area formula applies.',
+  pts:function(){ return {A:[0,0,0], B:[6,0,0], C:[6,8,0], D:[0,8,0],
+                          A1:[0,0,12], B1:[6,0,12], C1:[6,8,12], D1:[0,8,12]}; },
+  wire:[['A','B'],['B','C'],['C','D'],['D','A'],
+        ['A1','B1'],['B1','C1'],['C1','D1'],['D1','A1'],
+        ['A','A1'],['B','B1'],['C','C1'],['D','D1']],
+  target:['A','C1'],
+  faces:[{quad:function(){ return [[0,0,0],[6,8,0],[6,8,12],[0,0,12]]; },
+          col:0xE8442A, op:0.16}],          // the plane through A, C, C1, A1
+  tools:['Naming the shape','Pythagoras'],
+  steps:[
+    { tool:'Naming the shape', t:'What did we cut?',
+      ask:{q:'The four corners $A,\\;C,\\;C_1,\\;A_1$ make…',
+        opts:[
+          {v:'a rectangle',ok:true,
+           why:'Yes. $AA_1$ and $CC_1$ are both upright and both 12, and $AA_1$ stands square on the base — so every corner is a right angle.'},
+          {v:'a parallelogram, but not a rectangle',
+           why:'The opposite sides do match. But the uprights also stand <b>square</b> on the base, which makes the corners right angles too.'},
+          {v:'a trapezium',
+           why:'A trapezium has one pair of parallel sides. Here both pairs are parallel: the two uprights, and $AC$ with $A_1C_1$.'}]},
+      p:'$AA_1$ and $CC_1$ are parallel and equal, and each stands square on the base. '
+        +'So the cut is a <b>rectangle</b>, and all we need is length × width.',
+      board:null, add:[['A','C','amber'],['C','C1','amber'],['C1','A1','amber'],['A1','A','amber']],
+      got:'the section is a rectangle' },
+    { tool:'Pythagoras', t:'The side we are missing',
+      ask:{q:'One side is $AA_1=12$. The other is $AC$, flat on the floor. It is…',
+        opts:[
+          {v:'$10$',ok:true,why:'Yes — $\\sqrt{36+64}=10$. The very same flat problem as before.'},
+          {v:'$14$',why:'That is $6+8$. Square the sides first, then add.'},
+          {v:'$\\sqrt{28}$',why:'That is $64-36$ — subtraction instead of addition.'},
+          {v:'$48$',why:'That is $6\\times 8$, the area of the floor rather than its diagonal.'}]},
+      p:'$AC$ lies flat on the base, across the rectangle $ABCD$. Ordinary plane geometry.',
+      tex:'AC=\\sqrt{6^2+8^2}=10',
+      board:['A','B','C'], add:[['A','C','blue']], lens:[['A','C']], got:'AC = 10' },
+    { tool:'Naming the shape', t:'Multiply',
+      p:'A rectangle 10 by 12. Nothing left to work out.',
+      tex:'S=AC\\cdot AA_1=10\\cdot 12=120',
+      board:null, add:[], lens:[['A','C1']], got:'S = 120' }
+  ],
+  answer:'S = 120',
+  options:[{v:'120',ok:true},
+           {v:'44',why:'That is the perimeter, $2(10+12)$. The question asks for area.'},
+           {v:'60',why:'That is half of it — the area of a triangle. The section is a whole rectangle.'},
+           {v:'576',why:'That is $6\\times 8\\times 12$, the volume of the cuboid, not the area of the cut.'}],
+  why:'Name the shape, find the side you are missing, multiply. And $AC=10$ was the same small problem as last time — cuboids keep asking it.'
+},
+{
+  id:'p1451', no:'14.51', tab:'Point to a line',
+  statement:'In right triangle $ABC$ the legs are $AC=15$ and $BC=20$, with the right angle at $C$. '
+    +'A perpendicular $CM=5$ is erected to the plane of the triangle at $C$. '
+    +'Find the distance from $M$ to the hypotenuse $AB$.',
+  given:['$AC=15$','$BC=20$','$\\angle C=90^\\circ$','$CM=5$','$CM\\perp$ plane $ABC$'],
+  ask:'distance from M to AB',
+  known:[['A','C'],['B','C'],['C','M']],
+  incomplete:'The figure shows only what the statement gives you: the triangle, and CM standing on it. '
+    +'<b>The line you actually need is not drawn yet</b> \u2014 nothing here touches AB at a right angle. You will add it.',
+  pts:function(){ return {A:[15,0,0], B:[0,20,0], C:[0,0,0], H:[9.6,7.2,0], M:[0,0,5]}; },
+  wire:[['A','B'],['B','C'],['C','A'],['C','M']],
+  target:['M','H'],
+  view:{theta:-62, phi:11},         // low enough that the 5-unit upright reads its full length
+  tools:['Pythagoras','Area, two ways','Line \u22a5 plane'],
+  steps:[
+    { tool:'Pythagoras', t:'Get the hypotenuse',
+      p:'Start flat. <b>ABC</b> is right-angled at C, and you know both legs.',
+      tex:'AB=\\sqrt{15^2+20^2}=25', board:['A','C','B'], add:[['A','B','blue']], lens:[['A','B']],
+      got:'AB = 25' },
+    { tool:'Area, two ways', t:'Drop the height onto AB',
+      ask:{q:'You want CH, the height onto AB. Which of these already contains CH?',
+        opts:[
+          {v:'The area of ABC',ok:true,
+           why:'Yes. The area does not care which side you call the base \u2014 so writing it twice pins CH down.'},
+          {v:'Triangle MCH',
+           why:'It does contain CH \u2014 but to use it you would need MH, and MH is exactly what we are hunting. Something else has to give CH first.'},
+          {v:'The hypotenuse AB',
+           why:'AB is just a length. On its own it says nothing about how far C sits from it.'}]},
+      p:'Call <b>H</b> the foot of the perpendicular from C to AB. The area of the triangle can be written two ways \u2014 and only one of them contains CH.',
+      tex:'\\tfrac12\\cdot 15\\cdot 20=\\tfrac12\\cdot 25\\cdot CH\\;\\Rightarrow\\;CH=\\frac{300}{25}=12',
+      board:['A','C','B'], add:[['C','H','blue']], lens:[['C','H']], got:'CH = 12' },
+    { tool:'Line \u22a5 plane', t:'The right angle you cannot see',
+      ask:{q:'Why is MH the distance from M to AB, rather than just some segment?',
+        opts:[
+          {v:'Because MH \u22a5 AB',ok:true,
+           why:'Right. Distance to a line always means the perpendicular \u2014 and we can prove this one is perpendicular without seeing it.'},
+          {v:'Because MH is the shortest we can draw',
+           why:'True, but that is the consequence, not the reason. You need an argument that it is perpendicular.'},
+          {v:'Because H is the midpoint of AB',
+           why:'H is not the midpoint \u2014 it is the foot of the perpendicular from C. Different point.'}]},
+      p:'CM is perpendicular to the whole plane, so it is perpendicular to <b>every</b> line in it \u2014 AB included. CH is perpendicular to AB too. So AB is perpendicular to the plane MCH, which makes <b>MH \u22a5 AB</b>.',
+      note:'That is exactly what &ldquo;distance from M to AB&rdquo; means: the perpendicular.',
+      board:null, add:[['M','H','red'],['M','C','amber']], got:'MH \u22a5 AB' },
+    { tool:'Pythagoras', t:'Finish in the hidden triangle',
+      p:'Triangle <b>MCH</b> is right-angled at C. Both legs are known.',
+      tex:'MH^2=5^2+12^2=169', board:['M','C','H'], add:[], lens:[['M','H']], got:'MH = 13' }
+  ],
+  answer:'MH = 13',
+  options:[{v:'13',ok:true},
+           {v:'\\sqrt{194}\\approx 13.9',why:'That is \u221a(5\u00b2+13\u00b2) \u2014 looks like CH got mixed up with the hypotenuse AB. The height onto AB is 12, not 13.'},
+           {v:'12',why:'That is CH, the distance from <b>C</b> to AB. M sits 5 above C, so it must be further away than that.'},
+           {v:'5',why:'That is CM \u2014 how far M is from the <b>plane</b>. The question asks for its distance to a particular line in that plane.'}],
+  why:'Notice what happened: two flat steps, then one idea about space, then one more flat step. None of it was hard on its own.'
+},
+{
+  id:'p1457', no:'14.57', tab:'Point to a plane',
+  statement:'In triangle $ABC$, $AB=29$, $BC=36$ and $AC=25$. A plane is drawn through $BC$, '
+    +'making an angle $\\alpha$ with the plane of the triangle, where $\\sin\\alpha=\\tfrac{2}{5}$. '
+    +'Find the distance from $A$ to that plane.',
+  given:['$AB=29$','$BC=36$','$AC=25$','$\\sin\\alpha=\\tfrac{2}{5}$'],
+  ask:'distance from A to the plane',
+  known:[['A','B'],['B','C'],['A','C']],
+  incomplete:'The triangle and the tilted plane are both here, as stated. '
+    +'<b>The height onto BC and the perpendicular from A are not</b> \u2014 you add those.',
+  pts:function(){
+    var sa=2/5, ca=Math.sqrt(1-sa*sa);          // sin a = 2/5
+    // foot of the perpendicular from A onto the plane through BC tilted by a
+    return {A:[21,20,0], B:[0,0,0], C:[36,0,0], H:[21,0,0],
+            F:[21, 20-20*sa*sa, 20*sa*ca]};
+  },
+  wire:[['A','B'],['B','C'],['C','A']],
+  target:['A','F'],
+  // the tilted plane, revealed at the step where it starts to matter
+  view:{theta:-118, phi:17},        // where the stated angle actually reads at its true size
+  plane:{ at:0, quad:function(){
+      // hinged on BC itself, opening by the stated angle: sin a = 2/5
+      var sa=2/5, ca=Math.sqrt(1-sa*sa), L=26;
+      return [[0,0,0],[36,0,0],[36,L*ca,L*sa],[0,L*ca,L*sa]];
+    },
+    hinge:['B','C'], angle:{deg:23.58, label:'\u03b1'} },
+  tools:['Heron','Area, two ways','Angle between planes'],
+  steps:[
+    { tool:'Heron', t:'Area from three sides',
+      p:'No angles given, no height given \u2014 but three sides is enough.',
+      tex:'p=\\tfrac{29+36+25}{2}=45,\\quad S=\\sqrt{45\\cdot16\\cdot9\\cdot20}=360',
+      board:['A','B','C'], add:[], got:'S = 360' },
+    { tool:'Area, two ways', t:'Turn the area into a height',
+      ask:{q:'You have the area. Which height does it hand you for free?',
+        opts:[
+          {v:'The one onto BC',ok:true,
+           why:'Yes \u2014 BC is the side the tilted plane hinges on, so that is the height that matters.'},
+          {v:'The one onto AB',
+           why:'You could find it, but it would not help: AB is not the hinge between the two planes.'},
+          {v:'None \u2014 you need an angle first',
+           why:'The area already contains every height. Pick a side as the base and the height follows.'}]},
+      p:'Let <b>H</b> be the foot of the perpendicular from A to BC. Write the same area the other way.',
+      tex:'360=\\tfrac12\\cdot 36\\cdot AH\\;\\Rightarrow\\;AH=20',
+      board:['A','B','C'], add:[['A','H','blue']], lens:[['A','H']], got:'AH = 20' },
+    { tool:'Angle between planes', t:'Tilt it into the new plane',
+      p:'AH is perpendicular to BC, and BC is the hinge between the two planes. So AH sits exactly in the plane where the angle \u03b1 lives \u2014 and the distance you want is the part of AH that stands off the tilted plane.',
+      tex:'d=AH\\sin\\alpha=20\\cdot\\tfrac{2}{5}=8',
+      board:null, add:[['A','F','red']], lens:[['A','F']], got:'d = 8' }
+  ],
+  answer:'d = 8',
+  options:[{v:'8',ok:true},
+           {v:'20',why:'That is AH, the distance from A to <b>BC</b> inside the original plane. The new plane is tilted away from it.'},
+           {v:'20\\cos\\alpha\\approx 18.3',why:'Close \u2014 but cosine gives the part of AH lying <b>along</b> the tilted plane. You want the part standing off it, which is sine.'},
+           {v:'360',why:'That is the area of the triangle \u2014 an intermediate value, not the distance.'}],
+  why:'The only spatial idea here was the last line. Everything before it was plane geometry you have done since school.'
+},
+{
+  id:'p1458', no:'14.58', tab:'Two folded triangles',
+  statement:'Two isosceles triangles share the common base $AB=16$, and their planes form an angle of $60^\\circ$. '
+    +'The first has equal sides $17$ and $17$. In the second, the two equal sides are perpendicular to each other. '
+    +'Find the distance between their apexes.',
+  given:['$AB=16$','$PA=PB=17$','$QA\\perp QB$','planes at $60^\\circ$'],
+  ask:'PQ',
+  known:[['A','B'],['P','A'],['P','B']],
+  incomplete:'Both triangles and both planes are here, as stated. '
+    +'<b>Nothing connects P to Q yet</b>, and neither height is drawn. '
+    +'Those three lines are the whole solution.',
+  pts:function(){ return {A:[-8,0,0], B:[8,0,0], M:[0,0,0],
+                          P:[0,15,0], Q:[0,8*Math.cos(R60),8*Math.sin(R60)]}; },
+  wire:[['A','B'],['A','P'],['B','P'],['A','Q'],['B','Q']],
+  target:['P','Q'],
+  atStart:['A','B','P','Q'],
+  faces:[{quad:function(){ return [[-8,0,0],[8,0,0],[0,15,0]]; }, col:0x2B4FE8, op:0.10},
+         {quad:function(){ return [[-8,0,0],[8,0,0],
+            [0,8*Math.cos(R60),8*Math.sin(R60)]]; }, col:0xE8442A, op:0.10}],
+  tools:['Pythagoras','Right isosceles','Angle between planes','Law of cosines'],
+  steps:[
+    { tool:'Pythagoras', t:'Height of the first triangle',
+      p:'<b>M</b> is the midpoint of AB, so AM = 8. The first triangle is isosceles, so PM is its height.',
+      tex:'PM^2=17^2-8^2=225\\;\\Rightarrow\\;PM=15',
+      board:['A','P','M'], add:[['P','M','blue']], lens:[['P','M']], got:'PM = 15' },
+    { tool:'Right isosceles', t:'Height of the second',
+      p:'QA and QB are equal <b>and</b> perpendicular, so AQB is a right isosceles triangle with hypotenuse AB. In one of those, the median to the hypotenuse is half of it.',
+      tex:'QM=\\tfrac12 AB=8',
+      board:['A','Q','M'], add:[['Q','M','blue']], lens:[['Q','M']], got:'QM = 8' },
+    { tool:'Angle between planes', t:'Where the 60\u00b0 actually sits',
+      ask:{q:'The planes meet at 60\u00b0. Between which two lines is that angle actually measured?',
+        opts:[
+          {v:'PM and QM',ok:true,
+           why:'Yes. Both are perpendicular to the hinge AB, and that is exactly the definition.'},
+          {v:'PA and QA',
+           why:'Neither is perpendicular to AB, so the angle between them is not the angle between the planes.'},
+          {v:'PQ and AB',
+           why:'PQ is what we are looking for \u2014 it cannot be part of what we were given.'}]},
+      p:'PM and QM are <b>both</b> perpendicular to AB, and AB is the hinge. That is the definition of the angle between the planes \u2014 so the angle at M, between PM and QM, is the 60\u00b0 you were given.',
+      note:'This is the step people skip. The 60\u00b0 is not between any two random lines: it is between these two.',
+      board:null, add:[], got:'\u2220PMQ = 60\u00b0' },
+    { tool:'Law of cosines', t:'Two sides and the angle between them',
+      p:'Triangle <b>PMQ</b> now has everything it needs.',
+      tex:'PQ^2=15^2+8^2-2\\cdot15\\cdot8\\cos 60^\\circ=169',
+      board:['P','M','Q'], add:[['P','Q','red']], lens:[['P','Q']], got:'PQ = 13' }
+  ],
+  answer:'PQ = 13',
+  options:[{v:'13',ok:true},
+           {v:'17',why:'That is PA, one of the equal sides of the first triangle \u2014 not the gap between the two apexes.'},
+           {v:'\\sqrt{409}\\approx 20.2',why:'Every piece is there, but the cosine term looks <b>added</b> rather than subtracted \u2014 that would be a 120\u00b0 fold, not 60\u00b0.'},
+           {v:'23',why:'That is 15 + 8, the two heights added. They do not lie on one straight line \u2014 there is 60\u00b0 between them.'}],
+  why:'Three of the four steps were plane geometry. The whole spatial part was realising which angle the 60\u00b0 belonged to.'
+},
+{
+  id:'p1459', no:'14.59', tab:'Across a fold',
+  statement:'From points $A$ and $B$ lying on the two faces of a dihedral angle, perpendiculars '
+    +'$AA_1$ and $BB_1$ are dropped to its edge. Find $AB$, given $AA_1=a$, $BB_1=b$, '
+    +'$A_1B_1=c$ and the dihedral angle $x$.',
+  given:['$AA_1=3$','$BB_1=4$','$A_1B_1=5$','$x=60^\\circ$'],
+  ask:'AB',
+  known:[['A','A1'],['B','B1'],['A1','B1']],
+  incomplete:'Everything the statement mentions is drawn \u2014 and it is not enough. '
+    +'<b>The fold angle is not between anything yet</b>, because the two perpendiculars start in different places.',
+  pts:function(){ return {A1:[0,0,0], B1:[5,0,0], A:[0,3,0],
+                          B:[5,4*Math.cos(R60),4*Math.sin(R60)], A2:[5,3,0]}; },
+  wire:[['A','A1'],['B','B1'],['A1','B1']],
+  target:['A','B'],
+  atStart:['A','A1','B','B1'],
+  faces:[{quad:function(){ return [[-2,0,0],[7,0,0],[7,5,0],[-2,5,0]]; },
+          col:0x2B4FE8, op:0.10},           // one face of the dihedral angle
+         {quad:function(){ var c=Math.cos(R60), s2=Math.sin(R60);
+            return [[-2,0,0],[7,0,0],[7,5*c,5*s2],[-2,5*c,5*s2]]; },
+          col:0xE8442A, op:0.10}],          // and the other
+  tools:['Parallel translation','Law of cosines','Line \u22a5 plane','Pythagoras'],
+  steps:[
+    { tool:'Parallel translation', t:'Bring the two perpendiculars together',
+      p:'The dihedral angle sits between two perpendiculars that meet the edge at the <b>same</b> point. Yours meet it in different places. Slide AA\u2081 along the edge until its foot lands on B\u2081.',
+      tex:'A_2B_1=AA_1=3,\\qquad AA_2=A_1B_1=5',
+      board:null, add:[['A','A2','amber'],['A2','B1','blue']], lens:[['A','A2'],['A2','B1']], got:'the point A\u2082' },
+    { tool:'Law of cosines', t:'A flat triangle you can already solve',
+      ask:{q:'In triangle A\u2082B\u2081B you know two sides. What is the angle between them?',
+        opts:[
+          {v:'The fold angle, 60\u00b0',ok:true,
+           why:'Yes \u2014 both of those sides are perpendicular to the edge, which is what the fold angle is measured between.'},
+          {v:'90\u00b0',
+           why:'That would make it a right fold. The problem says 60\u00b0.'},
+          {v:'Not enough information',
+           why:'You have it \u2014 sliding AA\u2081 across is exactly what put the fold angle between two sides you know.'}]},
+      p:'In triangle <b>A\u2082B\u2081B</b> you know two sides, and the angle between them is the fold angle itself \u2014 because both of those segments are perpendicular to the edge.',
+      tex:'A_2B^2=3^2+4^2-2\\cdot3\\cdot4\\cos60^\\circ=13',
+      board:['A2','B1','B'], add:[['A2','B','blue']], lens:[['A2','B']], got:'A\u2082B = \u221a13' },
+    { tool:'Line \u22a5 plane', t:'The corner at A\u2082 is square',
+      p:'AA\u2082 runs parallel to the edge, and the edge is perpendicular to both B\u2081A\u2082 and B\u2081B. Perpendicular to two intersecting lines means perpendicular to the whole plane \u2014 so the angle at A\u2082 is 90\u00b0.',
+      note:'Spin the figure: it never looks square from any angle. Trust the rule, not the picture.',
+      board:null, add:[], got:'\u2220AA\u2082B = 90\u00b0' },
+    { tool:'Pythagoras', t:'Stand it up',
+      p:'One leg runs along the edge, the other lies in the fold.',
+      tex:'AB^2=5^2+13=38', board:['A','A2','B'], add:[['A','B','red']], lens:[['A','B']], got:'AB = \u221a38' }
+  ],
+  answer:'AB = \\sqrt{38}',
+  options:[{v:'\\sqrt{38}',ok:true},
+           {v:'\\sqrt{50}',why:'That is a\u00b2+b\u00b2+c\u00b2 \u2014 what you get when the cosine term vanishes, which only happens at a right fold. This one is 60\u00b0.'},
+           {v:'\\sqrt{62}',why:'Every piece is there, but the cosine term looks added rather than subtracted. Worth checking the sign.'},
+           {v:'\\sqrt{13}',why:'That is A\u2082B, the flat triangle inside the fold \u2014 and that part is right. There is one more step: standing it up along the edge.'}],
+  why:'In general this is AB = \u221a(a\u00b2+b\u00b2+c\u00b2\u22122ab\u2009cos\u2009x). Fold to 90\u00b0 and the cosine term vanishes \u2014 it becomes the diagonal of a box.'
+}];
+
+/* ============================================================
+   state
+   ============================================================ */
+var LV = PROBLEMS[0], PT = {}, shown = 0, picks = [], userBoards = [], BORN = {};
+var done = {};
+
+/* ============================================================
+   3D
+   ============================================================ */
+var stage=document.getElementById('stage'), layer=document.getElementById('layer');
+var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setClearColor(0x000000,0);
+stage.insertBefore(renderer.domElement,layer);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(38,1,0.1,500); camera.up.set(0,0,1);
+scene.add(new THREE.AmbientLight(0xffffff,0.95));
+var world=new THREE.Group(); scene.add(world);
+var COL={blue:0x2B4FE8, red:0xE8442A, amber:0xE39A22, faint:0x93A09A, ink:0x14181A,
+         given:0x6E7A74, found:0x2B4FE8, built:0xE39A22, target:0xE8442A};
+
+function tube(color,r,op){
+  return new THREE.Mesh(new THREE.CylinderGeometry(r,r,1,12),
+    new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:op===undefined?1:op}));
+}
+function place(m,p,q){
+  var A=new THREE.Vector3(p[0],p[1],p[2]),B=new THREE.Vector3(q[0],q[1],q[2]);
+  var L=A.distanceTo(B); if(L<1e-6){m.visible=false;return;}
+  m.visible=true; m.scale.set(1,L,1);
+  m.position.copy(A).add(B).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
+}
+var structG=new THREE.Group(), addG=new THREE.Group(), hlG=new THREE.Group(), planeG=new THREE.Group();
+world.add(planeG, structG, addG, hlG);
+function clearG(g){ while(g.children.length) g.remove(g.children[0]); }
+function scaleOf(){ var m=0; for(var k in PT){ m=Math.max(m,Math.hypot(PT[k][0],PT[k][1],PT[k][2])); } return m/12; }
+
+function buildStructure(){
+  clearG(structG); clearG(addG); clearG(hlG); clearG(planeG); clearG(targetG);
+  var s=scaleOf();
+  LV.wire.forEach(function(e){
+    var t=tube(COL.given,0.055*s,0.9); place(t,PT[e[0]],PT[e[1]]); structG.add(t);
+  });
+
+}
+var statG=new THREE.Group(); world.add(statG);
+var planeLabel=null;
+/* every surface the statement mentions, drawn before any work begins */
+function showStatement(){
+  clearG(statG);
+  (LV.faces||[]).forEach(function(f){
+    var q=f.quad();
+    var g=new THREE.BufferGeometry();
+    var arr=[];
+    for(var i=1;i<q.length-1;i++) arr=arr.concat(q[0],q[i],q[i+1]);
+    g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+    var col=f.col||COL.given;
+    statG.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial(
+      {color:col,transparent:true,opacity:(f.op||0.11),side:THREE.DoubleSide,depthWrite:false})));
+    var s2=scaleOf();
+    for(var j=0;j<q.length;j++){
+      var t=tube(col,0.035*s2,0.6); place(t,q[j],q[(j+1)%q.length]); statG.add(t);
+    }
+  });
+}
+/* an arc between two directions, drawn where the planes hinge */
+function hingeArc(g, at, d1, d2, r, col){
+  var O=new THREE.Vector3(at[0],at[1],at[2]);
+  var U=new THREE.Vector3(d1[0],d1[1],d1[2]).normalize();
+  var V=new THREE.Vector3(d2[0],d2[1],d2[2]).normalize();
+  var ax=new THREE.Vector3().crossVectors(U,V).normalize();
+  var tot=U.angleTo(V), pts=[];
+  for(var i=0;i<=26;i++)
+    pts.push(O.clone().add(U.clone().applyAxisAngle(ax,tot*i/26).multiplyScalar(r)));
+  var geo=new THREE.BufferGeometry().setFromPoints(pts);
+  var mat=new THREE.LineBasicMaterial({color:col}); mat.depthTest=false;
+  var l=new THREE.Line(geo,mat); l.renderOrder=12; g.add(l);
+}
+function showPlane(){
+  clearG(planeG);
+  if(planeLabel && planeLabel.el){ planeLabel.el.remove(); planeLabel=null; }
+  if(!LV.plane) return;
+  var q=LV.plane.quad();
+  var g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(
+    [].concat(q[0],q[1],q[2],q[0],q[2],q[3]),3));
+  planeG.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial(
+    {color:COL.amber,transparent:true,opacity:.13,side:THREE.DoubleSide})));
+  var s2=scaleOf();
+  for(var i=0;i<4;i++){
+    var t=tube(COL.amber,0.04*s2,.75); place(t,q[i],q[(i+1)%4]); planeG.add(t);
+  }
+  // show the angle the statement names, right where the two planes meet
+  if(LV.plane.angle && LV.plane.hinge){
+    var H0=PT[LV.plane.hinge[0]], H1=PT[LV.plane.hinge[1]];
+    var mid=[(H0[0]+H1[0])/2,(H0[1]+H1[1])/2,(H0[2]+H1[2])/2];
+    var into=[q[3][0]-q[0][0], q[3][1]-q[0][1], q[3][2]-q[0][2]];
+    // the direction inside the triangle, perpendicular to the hinge
+    var flat=[0,1,0];
+    hingeArc(planeG, mid, flat, into, 7, COL.amber);
+    var lab=document.createElement('div');
+    lab.className='anglab';
+    lab.textContent=LV.plane.angle.label;
+    lab.style.color='#8A5B10';
+    planeLabel={el:lab, at:[mid[0], mid[1]+5.6, mid[2]+1.9]};
+    document.getElementById('layer').appendChild(lab);
+  }
+}
+var targetG=new THREE.Group(); world.add(targetG);
+function buildTarget(){
+  clearG(targetG);
+  if(!alive(LV.target[0]) || !alive(LV.target[1])) return;
+  var t=tube(COL.red,0.075*scaleOf(),0.92);
+  place(t,PT[LV.target[0]],PT[LV.target[1]]); targetG.add(t);
+}
+/* a segment being drawn: it grows from its first point to its second,
+   the way you would draw it by hand rather than appearing all at once */
+var drawing=[];
+function growSeg(mesh, p, q, ms, delay, landsAt){
+  var A=new THREE.Vector3(p[0],p[1],p[2]), B=new THREE.Vector3(q[0],q[1],q[2]);
+  var L=A.distanceTo(B);
+  if(L<1e-6){ mesh.visible=false; return; }
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+  mesh.visible=false;
+  if(landsAt && pinEls[landsAt]){ holdPins[landsAt]=1; pinEls[landsAt].style.visibility='hidden'; }
+  drawing.push({m:mesh, A:A, B:B, L:L, t0:now()+(delay||0), ms:ms||520, lands:landsAt});
+}
+function now(){ return (window.performance&&performance.now)?performance.now():Date.now(); }
+function stepDrawing(){
+  if(!drawing.length) return;
+  var t=now(), keep=[];
+  for(var i=0;i<drawing.length;i++){
+    var d=drawing[i];
+    if(t<d.t0){ keep.push(d); continue; }
+    var k=Math.min(1,(t-d.t0)/d.ms);
+    var e=k<0.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;      // ease, so it starts and lands softly
+    var len=Math.max(1e-4, d.L*e);
+    d.m.visible=true;
+    d.m.scale.set(1,len,1);
+    var mid=d.A.clone().lerp(d.B, e/2);                 // the far end travels, the near end stays
+    d.m.position.copy(mid);
+    if(k<1) keep.push(d);
+    else if(d.lands) landPin(d.lands);          // the point arrives as the line reaches it
+  }
+  drawing=keep;
+}
+function stopDrawing(){ drawing=[]; sweep=null; }
+
+/* the camera turns to face whatever is being drawn — one slow move, no spinning */
+var sweep=null;
+function sweepTo(a, b, ms){
+  if(!PT[a] || !PT[b]) return;
+  var A=PT[a], B=PT[b];
+  var dir=[B[0]-A[0], B[1]-A[1], B[2]-A[2]];
+  var flat=Math.hypot(dir[0],dir[1]);
+  if(flat<1e-6 && Math.abs(dir[2])<1e-6) return;
+  // stand square to the segment, so its full length faces the viewer
+  var want = Math.atan2(dir[1],dir[0])*180/Math.PI - 90;
+  // a line that mostly rises is best seen from lower down
+  var rise = Math.abs(dir[2])/(Math.hypot(dir[0],dir[1],dir[2])||1);
+  var wantPhi = 26 - 14*rise;
+  // turn the short way round
+  var cur=orbit.theta;
+  while(want-cur> 180) want-=360;
+  while(want-cur<-180) want+=360;
+  sweep={t0:now(), ms:ms||1100, th0:cur, th1:want, ph0:orbit.phi, ph1:wantPhi};
+}
+function stepSweep(){
+  if(!sweep) return;
+  var k=Math.min(1,(now()-sweep.t0)/sweep.ms);
+  var e=k<0.5 ? 4*k*k*k : 1-Math.pow(-2*k+2,3)/2;     // slow out, slow in
+  orbit.theta = sweep.th0 + (sweep.th1-sweep.th0)*e;
+  orbit.phi   = sweep.ph0 + (sweep.ph1-sweep.ph0)*e;
+  if(k>=1) sweep=null;
+}
+
+function addSegments(list, instant){
+  var s=scaleOf();
+  var delay=0;
+  list.forEach(function(e){
+    if(e[2]==='amber'){                       // a construction line: drawn as dashes
+      var A=new THREE.Vector3(PT[e[0]][0],PT[e[0]][1],PT[e[0]][2]);
+      var B=new THREE.Vector3(PT[e[1]][0],PT[e[1]][1],PT[e[1]][2]);
+      var n=Math.max(6,Math.round(A.distanceTo(B)/(0.9*s)));
+      var step=520/Math.max(1,Math.ceil(n/2));
+      var j=0;
+      for(var i=0;i<n;i+=2){
+        var p1=A.clone().lerp(B,i/n), p2=A.clone().lerp(B,Math.min(1,(i+1)/n));
+        var d=tube(COL.amber,0.055*s,1);
+        addG.add(d);
+        if(instant) place(d,[p1.x,p1.y,p1.z],[p2.x,p2.y,p2.z]);
+        else {                                 // the dashes appear one after another
+          place(d,[p1.x,p1.y,p1.z],[p2.x,p2.y,p2.z]);
+          d.visible=false;
+          (function(mesh,at){ setTimeout(function(){ mesh.visible=true; }, at); })(d, delay + j*step);
+        }
+        j++;
+      }
+      delay += 560;
+      return;
+    }
+    var isTarget = (e[2]==='red');
+    var t=tube(COL[e[2]]||COL.blue,(isTarget?0.085:0.07)*s,1);
+    addG.add(t);
+    if(instant) place(t,PT[e[0]],PT[e[1]]);
+    else {
+      // the answer line is the conclusion, so it pauses, then draws slowly
+      growSeg(t, PT[e[0]], PT[e[1]], isTarget?900:560, delay + (isTarget?320:0), e[1]);
+    }
+    delay += isTarget ? 1300 : 380;            // one line finishes before the next begins
+  });
+}
+function highlight(keys,mine){
+  clearG(hlG);
+  if(!keys) return;
+  var col = mine ? COL.amber : COL.blue;
+  var s=scaleOf();
+  var g=new THREE.BufferGeometry();
+  var p=keys.map(function(k){return PT[k];});
+  g.setAttribute('position',new THREE.Float32BufferAttribute([].concat(p[0],p[1],p[2]),3));
+  hlG.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial(
+    {color:col,transparent:true,opacity:.13,side:THREE.DoubleSide})));
+  for(var i=0;i<3;i++){
+    var t=tube(col,0.05*s,.9); place(t,p[i],p[(i+1)%3]); hlG.add(t);
+  }
+}
+
+var orbit={theta:-58,phi:20,dist:34,target:new THREE.Vector3()};
+var spin=true, zoomMul=1;
+function frame(){
+  var cx=0,cy=0,cz=0,n=0;
+  for(var k in PT){ cx+=PT[k][0]; cy+=PT[k][1]; cz+=PT[k][2]; n++; }
+  orbit.target.set(cx/n,cy/n,cz/n);
+  var r=0; for(var k2 in PT){ r=Math.max(r,Math.hypot(PT[k2][0]-cx/n,PT[k2][1]-cy/n,PT[k2][2]-cz/n)); }
+  orbit.dist=r/Math.sin(19*Math.PI/180)*1.25;
+}
+function applyOrbit(){
+  var t=orbit.theta*Math.PI/180,p=orbit.phi*Math.PI/180,d=orbit.dist*zoomMul;
+  camera.position.set(d*Math.cos(p)*Math.cos(t),d*Math.cos(p)*Math.sin(t),d*Math.sin(p)).add(orbit.target);
+  camera.lookAt(orbit.target);
+}
+(function(){
+  var pts={},n=0,lx=0,ly=0,pd=0;
+  function d2(){var a=[];for(var k in pts)a.push(pts[k]);
+    return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1;}
+  stage.addEventListener('pointerdown',function(e){
+    if(e.target.closest('.pin'))return;
+    stage.setPointerCapture(e.pointerId); pts[e.pointerId]=[e.clientX,e.clientY]; n++;
+    sweep=null;                       // touching the figure takes the camera back
+    if(n===1){lx=e.clientX;ly=e.clientY;} else if(n===2) pd=d2();
+    spin=false; document.getElementById('hint3d').style.opacity=0;
+  });
+  stage.addEventListener('pointermove',function(e){
+    if(!pts[e.pointerId])return; pts[e.pointerId]=[e.clientX,e.clientY];
+    if(n===1){orbit.theta-=(e.clientX-lx)*.4;
+      orbit.phi=Math.max(-84,Math.min(84,orbit.phi+(e.clientY-ly)*.34)); lx=e.clientX; ly=e.clientY;}
+    else if(n===2){var d=d2(); if(pd) zoomMul=Math.max(.6,Math.min(2.2,zoomMul*pd/d)); pd=d;}
+  });
+  function up(e){ if(pts[e.pointerId]){delete pts[e.pointerId]; n--;} }
+  stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+  stage.addEventListener('wheel',function(e){e.preventDefault();
+    zoomMul=Math.max(.6,Math.min(2.2,zoomMul*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
+})();
+function resize(){var w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();}
+addEventListener('resize',resize);
+
+/* a point exists only once the statement gives it, or a step builds it */
+function bornAt(){
+  var born={};
+  LV.wire.forEach(function(e){ born[e[0]]=0; born[e[1]]=0; });
+  (LV.known||[]).forEach(function(e){ born[e[0]]=0; born[e[1]]=0; });
+  // whatever the statement draws for you exists from the very first screen
+  (LV.atStart||[]).forEach(function(k){ born[k]=0; });
+  LV.steps.forEach(function(st,i){
+    function mark(k){ if(born[k]===undefined) born[k]=i+1; }
+    (st.add||[]).forEach(function(x){ mark(x[0]); mark(x[1]); });
+    (st.lens||[]).forEach(function(x){ mark(x[0]); mark(x[1]); });
+    (st.board||[]).forEach(mark);
+  });
+  Object.keys(PT).forEach(function(k){ if(born[k]===undefined) born[k]=99; });
+  return born;
+}
+function alive(k){ return BORN[k]!==undefined && BORN[k]<=shown; }
+
+/* length labels — appear as each value is found */
+var lenEls={}, knownLens=[], freshLen=null;
+function keyOf(a,b){ return a<b ? a+'|'+b : b+'|'+a; }
+function resetLens(){
+  for(var k in lenEls){ lenEls[k].remove(); } lenEls={};
+  knownLens=(LV.known||[]).map(function(e){return e;});
+  freshLen=null; syncLens();
+}
+function addLens(list){
+  list.forEach(function(e){
+    if(knownLens.some(function(x){return keyOf(x[0],x[1])===keyOf(e[0],e[1]);})) return;
+    knownLens.push(e); freshLen=keyOf(e[0],e[1]);
+  });
+  syncLens();
+  setTimeout(function(){ freshLen=null; syncLens(); },900);
+}
+function syncLens(){
+  var want={};
+  knownLens.forEach(function(e){ want[keyOf(e[0],e[1])]=e; });
+  for(var k in lenEls){ if(!want[k]){ lenEls[k].remove(); delete lenEls[k]; } }
+  for(var k2 in want){
+    var e=want[k2];
+    if(!alive(e[0])||!alive(e[1])) continue;
+    if(!lenEls[k2]){ var el=document.createElement('div'); layer.appendChild(el); lenEls[k2]=el; }
+    var isTarget = keyOf(LV.target[0],LV.target[1])===k2;
+    var isGiven=(LV.known||[]).some(function(g){return keyOf(g[0],g[1])===k2;});
+    lenEls[k2].className='len'+(isTarget?' tgt':(isGiven?' given':''))+(freshLen===k2?' fresh':'');
+    lenEls[k2].textContent=nice(dist(e[0],e[1]));
+    lenEls[k2].dataset.a=e[0]; lenEls[k2].dataset.b=e[1];
+  }
+}
+function updateLens(){
+  var w=stage.clientWidth,h=stage.clientHeight;
+  for(var k in lenEls){
+    var el=lenEls[k], a=el.dataset.a, b=el.dataset.b;
+    if(!PT[a]||!PT[b]) continue;
+    _v.set((PT[a][0]+PT[b][0])/2,(PT[a][1]+PT[b][1])/2,(PT[a][2]+PT[b][2])/2).project(camera);
+    el.style.left=((_v.x*.5+.5)*w)+'px'; el.style.top=((-_v.y*.5+.5)*h)+'px';
+    el.style.opacity=_v.z>1?0:1;
+  }
+}
+
+/* pins */
+var pinEls={}, _v=new THREE.Vector3();
+var holdPins={};                      // points waiting for their line to arrive
+function buildPins(){
+  Object.keys(PT).forEach(function(k){
+    if(alive(k)){
+      if(!pinEls[k]){
+        var b=document.createElement('button'); b.className='pin new'; b.textContent=nm(k);
+        b.onclick=function(){ pick(k); };
+        layer.appendChild(b); pinEls[k]=b;
+        if(holdPins[k]){ b.style.visibility='hidden'; }
+        setTimeout(function(){ b.classList.remove('new'); },600);
+      }
+    } else if(pinEls[k]){ pinEls[k].remove(); delete pinEls[k]; }
+  });
+}
+function landPin(k){
+  holdPins[k]=0;
+  var b=pinEls[k];
+  if(b){ b.style.visibility=''; b.classList.add('new');
+    setTimeout(function(){ b.classList.remove('new'); },600); }
+}
+function nm(k){ return k.replace(/1/g,'\u2081').replace(/2/g,'\u2082'); }
+function updatePins(){
+  var w=stage.clientWidth,h=stage.clientHeight;
+  for(var k in pinEls){
+    if(!PT[k]) continue;
+    _v.set(PT[k][0],PT[k][1],PT[k][2]).project(camera);
+    pinEls[k].style.left=((_v.x*.5+.5)*w)+'px'; pinEls[k].style.top=((-_v.y*.5+.5)*h)+'px';
+  }
+  if(planeLabel && planeLabel.el.isConnected){
+    var a=planeLabel.at;
+    _v.set(a[0],a[1],a[2]).project(camera);
+    planeLabel.el.style.left=((_v.x*.5+.5)*w)+'px';
+    planeLabel.el.style.top =((-_v.y*.5+.5)*h)+'px';
+    planeLabel.el.style.opacity=_v.z>1?0:1;
+  }
+}
+function pick(k){
+  var i=picks.indexOf(k);
+  if(i>=0) picks.splice(i,1); else { if(picks.length>=3) picks.shift(); picks.push(k); }
+  for(var p in pinEls) pinEls[p].classList.toggle('on', picks.indexOf(p)>=0);
+  if(picks.length===3){ addUserBoard(picks.slice()); picks=[];
+    for(var q in pinEls) pinEls[q].classList.remove('on'); }
+}
+
+/* ============================================================
+   flat true-shape board
+   ============================================================ */
+/* turn $...$ into real math wherever it appears in prose */
+function mathify(html){
+  return html.replace(/\$([^$]+)\$/g, function(_,tex){
+    return '<span data-tex="'+tex.replace(/"/g,'&quot;')+'"></span>';
+  });
+}
+function typeset(root){
+  if(typeof katex==='undefined'){ setTimeout(function(){typeset(root);},120); return; }
+  var e=root.querySelectorAll('[data-tex]');
+  for(var i=0;i<e.length;i++){ if(e[i].dataset.done) continue;
+    try{ katex.render(e[i].dataset.tex,e[i],{throwOnError:false}); e[i].dataset.done=1; }
+    catch(x){ e[i].textContent=e[i].dataset.tex; } }
+}
+function dist(p,q){ return Math.hypot(PT[p][0]-PT[q][0],PT[p][1]-PT[q][1],PT[p][2]-PT[q][2]); }
+function nice(v){
+  if(Math.abs(v-Math.round(v))<1e-9) return String(Math.round(v));
+  var s=v*v; if(Math.abs(s-Math.round(s))<1e-7) return '\u221A'+Math.round(s);
+  return v.toFixed(2);
+}
+function triSVG(keys,ink,bare){
+  ink = ink || '#2340C4';
+  // `bare` = the student's own board: label a side only if the statement gave it
+  var a=keys[0],b=keys[1],c=keys[2];
+  var L1=dist(a,b),L2=dist(b,c),L3=dist(c,a);
+  var x3=(L1*L1+L3*L3-L2*L2)/(2*L1), y3=Math.sqrt(Math.max(0,L3*L3-x3*x3));
+  var raw=[[0,0],[L1,0],[x3,y3]], W=320,H=180,P=40;
+  var xs=raw.map(function(p){return p[0];}), ys=raw.map(function(p){return p[1];});
+  var mnx=Math.min.apply(null,xs),mxx=Math.max.apply(null,xs);
+  var mny=Math.min.apply(null,ys),mxy=Math.max.apply(null,ys);
+  var sc=Math.min((W-2*P)/((mxx-mnx)||1),(H-2*P)/((mxy-mny)||1));
+  var ox=(W-(mxx-mnx)*sc)/2-mnx*sc, oy=(H-(mxy-mny)*sc)/2-mny*sc;
+  var q=raw.map(function(p){return [ox+p[0]*sc,H-(oy+p[1]*sc)];});
+  var cen=[(q[0][0]+q[1][0]+q[2][0])/3,(q[0][1]+q[1][1]+q[2][1])/3];
+  var o='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace">';
+  o+='<polygon points="'+q.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')
+    +'" fill="'+ink+'" fill-opacity=".07"/>';
+  [[0,1,a,b],[1,2,b,c],[2,0,c,a]].forEach(function(e){
+    var i=e[0],j=e[1];
+    o+='<line x1="'+q[i][0].toFixed(1)+'" y1="'+q[i][1].toFixed(1)+'" x2="'+q[j][0].toFixed(1)
+      +'" y2="'+q[j][1].toFixed(1)+'" stroke="'+ink+'" stroke-width="2" stroke-linecap="round"/>';
+    var mx=(q[i][0]+q[j][0])/2,my=(q[i][1]+q[j][1])/2;
+    var dx=mx-cen[0],dy=my-cen[1],dl=Math.hypot(dx,dy)||1;
+    var label = bare ? givenLabel(e[2],e[3]) : nice(dist(e[2],e[3]));
+    if(label){
+      o+='<text x="'+(mx+dx/dl*15).toFixed(1)+'" y="'+(my+dy/dl*15+4).toFixed(1)
+        +'" font-size="11.5" font-weight="600" fill="'+ink+'" text-anchor="middle">'+label+'</text>';
+    }
+  });
+  // right-angle marker
+  for(var i2=0;i2<3;i2++){
+    var A=q[i2],B=q[(i2+1)%3],C2=q[(i2+2)%3];
+    var u=[B[0]-A[0],B[1]-A[1]],v=[C2[0]-A[0],C2[1]-A[1]];
+    var cs=(u[0]*v[0]+u[1]*v[1])/(Math.hypot(u[0],u[1])*Math.hypot(v[0],v[1]));
+    if(Math.abs(cs)<1e-6){
+      var s2=13,un=[u[0]/Math.hypot(u[0],u[1])*s2,u[1]/Math.hypot(u[0],u[1])*s2],
+              vn=[v[0]/Math.hypot(v[0],v[1])*s2,v[1]/Math.hypot(v[0],v[1])*s2];
+      o+='<path d="M'+(A[0]+un[0]).toFixed(1)+','+(A[1]+un[1]).toFixed(1)
+        +' L'+(A[0]+un[0]+vn[0]).toFixed(1)+','+(A[1]+un[1]+vn[1]).toFixed(1)
+        +' L'+(A[0]+vn[0]).toFixed(1)+','+(A[1]+vn[1]).toFixed(1)
+        +'" fill="none" stroke="'+ink+'" stroke-width="1.4" opacity=".65"/>';
+    }
+  }
+  q.forEach(function(p,i){
+    var dx=p[0]-cen[0],dy=p[1]-cen[1],dl=Math.hypot(dx,dy)||1;
+    o+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3" fill="#14181A"/>';
+    o+='<text x="'+(p[0]+dx/dl*17).toFixed(1)+'" y="'+(p[1]+dy/dl*17+4.5).toFixed(1)
+      +'" font-size="12.5" font-weight="600" fill="#14181A" text-anchor="middle">'+nm(keys[i])+'</text>';
+  });
+  return o+'</svg>';
+}
+/* only the lengths the problem statement actually states */
+function givenLabel(a,b){
+  var g=LV.known||[];
+  for(var i=0;i<g.length;i++){
+    if((g[i][0]===a&&g[i][1]===b)||(g[i][0]===b&&g[i][1]===a)) return nice(dist(a,b));
+  }
+  return null;
+}
+function addUserBoard(keys){
+  var tray=document.getElementById('tray');
+  if(tray.hidden){ tray.hidden=false; }
+  var kk=keys.slice().sort().join('');
+  if(userBoards.indexOf(kk)>=0) return;
+  userBoards.push(kk);
+  var d=document.createElement('div'); d.className='board mine';
+  d.innerHTML='<div class="bh">'+keys.map(nm).join('')+' \u2014 true shape, given lengths only'
+    +'<button class="x">\u00d7</button></div>'
+    +triSVG(keys,'#9A6614',true);
+  d.querySelector('.x').onclick=function(e){
+    e.stopPropagation(); d.remove();
+    userBoards.splice(userBoards.indexOf(kk),1);
+    if(!document.querySelectorAll('#trayin .board').length) tray.hidden=true;
+    highlight(null,true);
+  };
+  d.onclick=function(){ highlight(keys,true); spin=false; };
+  document.getElementById('trayin').appendChild(d);
+  d.scrollIntoView({behavior:'smooth',block:'nearest'});
+  highlight(keys,true);
+  Track.event('triangle_pinned',{problem:LV.id,tri:keys.join('')});
+}
+
+/* ============================================================
+   render
+   ============================================================ */
+function renderPicker(){
+  var box=document.getElementById('picker'); box.innerHTML='';
+  PROBLEMS.forEach(function(P,i){
+    var b=document.createElement('button');
+    b.className='pk'+(P===LV?' on':'');
+    b.innerHTML=P.tab+(done[P.id]?'<span class="tick">✓</span>':'');
+    b.onclick=function(){ open(i); };
+    box.appendChild(b);
+  });
+}
+function renderStatement(){
+  document.getElementById('stmt').innerHTML=
+    '<div class="stmt"><p>'+mathify(LV.statement)+'</p>'
+    +'<div class="given">'+LV.given.map(function(g){return '<span class="gv">'+mathify(g)+'</span>';}).join('')
+    +'<span class="gv ask">find '+mathify(LV.ask)+'</span></div></div>'
+    +'<div class="halfdrawn"><b>The figure is not finished.</b> '+mathify(LV.incomplete)+'</div>';
+  typeset(document.getElementById('stmt'));
+}
+function renderTools(){
+  var box=document.getElementById('tools'); box.innerHTML='';
+  var got={};
+  for(var i=0;i<shown;i++) got[LV.steps[i].tool]=1;
+  LV.tools.forEach(function(t){
+    var d=document.createElement('div');
+    d.className='tool'+(got[t]?' got':'');
+    d.innerHTML='<i class="dot"></i>'+t;
+    box.appendChild(d);
+  });
+}
+function renderSteps(){
+  var host=document.getElementById('steps'); host.innerHTML='';
+  for(var i=0;i<shown;i++){
+    var s=LV.steps[i];
+    var d=document.createElement('div'); d.className='step';
+    d.innerHTML='<div class="head"><span class="n">'+(i+1)+'</span><span class="t">'+s.t+'</span></div>'
+      +(s.ask && !answered[i] ? '' : '<p>'+mathify(s.p)+'</p>')
+      +(s.ask && !answered[i] ? '' :
+        (s.tex?'<div class="math"><span data-tex="'+s.tex.replace(/"/g,'&quot;')+'"></span></div>':'')
+        +(s.board?'<div class="board"><div class="bh">flat, true shape</div>'+triSVG(s.board)+'</div>':'')
+        +(s.note?'<p style="font-size:15.5px">'+mathify(s.note)+'</p>':'')
+        +'<span class="gotit">'+s.got+' \u2014 now on the figure</span>');
+    if(s.ask && !answered[i]) mountAsk(d, s.ask, i);
+    if(s.board && answered[i]!==undefined && (!s.ask || answered[i])){
+      var bd=d.querySelector('.board');
+      if(bd){ (function(b){ bd.onclick=function(){ highlight(b); spin=false; }; })(s.board); }
+    }
+    host.appendChild(d);
+  }
+  typeset(host);
+}
+var attempts=0, tried=false, answered={};
+
+/* deterministic shuffle — stable within a session, but the right answer
+   is not always the first one on the list */
+function shuffled(arr, seed){
+  var str=String(seed), h=1779033703^str.length;
+  for(var i=0;i<str.length;i++){ h=Math.imul(h^str.charCodeAt(i),3432918353); h=h<<13|h>>>19; }
+  function rnd(){ h=Math.imul(h^h>>>16,2246822507); h=Math.imul(h^h>>>13,3266489909);
+    h^=h>>>16; return (h>>>0)/4294967296; }
+  var out=arr.slice();
+  for(var j=out.length-1;j>0;j--){
+    var k=Math.floor(rnd()*(j+1)); var t=out[j]; out[j]=out[k]; out[k]=t;
+  }
+  return out;
+}
+
+function mountAsk(host, ask, idx){
+  var w=document.createElement('div'); w.className='ask';
+  w.innerHTML='<p class="askhead">'+mathify(ask.q)+'</p><div class="askopts"></div>'
+    +'<div class="askv"></div><button class="skip">Skip \u2014 just show me</button>';
+  var box=w.querySelector('.askopts');
+  shuffled(ask.opts, LV.id+idx).forEach(function(o,j){
+    var b=document.createElement('button'); b.className='askopt'; b.innerHTML=mathify(o.v);
+    b.onclick=function(){
+      if(b.disabled) return;
+      Track.event('step_question',{problem:LV.id,step:idx+1,correct:!!o.ok});
+      var v=w.querySelector('.askv');
+      if(o.ok){
+        b.classList.add('right');
+        [].forEach.call(box.children,function(x){x.disabled=true;});
+        v.innerHTML='<div class="askgood">'+mathify(o.why)+'</div>'; typeset(v);
+        setTimeout(function(){ answered[idx]=true; renderSteps(); renderAction(); },700);
+      } else {
+        b.disabled=true; b.classList.add('wrong');
+        v.innerHTML='<div class="askbad">'+mathify(o.why)+'</div>'; typeset(v);
+      }
+    };
+    box.appendChild(b);
+  });
+  typeset(w);
+  w.querySelector('.skip').onclick=function(){
+    Track.event('step_question_skip',{problem:LV.id,step:idx+1});
+    answered[idx]=true; renderSteps(); renderAction();
+  };
+  host.appendChild(w);
+}
+function renderGate(){
+  var g=document.getElementById('gate');
+  attempts=0; tried=false;
+  g.innerHTML='<p class="askq">Have a go first?</p>'
+    +'<div class="doors">'
+    +'<button class="door" id="dTry"><b>Let me try</b>'
+      +'<span>Turn the figure, pull out triangles, then pick your answer.</span></button>'
+    +'<button class="door" id="dWalk"><b>Walk me through it</b>'
+      +'<span>One step at a time, collecting the tool each step needs.</span></button>'
+    +'</div>';
+  document.getElementById('dTry').onclick=function(){ Track.event('gate_choice',{problem:LV.id,choice:'try'}); showOptions(); };
+  document.getElementById('dWalk').onclick=function(){ Track.event('gate_choice',{problem:LV.id,choice:'walk'}); startWalk(); };
+  document.getElementById('belt').hidden=true;
+  document.getElementById('go').style.display='none';
+  document.getElementById('hintline').textContent='';
+}
+function showOptions(){
+  tried=true;
+  var g=document.getElementById('gate');
+  g.innerHTML='<p class="askq">What did you get?</p><div class="opts" id="opts"></div>'
+    +'<div id="verdict"></div>';
+  var box=document.getElementById('opts');
+  shuffled(LV.options, LV.id).forEach(function(o,i){
+    var b=document.createElement('button'); b.className='opt';
+    b.innerHTML='<span data-tex="'+o.v.replace(/"/g,'&quot;')+'"></span>';
+    b.onclick=function(){ answer(o,b); };
+    box.appendChild(b);
+  });
+  typeset(box);
+  document.getElementById('hintline').textContent='Take your time. Pull out any triangle you like first.';
+}
+function answer(o,btn){
+  if(btn.disabled) return;
+  attempts++;
+  Track.event('answer_pick',{problem:LV.id,correct:!!o.ok,attempt:attempts});
+  var v=document.getElementById('verdict');
+  if(o.ok){
+    [].forEach.call(document.querySelectorAll('.opt'),function(b){b.disabled=true;});
+    btn.classList.add('right');
+    v.className=''; v.innerHTML='<div class="verdict good"><b>That is it.</b> '
+      +(attempts===1?'First try.':'Got there.')+' Want to see whether your route matched ours?</div>';
+    document.getElementById('go').style.display='';
+    document.getElementById('go').className='btn';
+    document.getElementById('go').textContent='Compare with our way';
+    document.getElementById('hintline').textContent='';
+    return;
+  }
+  btn.disabled=true; btn.classList.add('wrong');
+  v.className='';
+  v.innerHTML='<div class="verdict bad"><b>Not what we got.</b> Hard to say exactly where it went, but here is one thing that could have happened. '
+    +mathify(o.why)+'</div>';
+  typeset(v);
+  if(attempts>=2){
+    document.getElementById('go').style.display='';
+    document.getElementById('go').className='btn';
+    document.getElementById('go').textContent='Show me how it works';
+    document.getElementById('hintline').textContent='';
+  } else {
+    document.getElementById('hintline').textContent='Try another one.';
+  }
+}
+function startWalk(){
+  document.getElementById('gate').innerHTML='';
+  document.getElementById('belt').hidden=false;
+  document.getElementById('go').style.display='';
+  renderTools(); renderSteps(); renderAction();
+}
+function renderAction(){
+  var b=document.getElementById('go'), h=document.getElementById('hintline');
+  if(shown===0){
+    b.className='btn'; b.disabled=false; b.textContent='Show me the first move';
+    h.textContent='Or turn the figure and tap any three points first.';
+  } else if(shown<LV.steps.length){
+    var waiting = LV.steps[shown-1] && LV.steps[shown-1].ask && !answered[shown-1];
+    b.className='btn'; b.disabled=!!waiting;
+    b.textContent = waiting ? 'Answer above to carry on' : 'Next step';
+    h.textContent = waiting ? '' : 'Step '+shown+' of '+LV.steps.length+' done.';
+  } else {
+    b.className='btn ghost'; b.disabled=false;
+    var i=PROBLEMS.indexOf(LV);
+    b.textContent = i+1<PROBLEMS.length ? 'Next problem: '+PROBLEMS[i+1].tab : 'Back to the start';
+    h.textContent='';
+  }
+}
+function advance(){
+  if(shown>0 && LV.steps[shown-1].ask && !answered[shown-1]) return;
+  if(shown>=LV.steps.length){
+    var i=PROBLEMS.indexOf(LV);
+    open(i+1<PROBLEMS.length ? i+1 : 0); return;
+  }
+  var s=LV.steps[shown];
+  shown++;
+  buildPins();
+  buildTarget();
+  if(s.add && s.add.length){ addSegments(s.add); spin=false; }
+  if(s.lens && s.lens.length){ sweepTo(s.lens[0][0], s.lens[0][1], 1200); }
+  if(s.lens && s.lens.length) addLens(s.lens);
+  if(LV.plane && shown>=LV.plane.at) showPlane();
+  showStatement();
+  if(s.board) highlight(s.board); else highlight(null);
+  spin=false;
+  renderTools(); renderSteps(); renderAction();
+  Track.event('step_reveal',{problem:LV.id,step:shown,tool:s.tool});
+  if(shown===LV.steps.length){ finish(); }
+  var st=document.getElementById('steps');
+  if(st.lastChild) st.lastChild.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function finish(){
+  done[LV.id]=1; renderPicker();
+  var d=document.createElement('div'); d.className='final';
+  d.innerHTML='<div class="lbl">answer</div><div class="ans"><span data-tex="'
+    +LV.answer.replace(/"/g,'&quot;')+'"></span></div><p class="why">'+mathify(LV.why)+'</p>';
+  document.getElementById('steps').appendChild(d); typeset(d);
+  Track.event('problem_solved',{problem:LV.id});
+  if(Object.keys(done).length===PROBLEMS.length) Track.complete({problems:PROBLEMS.length});
+
+}
+
+/* if every point of the figure lies in one plane, look down on it.
+   seen edge-on a flat triangle can show its shortest side as its longest. */
+function looksFlat(){
+  // only what is on screen at the start matters — points built later can leave the plane
+  var ks=Object.keys(PT).filter(function(k){ return BORN[k]===0; });
+  var n=ks.length;
+  if(n<4) return true;
+  var o=PT[ks[0]];
+  var u=null, w=null;
+  for(var i=1;i<n;i++){
+    var v=[PT[ks[i]][0]-o[0],PT[ks[i]][1]-o[1],PT[ks[i]][2]-o[2]];
+    if(Math.hypot(v[0],v[1],v[2])<1e-9) continue;
+    if(!u){ u=v; continue; }
+    var c=[u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
+    if(Math.hypot(c[0],c[1],c[2])>1e-6){ w=c; break; }
+  }
+  if(!w) return true;
+  var L=Math.hypot(w[0],w[1],w[2]);
+  var nrm=[w[0]/L,w[1]/L,w[2]/L];
+  for(var j=1;j<n;j++){
+    var q=[PT[ks[j]][0]-o[0],PT[ks[j]][1]-o[1],PT[ks[j]][2]-o[2]];
+    if(Math.abs(q[0]*nrm[0]+q[1]*nrm[1]+q[2]*nrm[2])>1e-6) return false;
+  }
+  return true;
+}
+function open(i){
+  LV=PROBLEMS[i]; PT=LV.pts(); shown=0; picks=[]; answered={}; userBoards=[];
+  document.getElementById('title').textContent = i===0 ? 'Nothing here is hard.' : LV.tab+'.';
+  renderPicker(); renderStatement();
+  document.getElementById('steps').innerHTML='';
+  document.getElementById('trayin').innerHTML='';
+  document.getElementById('tray').hidden=true;
+  renderGate();
+  for(var pk in pinEls){ pinEls[pk].remove(); } pinEls={};
+  stopDrawing();
+  if(planeLabel && planeLabel.el){ planeLabel.el.remove(); planeLabel=null; }
+  BORN=bornAt();
+  buildStructure(); buildPins(); buildTarget(); showStatement();
+  clearG(planeG);
+  if(LV.plane && LV.plane.at===0) showPlane();   // a plane the statement gives is there at once
+  resetLens(); frame(); zoomMul=1; spin=true;
+  // a figure with a tilted plane must not be viewed from above, or the dihedral flattens to nothing
+  var v = LV.view || (looksFlat() && !LV.plane ? {theta:-58,phi:64} : {theta:-58,phi:20});
+  orbit.theta = v.theta; orbit.phi = v.phi;
+  try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+  setTimeout(resize,30);
+  Track.event('problem_open',{problem:LV.id,index:i+1});
+}
+document.getElementById('go').onclick=function(){
+  if(document.getElementById('belt').hidden){ startWalk(); return; }
+  advance();
+};
+
+/* rail */
+window.__PART__='problem';
+(function(){
+  var ORDER=['explainer','problem','game'];
+  var HREF={explainer:'cuboid.html',problem:'problems.html',game:'game.html'};
+  var LABEL={explainer:'The box',problem:'Problems',game:'The puzzle'};
+  var here=window.__PART__, dn=(Track.memory().parts)||{};
+  var el=document.createElement('div'); el.id='rail';
+  var html='<a class="home" href="index.html">&#8592; Sightlines</a><span class="track">';
+  ORDER.forEach(function(k,i){
+    var isDone=dn[k]&&dn[k].completed, isHere=(k===here);
+    if(i) html+='<span class="seg'+((dn[ORDER[i-1]]&&dn[ORDER[i-1]].completed)?' done':'')+'"></span>';
+    html+='<a class="node'+(isHere?' on':'')+(isDone&&!isHere?' done':'')+'" href="'+HREF[k]+'" title="'+LABEL[k]+'"></a>';
+  });
+  html+='</span><span class="now">Problems</span>';
+  el.innerHTML=html; document.body.appendChild(el);
+})();
+
+Track.part('problem');
+open(0); resize(); applyOrbit();
+(function tick(){
+  requestAnimationFrame(tick);
+  if(spin) orbit.theta-=0.09;
+  stepDrawing(); stepSweep();
+  applyOrbit(); renderer.render(scene,camera); updatePins(); updateLens();
+})();
+setTimeout(function(){ document.getElementById('hint3d').style.opacity=0; },6000);
+</script>
+</body>
+</html>

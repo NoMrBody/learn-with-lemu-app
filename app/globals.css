@@ -517,6 +517,22 @@ details[open] > .know-summary::before {
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
+/* The letter naming an angle the statement gave you, sat on the arc that
+   marks it. Not interactive — the arc it labels is drawn in WebGL. */
+.anglab {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--fig-scratch);
+  text-shadow:
+    0 0 4px var(--fig-halo), 0 0 4px var(--fig-halo),
+    0 0 8px var(--fig-halo), 0 0 8px var(--fig-halo);
+}
+
 /* ---- game: pins and length chips ---- */
 .gpin {
   position: absolute;
