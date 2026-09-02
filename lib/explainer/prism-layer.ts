@@ -40,11 +40,16 @@ type Plate = THREE.Group & {
  * A flat polygon of up to `maxN` sides: a fan of triangles from the centroid,
  * plus its outline. Sized for the widest figure and rewritten in place, so a
  * triangle is the same object as a hexagon with three sides collapsed.
+ *
+ * `behind` marks a plate that lies inside another one and must never contest
+ * it for depth: it draws first and writes no depth, so whatever is in front
+ * composites over it in the same order on every frame.
  */
-function plate(color: number, maxN: number, opacity = 1): Plate {
+function plate(color: number, maxN: number, opacity = 1, behind = false): Plate {
   const g = new THREE.Group() as Plate;
   const mat = new THREE.MeshLambertMaterial({
     color, side: THREE.DoubleSide, transparent: true, opacity,
+    depthWrite: !behind,
   });
   const geo = new THREE.BufferGeometry();
   const pos = new THREE.Float32BufferAttribute(new Float32Array(maxN * 9), 3);
@@ -52,10 +57,12 @@ function plate(color: number, maxN: number, opacity = 1): Plate {
   const mesh = new THREE.Mesh(geo, mat);
   // Rewritten in place, so the bounding sphere goes stale immediately.
   mesh.frustumCulled = false;
+  if (behind) mesh.renderOrder = -1;
   g.add(mesh);
 
   const lineMat = new THREE.LineBasicMaterial({
     color: figColor("ink"), transparent: true, opacity: 0.55,
+    depthWrite: !behind,
   });
   lineMat.userData.figRole = "ink";
   const lineGeo = new THREE.BufferGeometry();
@@ -63,6 +70,7 @@ function plate(color: number, maxN: number, opacity = 1): Plate {
   lineGeo.setAttribute("position", linePos);
   const line = new THREE.Line(lineGeo, lineMat);
   line.frustumCulled = false;
+  if (behind) line.renderOrder = -1;
   g.add(line);
 
   g.userData = { mat, lineMat, pos, linePos, geo };
@@ -161,11 +169,19 @@ export function createPrismLayer(): PrismLayer {
   sweepG.name = "sweep";
   sweepG.visible = false;
   group.add(sweepG);
-  const sweepCap = plate(SWEEP_CAP, MAXN, 0.95);
+  // Every sweep plate is built on the same ring at the same height as the net's
+  // own, so at a full sweep the two sets of walls are exactly coplanar and the
+  // cap sits in the lid. Three sorts the transparent pass by distance, so at
+  // equal depth the order is arbitrary — and with both sets writing depth, the
+  // one drawn second is rejected outright. The camera spins, the order keeps
+  // flipping, and each side blinks between its net hue and the sweep's blue.
+  // Marking the sweep `behind` settles it: it draws first, writes no depth, and
+  // the glass shell composites over it the same way on every frame.
+  const sweepCap = plate(SWEEP_CAP, MAXN, 0.95, true);
   sweepG.add(sweepCap);
   const sweepWalls: Plate[] = [];
   for (let i = 0; i < MAXN; i++) {
-    const w = plate(SWEEP_BODY, 4, 0.34);
+    const w = plate(SWEEP_BODY, 4, 0.34, true);
     sweepG.add(w);
     sweepWalls.push(w);
   }
